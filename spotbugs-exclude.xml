@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP"/>
+    </Match>
+    <Match>
+        <Bug pattern="EI_EXPOSE_REP2"/>
+    </Match>
+      <Match>
+        <Class name="org.ngengine.platform.jvm.JVMAsyncPlatform" />
+        <Field name="_NO_AUX_RANDOM" />
+        <Bug pattern="MS_SHOULD_BE_FINAL" />
+    </Match>
+    
+    <Match>
+        <Class name="org.ngengine.platform.jvm.JVMAsyncPlatform" />
+        <Bug pattern="CIPHER_INTEGRITY" />
+    </Match>
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="set" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="get" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    
+   <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Field name="platform" />
+        <Bug code="MS" />
+    </Match>
+</FindBugsFilter>
