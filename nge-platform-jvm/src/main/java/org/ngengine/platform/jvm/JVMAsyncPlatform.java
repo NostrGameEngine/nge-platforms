@@ -74,6 +74,7 @@ import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECPoint;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.BrowserInterceptor;
 import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
@@ -768,5 +769,19 @@ public class JVMAsyncPlatform extends NGEPlatform {
         } catch (Exception e) {}
 
         return "";
+    }
+
+    @Override
+    public void openInWebBrowser(String url) {
+        BrowserInterceptor interceptor = NGEPlatform.getBrowserInterceptor();
+        if (interceptor != null) {
+            interceptor.openLink(url);
+        } else {
+            try {
+                java.awt.Desktop.getDesktop().browse(URI.create(url));
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Failed to open URL in browser", e);
+            }
+        }
     }
 }

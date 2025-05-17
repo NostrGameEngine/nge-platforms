@@ -20,17 +20,32 @@
         <Class name="org.ngengine.platform.NGEPlatform" />
         <Method name="set" />
         <Bug pattern="MS_EXPOSE_REP" />
-    </Match>
-    
+    </Match>    
     <Match>
         <Class name="org.ngengine.platform.NGEPlatform" />
         <Method name="get" />
         <Bug pattern="MS_EXPOSE_REP" />
     </Match>
-    
-   <Match>
+    <Match>
         <Class name="org.ngengine.platform.NGEPlatform" />
         <Field name="platform" />
         <Bug code="MS" />
     </Match>
+    
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="setBrowserInterceptor" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="getBrowserInterceptor" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Field name="interceptor" />
+        <Bug code="MS" />
+    </Match>
+ 
 </FindBugsFilter>

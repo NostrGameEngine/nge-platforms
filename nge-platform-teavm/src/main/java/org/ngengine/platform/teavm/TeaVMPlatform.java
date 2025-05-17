@@ -488,5 +488,10 @@ public class TeaVMPlatform extends NGEPlatform {
         return getBinds().getClipboardContent();
     }
 
+    @Override
+    public void openInWebBrowser(String url) {
+        throw new UnsupportedOperationException("Unimplemented method 'openInWebBrowser'");
+    }
+
     
 }

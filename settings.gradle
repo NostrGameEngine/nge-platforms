@@ -11,7 +11,7 @@ plugins {
 gradle.allprojects { proj ->
     def projectVersion = System.getenv("VERSION") 
     if (projectVersion == null || projectVersion.isEmpty()) {
-        projectVersion = "0.x-SNAPSHOT"
+        projectVersion = "0.0.0-SNAPSHOT"
     }
 
     def projectGroup = System.getenv("GROUP") ?: "org.ngengine"

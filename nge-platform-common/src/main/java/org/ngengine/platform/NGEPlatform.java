@@ -43,6 +43,7 @@ import org.ngengine.platform.transport.WebsocketTransport;
 
 public abstract class NGEPlatform {
 
+    private static volatile BrowserInterceptor interceptor;
     private static volatile NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
 
@@ -66,6 +67,14 @@ public abstract class NGEPlatform {
             }
         }
         return NGEPlatform.platform;
+    }
+
+    public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
+        NGEPlatform.interceptor = interceptor;
+    }
+
+    public static BrowserInterceptor getBrowserInterceptor() {
+        return NGEPlatform.interceptor;
     }
 
     public abstract byte[] generatePrivateKey();
@@ -133,4 +142,6 @@ public abstract class NGEPlatform {
     public abstract void setClipboardContent(String data);
 
     public abstract String getClipboardContent();
+
+    public abstract void openInWebBrowser(String url);
 }
