@@ -13,20 +13,28 @@ gradle.allprojects { proj ->
     if (projectVersion == null || projectVersion.isEmpty()) {
         projectVersion = "0.x-SNAPSHOT"
     }
-    
+
     def projectGroup = System.getenv("GROUP") ?: "org.ngengine"
     proj.version = projectVersion
     proj.group = projectGroup
+    
+    def isSnapshot = projectVersion.endsWith("-SNAPSHOT")
+
+
     proj.plugins.withId('java-library') {
         proj.apply plugin: 'com.github.spotbugs'
         proj.apply plugin: 'com.diffplug.spotless'
         proj.apply plugin: 'maven-publish'
 
       
-
-        proj.java {
-            withJavadocJar()
-            withSourcesJar()
+        if (!isSnapshot) {
+            proj.java {
+                withJavadocJar()
+                withSourcesJar()
+            }
+        } else {
+            proj.java {
+            }
         }
 
         proj.tasks.withType(Javadoc) {
@@ -39,6 +47,8 @@ gradle.allprojects { proj ->
                 publications {
                     mavenJava(MavenPublication) {
                         from proj.components.java
+
+                      
                         
                         pom {
                             name = proj.name
@@ -67,7 +77,9 @@ gradle.allprojects { proj ->
                     repositories {
                         maven {
                             name = "GitHubPackages"
-                            url = uri("https://maven.pkg.github.com/" + System.getenv("GITHUB_REGISTRY")) 
+                            url = uri(
+                                "https://maven.pkg.github.com/" + System.getenv("GITHUB_REGISTRY")  
+                            ) 
                             credentials {
                                 username = System.getenv("GITHUB_USERNAME") ?: ""
                                 password = System.getenv("GITHUB_TOKEN") ?: ""
