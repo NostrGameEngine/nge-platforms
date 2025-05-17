@@ -55,7 +55,7 @@ public abstract class NGEPlatform {
             synchronized (NGEPlatform.class) {
                 if (NGEPlatform.platform == null) {
                     logger.warning("Platform not set, using default JVM platform.");
-                    String defaultPlatformClass = "org.ngengine.nostr4j.platform.jvm.JVMAsyncPlatform";
+                    String defaultPlatformClass = "org.ngengine.platform.jvm.JVMAsyncPlatform";
                     try {
                         Class<?> clazz = Class.forName(defaultPlatformClass);
                         NGEPlatform.platform = (NGEPlatform) clazz.getDeclaredConstructor().newInstance();
