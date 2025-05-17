@@ -75,6 +75,7 @@ gradle.allprojects { proj ->
                             name = "GitHubPackages"
                             url = uri(
                                 "https://maven.pkg.github.com/" + System.getenv("GITHUB_REGISTRY")  
+                                + (version.endsWith('-SNAPSHOT') ? "/snapshots/" : "/")
                             ) 
                             credentials {
                                 username = System.getenv("GITHUB_USERNAME") ?: ""
