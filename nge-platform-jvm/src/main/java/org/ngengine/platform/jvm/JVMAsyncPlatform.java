@@ -43,6 +43,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
+import java.text.Normalizer;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -69,6 +70,12 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.ChaCha20ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.generators.SCrypt;
+import org.bouncycastle.crypto.modes.ChaCha20Poly1305;
+import org.bouncycastle.crypto.params.AEADParameters;
+import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECPoint;
@@ -297,18 +304,33 @@ public class JVMAsyncPlatform extends NGEPlatform {
         }
     }
 
-    // private ExecutorService asyncExecutor =
-    // Executors.newVirtualThreadPerTaskExecutor();
+    @Override
+    public byte[] xchacha20poly1305(byte[] key, byte[] nonce24, byte[] data, byte[] associatedData, boolean forEncryption) {
+        try {
+            if (key.length != 32) {
+                throw new IllegalArgumentException("Key must be 32 bytes");
+            }
+            if (nonce24.length != 24) {
+                throw new IllegalArgumentException("Nonce must be 24 bytes for XChaCha20");
+            }
 
-    // public <T> AsyncTask<T> async(Callable<T> r) {
-    // Future<T> res = asyncExecutor.submit(r);
-    // return new AsyncTask<T>() {
-    // @Override
-    // public T await() throws Exception {
-    // return res.get();
-    // }
-    // };
-    // }
+            byte[] subKey = Util.hchacha20(key, Arrays.copyOfRange(nonce24, 0, 16));
+
+            byte[] chachaNonce = new byte[12];
+            System.arraycopy(nonce24, 16, chachaNonce, 4, 8);
+
+            CipherParameters params = new AEADParameters(new KeyParameter(subKey), 128, chachaNonce, associatedData);
+
+            ChaCha20Poly1305 cipher = new ChaCha20Poly1305();
+            cipher.init(forEncryption, params);
+            byte[] out = new byte[cipher.getOutputSize(data.length)];
+            int len = cipher.processBytes(data, 0, data.length, out, 0);
+            cipher.doFinal(out, len);
+            return out;
+        } catch (InvalidCipherTextException e) {
+            throw new Error(e);
+        }
+    }
 
     @Override
     public WebsocketTransport newTransport() {
@@ -783,5 +805,36 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 logger.log(Level.WARNING, "Failed to open URL in browser", e);
             }
         }
+    }
+
+    @Override
+    public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
+        try {
+            if (dkLen <= 0) {
+                throw new IllegalArgumentException("dkLen must be > 0");
+            }
+
+            if (N <= 0 || (N & (N - 1)) != 0) {
+                throw new IllegalArgumentException("N must be > 0 and a power of 2");
+            }
+
+            if (r <= 0) {
+                throw new IllegalArgumentException("r must be > 0");
+            }
+
+            if (p2 <= 0) {
+                throw new IllegalArgumentException("p must be > 0");
+            }
+
+            return SCrypt.generate(P, S, N, r, p2, dkLen);
+        } catch (Exception e) {
+            throw new SecurityException("SCrypt operation failed", e);
+        }
+    }
+
+    @Override
+    public String nfkc(String str) {
+        String normalized = Normalizer.normalize(str, Normalizer.Form.NFKC);
+        return normalized;
     }
 }

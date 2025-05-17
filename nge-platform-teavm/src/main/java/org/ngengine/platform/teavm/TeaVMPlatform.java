@@ -493,5 +493,24 @@ public class TeaVMPlatform extends NGEPlatform {
         throw new UnsupportedOperationException("Unimplemented method 'openInWebBrowser'");
     }
 
+    @Override
+    public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'scrypt'");
+    }
+
+    @Override
+    public byte[] xchacha20poly1305(byte[] key, byte[] nonce, byte[] data, byte[] associatedData,
+            boolean forEncryption) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'xchacha20poly1305'");
+    }
+
+    @Override
+    public String nfkc(String str) {
+        
+        throw new UnsupportedOperationException("Unimplemented method 'nfkc'");
+    }
+
     
 }

@@ -144,4 +144,16 @@ public abstract class NGEPlatform {
     public abstract String getClipboardContent();
 
     public abstract void openInWebBrowser(String url);
+
+    public abstract byte[] scrypt(byte[] P, byte[] S, int N, int r, int p, int dkLen);
+
+    public abstract byte[] xchacha20poly1305(
+        byte[] key,
+        byte[] nonce,
+        byte[] data,
+        byte[] associatedData,
+        boolean forEncryption
+    );
+
+    public abstract String nfkc(String str);
 }

@@ -27,15 +27,11 @@ gradle.allprojects { proj ->
         proj.apply plugin: 'maven-publish'
 
       
-        if (!isSnapshot) {
-            proj.java {
-                withJavadocJar()
-                withSourcesJar()
-            }
-        } else {
-            proj.java {
-            }
+        proj.java {
+            withJavadocJar()
+            withSourcesJar()
         }
+    
 
         proj.tasks.withType(Javadoc) {
             options.encoding = 'UTF-8'
