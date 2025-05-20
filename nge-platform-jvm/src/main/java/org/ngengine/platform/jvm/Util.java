@@ -30,12 +30,19 @@
  */
 package org.ngengine.platform.jvm;
 
+import java.io.IOException;
 import java.math.BigInteger;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 
 class Util {
+
+    private static Path baseDataPath = null;
+    private static Path baseCachePath = null;
 
     public static byte[] bytesFromInt(int n) {
         return ByteBuffer.allocate(4).order(ByteOrder.BIG_ENDIAN).putInt(n).array();
@@ -155,5 +162,86 @@ class Util {
         bs[off + 1] = (byte) (v >>> 8);
         bs[off + 2] = (byte) (v >>> 16);
         bs[off + 3] = (byte) (v >>> 24);
+    }
+
+    public static Path safePath(Path basePath, String path, boolean create) throws IOException {
+        if (path == null || path.isEmpty()) throw new IllegalArgumentException("Path required");
+
+        Path userPath = Paths.get(path);
+        if (userPath.isAbsolute()) throw new IOException("Absolute paths not allowed");
+
+        Path baseReal = basePath.toRealPath();
+        Path candidate = baseReal.resolve(path).normalize();
+
+        if (!candidate.startsWith(baseReal)) throw new IOException("Traversal detected");
+
+        if (create) {
+            Files.createDirectories(candidate.getParent());
+        } else if (!Files.isRegularFile(candidate)) {
+            throw new IOException("File not found: " + path);
+        }
+
+        return candidate;
+    }
+
+    public static Path getSystemCachePath(String appName) {
+        if (baseCachePath == null) {
+            String override = System.getProperty("app.cache.dir", System.getenv("APP_CACHE_DIR"));
+            if (override != null && !override.isBlank()) {
+                baseCachePath = Path.of(override);
+            } else {
+                String os = System.getProperty("os.name").toLowerCase();
+                String userHome = System.getProperty("user.home");
+
+                if (os.contains("win")) {
+                    String localAppData = System.getenv("LOCALAPPDATA");
+                    if (localAppData != null && !localAppData.isBlank()) {
+                        baseCachePath = Path.of(localAppData);
+                    } else {
+                        baseCachePath = Path.of(userHome, "AppData", "Local");
+                    }
+                } else if (os.contains("mac")) {
+                    baseCachePath = Path.of(userHome, "Library", "Caches");
+                } else {
+                    String xdgCache = System.getenv("XDG_CACHE_HOME");
+                    if (xdgCache != null && !xdgCache.isBlank()) {
+                        baseCachePath = Path.of(xdgCache);
+                    } else {
+                        baseCachePath = Path.of(userHome, ".cache");
+                    }
+                }
+            }
+        }
+        Path cachePath = baseCachePath.resolve(appName).resolve(".cache");
+        return cachePath;
+    }
+
+    public static Path getSystemDataPath(String appName) {
+        String override = System.getProperty("app.data.dir", System.getenv("APP_DATA_DIR"));
+        if (override != null && !override.isBlank()) {
+            baseDataPath = Paths.get(override);
+        } else {
+            String os = System.getProperty("os.name").toLowerCase();
+            String userHome = System.getProperty("user.home");
+
+            if (os.contains("win")) {
+                String appData = System.getenv("APPDATA");
+                if (appData != null && !appData.isBlank()) {
+                    baseDataPath = Paths.get(appData);
+                } else {
+                    baseDataPath = Paths.get(userHome, "AppData", "Roaming");
+                }
+            } else if (os.contains("mac")) {
+                baseDataPath = Paths.get(userHome, "Library", "Application Support");
+            } else {
+                String xdg = System.getenv("XDG_DATA_HOME");
+                if (xdg != null && !xdg.isBlank()) {
+                    baseDataPath = Paths.get(xdg);
+                } else {
+                    baseDataPath = Paths.get(userHome, ".local", "share");
+                }
+            }
+        }
+        return baseDataPath.resolve(appName);
     }
 }

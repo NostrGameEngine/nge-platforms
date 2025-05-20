@@ -44,8 +44,23 @@
     </Match>
     <Match>
         <Class name="org.ngengine.platform.NGEPlatform" />
-        <Field name="interceptor" />
+        <Field name="browserInterceptor" />
         <Bug code="MS" />
     </Match>
- 
+
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="setStoreInterceptor" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Method name="getStoreInterceptor" />
+        <Bug pattern="MS_EXPOSE_REP" />
+    </Match>
+    <Match>
+        <Class name="org.ngengine.platform.NGEPlatform" />
+        <Field name="storeInterceptor" />
+        <Bug code="MS" />
+    </Match>
 </FindBugsFilter>

@@ -333,4 +333,17 @@ public class NGEUtils {
             throw new RuntimeException(e);
         }
     }
+
+    // replace all non-alphanumeric characters with their hex representation
+    public static String censorSpecial(String appName) {
+        StringBuilder sb = new StringBuilder();
+        for (char c : appName.toCharArray()) {
+            if (Character.isLetterOrDigit(c) || c == '-' || c == '_' || c == '.') {
+                sb.append(c);
+            } else {
+                sb.append(String.format("%%%02X", (int) c));
+            }
+        }
+        return sb.toString();
+    }
 }

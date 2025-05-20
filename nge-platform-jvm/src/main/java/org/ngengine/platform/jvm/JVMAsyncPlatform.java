@@ -86,6 +86,7 @@ import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
+import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
@@ -836,5 +837,19 @@ public class JVMAsyncPlatform extends NGEPlatform {
     public String nfkc(String str) {
         String normalized = Normalizer.normalize(str, Normalizer.Form.NFKC);
         return normalized;
+    }
+
+    @Override
+    public VStore getDataStore(String appName, String storeName) {
+        appName = NGEUtils.censorSpecial(appName);
+        storeName = NGEUtils.censorSpecial(storeName);
+        return new FileSystemVStore(Util.getSystemDataPath(appName).resolve(storeName));
+    }
+
+    @Override
+    public VStore getCacheStore(String appName, String cacheName) {
+        appName = NGEUtils.censorSpecial(appName);
+        cacheName = NGEUtils.censorSpecial(cacheName);
+        return new FileSystemVStore(Util.getSystemCachePath(appName).resolve(cacheName));
     }
 }

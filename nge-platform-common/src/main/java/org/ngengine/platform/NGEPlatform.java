@@ -43,7 +43,8 @@ import org.ngengine.platform.transport.WebsocketTransport;
 
 public abstract class NGEPlatform {
 
-    private static volatile BrowserInterceptor interceptor;
+    private static volatile BrowserInterceptor browserInterceptor;
+    private static volatile VStoreInterceptor storeInterceptor;
     private static volatile NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
 
@@ -70,11 +71,19 @@ public abstract class NGEPlatform {
     }
 
     public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
-        NGEPlatform.interceptor = interceptor;
+        NGEPlatform.browserInterceptor = interceptor;
     }
 
     public static BrowserInterceptor getBrowserInterceptor() {
-        return NGEPlatform.interceptor;
+        return NGEPlatform.browserInterceptor;
+    }
+
+    public static void setStoreInterceptor(VStoreInterceptor interceptor) {
+        NGEPlatform.storeInterceptor = interceptor;
+    }
+
+    public static VStoreInterceptor getStoreInterceptor() {
+        return NGEPlatform.storeInterceptor;
     }
 
     public abstract byte[] generatePrivateKey();
@@ -156,4 +165,8 @@ public abstract class NGEPlatform {
     );
 
     public abstract String nfkc(String str);
+
+    public abstract VStore getDataStore(String appName, String storeName);
+
+    public abstract VStore getCacheStore(String appName, String cacheName);
 }
