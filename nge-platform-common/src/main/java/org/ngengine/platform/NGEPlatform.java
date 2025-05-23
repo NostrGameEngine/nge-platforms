@@ -148,6 +148,8 @@ public abstract class NGEPlatform {
 
     public abstract AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers);
 
+    public abstract AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers);
+
     public abstract void setClipboardContent(String data);
 
     public abstract String getClipboardContent();

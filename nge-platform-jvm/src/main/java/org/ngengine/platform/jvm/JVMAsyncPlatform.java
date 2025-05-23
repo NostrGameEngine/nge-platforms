@@ -766,6 +766,60 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
+    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
+        HttpClient.Builder b = HttpClient
+            .newBuilder()
+            .connectTimeout(timeout)
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .executor(executor);
+
+        HttpClient httpClient = b.build();
+        return wrapPromise((res, rej) -> {
+            try {
+                HttpRequest.Builder requestBuilder = HttpRequest
+                    .newBuilder()
+                    .uri(URI.create(url))
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+                    )
+                    .GET();
+                if (headers != null) {
+                    for (Map.Entry<String, String> entry : headers.entrySet()) {
+                        requestBuilder.header(entry.getKey(), entry.getValue());
+                    }
+                }
+                if (timeout != null) {
+                    requestBuilder.timeout(timeout);
+                }
+
+                HttpRequest request = requestBuilder.build();
+                httpClient
+                    .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                    .handleAsync(
+                        (response, e) -> {
+                            if (e != null) {
+                                rej.accept(e);
+                                return null;
+                            }
+                            int statusCode = response.statusCode();
+                            if (statusCode >= 200 && statusCode < 300) {
+                                byte data[] = response.body();
+                                res.accept(data);
+                            } else {
+                                rej.accept(new IOException("HTTP error: " + statusCode));
+                            }
+                            return null;
+                        },
+                        executor
+                    );
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         JVMRTCTransport transport = new JVMRTCTransport();
         transport.start(settings, newVtExecutor(), connId, stunServers);

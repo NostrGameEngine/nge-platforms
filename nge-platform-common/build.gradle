@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     testImplementation "junit:junit:4.13.2"
+    testImplementation project(':nge-platform-jvm')
 }
 
 java {
