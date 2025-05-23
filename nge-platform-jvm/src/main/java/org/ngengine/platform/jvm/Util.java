@@ -170,6 +170,10 @@ class Util {
         Path userPath = Paths.get(path);
         if (userPath.isAbsolute()) throw new IOException("Absolute paths not allowed");
 
+        if (create && !Files.exists(basePath)) {
+            Files.createDirectories(basePath);
+        }
+
         Path baseReal = basePath.toRealPath();
         Path candidate = baseReal.resolve(path).normalize();
 

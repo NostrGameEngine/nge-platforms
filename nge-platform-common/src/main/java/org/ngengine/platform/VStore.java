@@ -33,8 +33,15 @@ package org.ngengine.platform;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.List;
 
 public interface VStore {
-    InputStream read(String path) throws IOException;
-    OutputStream write(String path) throws IOException;
+    AsyncTask<InputStream> read(String path) throws IOException;
+
+    AsyncTask<OutputStream> write(String path) throws IOException;
+
+    AsyncTask<Boolean> exists(String path) throws IOException;
+
+    AsyncTask<Void> delete(String path) throws IOException;
+    AsyncTask<List<String>> listAll() throws IOException;
 }

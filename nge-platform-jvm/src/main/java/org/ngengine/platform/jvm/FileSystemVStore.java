@@ -35,26 +35,75 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
+import org.ngengine.platform.AsyncExecutor;
+import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.VStore;
 
 public class FileSystemVStore implements VStore {
 
+    private final AsyncExecutor executor;
     private final Path basePath;
 
     public FileSystemVStore(Path basePath) {
         this.basePath = basePath;
+        NGEPlatform platform = NGEPlatform.get();
+        this.executor = platform.newVStoreExecutor();
     }
 
     @Override
-    public InputStream read(String path) throws IOException {
-        Path fullPath = Util.safePath(basePath, path, false);
-        return new FileInputStream(fullPath.toFile());
+    public AsyncTask<InputStream> read(String path) throws IOException {
+        return executor.run(() -> {
+            Path fullPath = Util.safePath(basePath, path, false);
+            return new FileInputStream(fullPath.toFile());
+        });
     }
 
     @Override
-    public OutputStream write(String path) throws IOException {
-        Path fullPath = Util.safePath(basePath, path, true);
-        return new FileOutputStream(fullPath.toFile());
+    public AsyncTask<OutputStream> write(String path) throws IOException {
+        return executor.run(() -> {
+            Path fullPath = Util.safePath(basePath, path, true);
+            return new FileOutputStream(fullPath.toFile());
+        });
+    }
+
+    @Override
+    public AsyncTask<Boolean> exists(String path) throws IOException {
+        return executor.run(() -> {
+            try {
+                Path fullPath = Util.safePath(basePath, path, false);
+                if (fullPath == null) {
+                    return false;
+                }
+            } catch (IOException e) {
+                return false;
+            }
+            return true;
+        });
+    }
+
+    @Override
+    public AsyncTask<Void> delete(String path) throws IOException {
+        return executor.run(() -> {
+            Path fullPath = Util.safePath(basePath, path, false);
+            if (fullPath != null) {
+                Files.deleteIfExists(fullPath);
+            }
+            return null;
+        });
+    }
+
+    @Override
+    public AsyncTask<List<String>> listAll() throws IOException {
+        return executor.run(() -> {
+            try {
+                return Files.walk(basePath).filter(Files::isRegularFile).map(basePath::relativize).map(Path::toString).toList();
+            } catch (IOException e) {
+                throw new IOException("Failed to list files in directory: " + basePath, e);
+            }
+        });
     }
 }

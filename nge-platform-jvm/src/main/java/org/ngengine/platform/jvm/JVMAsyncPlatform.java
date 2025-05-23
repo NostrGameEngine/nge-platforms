@@ -341,8 +341,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
         CompletableFuture<T> fut = new CompletableFuture<>();
-        if (executor != null && executor instanceof VtNostrExecutor) {
-            ((VtNostrExecutor) executor).executor.submit(() -> {
+        if (executor != null && executor instanceof VtExecutor) {
+            ((VtExecutor) executor).executor.submit(() -> {
                     try {
                         func.accept(
                             r -> {
@@ -403,7 +403,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             public <R> AsyncTask<R> then(Function<T, R> func2) {
                 return promisify(
                     (res, rej) -> {
-                        if (executor != null && executor instanceof VtNostrExecutor) {
+                        if (executor != null && executor instanceof VtExecutor) {
                             fut.handleAsync(
                                 (result, exception) -> {
                                     if (exception != null) {
@@ -418,7 +418,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                                     }
                                     return null;
                                 },
-                                ((VtNostrExecutor) executor).executor
+                                ((VtExecutor) executor).executor
                             );
                         } else {
                             fut.handle((result, exception) -> {
@@ -444,7 +444,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             public <R> AsyncTask<R> compose(Function<T, AsyncTask<R>> func2) {
                 return promisify(
                     (res, rej) -> {
-                        if (executor != null && executor instanceof VtNostrExecutor) {
+                        if (executor != null && executor instanceof VtExecutor) {
                             fut.handleAsync(
                                 (result, exception) -> {
                                     if (exception != null) {
@@ -466,7 +466,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                                     }
                                     return null;
                                 },
-                                ((VtNostrExecutor) executor).executor
+                                ((VtExecutor) executor).executor
                             );
                         } else {
                             fut.handle((result, exception) -> {
@@ -498,7 +498,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             @Override
             public AsyncTask<T> catchException(Consumer<Throwable> func2) {
                 // synchronized (fut) {
-                if (executor != null && executor instanceof VtNostrExecutor) {
+                if (executor != null && executor instanceof VtExecutor) {
                     fut.handleAsync(
                         (result, exception) -> {
                             if (exception != null) {
@@ -506,7 +506,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                             }
                             return null;
                         },
-                        ((VtNostrExecutor) executor).executor
+                        ((VtExecutor) executor).executor
                     );
                 } else {
                     fut.handle((result, exception) -> {
@@ -607,11 +607,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     private ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
-    private class VtNostrExecutor implements AsyncExecutor {
+    private class VtExecutor implements AsyncExecutor {
 
         protected final ExecutorService executor;
 
-        public VtNostrExecutor(ExecutorService executor) {
+        public VtExecutor(ExecutorService executor) {
             this.executor = executor;
         }
 
@@ -651,7 +651,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     private AsyncExecutor newVtExecutor() {
-        return new VtNostrExecutor(executor);
+        return new VtExecutor(executor);
     }
 
     @Override
@@ -666,6 +666,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public AsyncExecutor newPoolExecutor() {
+        return newVtExecutor();
+    }
+
+    @Override
+    public AsyncExecutor newVStoreExecutor() {
         return newVtExecutor();
     }
 

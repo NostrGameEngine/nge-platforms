@@ -47,11 +47,11 @@ public class JVMThreadedPlatform extends JVMAsyncPlatform {
         super();
     }
 
-    private class TNostrExecutor implements AsyncExecutor {
+    private class TExecutor implements AsyncExecutor {
 
         protected final ScheduledExecutorService executor;
 
-        public TNostrExecutor() {
+        public TExecutor() {
             this.executor = Executors.newScheduledThreadPool(1);
         }
 
@@ -93,22 +93,27 @@ public class JVMThreadedPlatform extends JVMAsyncPlatform {
 
     @Override
     public AsyncExecutor newRelayExecutor() {
-        return new TNostrExecutor();
+        return new TExecutor();
     }
 
     @Override
     public AsyncExecutor newSubscriptionExecutor() {
-        return new TNostrExecutor();
+        return new TExecutor();
     }
 
     @Override
     public AsyncExecutor newSignerExecutor() {
-        return new TNostrExecutor();
+        return new TExecutor();
     }
 
     @Override
     public AsyncExecutor newPoolExecutor() {
-        return new TNostrExecutor();
+        return new TExecutor();
+    }
+
+    @Override
+    public AsyncExecutor newVStoreExecutor() {
+        return new TExecutor();
     }
 
     @Override
@@ -119,7 +124,7 @@ public class JVMThreadedPlatform extends JVMAsyncPlatform {
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         JVMRTCTransport transport = new JVMRTCTransport();
-        transport.start(settings, new TNostrExecutor(), connId, stunServers);
+        transport.start(settings, new TExecutor(), connId, stunServers);
         return transport;
     }
 }

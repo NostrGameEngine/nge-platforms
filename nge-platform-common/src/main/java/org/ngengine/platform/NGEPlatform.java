@@ -134,6 +134,8 @@ public abstract class NGEPlatform {
 
     public abstract AsyncExecutor newPoolExecutor();
 
+    public abstract AsyncExecutor newVStoreExecutor();
+
     public abstract <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor);
 
     public abstract <T> AsyncTask<T> wrapPromise(BiConsumer<Consumer<T>, Consumer<Throwable>> func);
