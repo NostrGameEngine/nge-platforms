@@ -650,33 +650,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         public void close() {}
     }
 
-    private AsyncExecutor newVtExecutor() {
+    @Override
+    public AsyncExecutor newAsyncExecutor(Object hint) {
         return new VtExecutor(executor);
-    }
-
-    @Override
-    public AsyncExecutor newRelayExecutor() {
-        return newVtExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSubscriptionExecutor() {
-        return newVtExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newPoolExecutor() {
-        return newVtExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newVStoreExecutor() {
-        return newVtExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSignerExecutor() {
-        return newVtExecutor();
     }
 
     @Override
@@ -827,7 +803,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         JVMRTCTransport transport = new JVMRTCTransport();
-        transport.start(settings, newVtExecutor(), connId, stunServers);
+        transport.start(settings, newAsyncExecutor(RTCTransport.class), connId, stunServers);
         return transport;
     }
 

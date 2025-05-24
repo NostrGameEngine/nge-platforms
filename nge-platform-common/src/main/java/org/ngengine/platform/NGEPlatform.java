@@ -126,15 +126,43 @@ public abstract class NGEPlatform {
 
     public abstract byte[] randomBytes(int n);
 
-    public abstract AsyncExecutor newRelayExecutor();
+    public final AsyncExecutor newAsyncExecutor() {
+        return newAsyncExecutor(null);
+    }
 
-    public abstract AsyncExecutor newSubscriptionExecutor();
+    public abstract AsyncExecutor newAsyncExecutor(Object hint);
 
-    public abstract AsyncExecutor newSignerExecutor();
+    /**
+     * @deprecated use {@link #newAsyncExecutor(Object)} instead
+     */
+    @Deprecated
+    public final AsyncExecutor newRelayExecutor() {
+        return newAsyncExecutor("relay");
+    }
 
-    public abstract AsyncExecutor newPoolExecutor();
+    /**
+     * @deprecated use {@link #newAsyncExecutor(Object)} instead
+     */
+    @Deprecated
+    public final AsyncExecutor newSubscriptionExecutor() {
+        return newAsyncExecutor("sub");
+    }
 
-    public abstract AsyncExecutor newVStoreExecutor();
+    /**
+     * @deprecated use {@link #newAsyncExecutor(Object)} instead
+     */
+    @Deprecated
+    public final AsyncExecutor newSignerExecutor() {
+        return newAsyncExecutor("signer");
+    }
+
+    /**
+     * @deprecated use {@link #newAsyncExecutor(Object)} instead
+     */
+    @Deprecated
+    public final AsyncExecutor newPoolExecutor() {
+        return newAsyncExecutor("pool");
+    }
 
     public abstract <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor);
 

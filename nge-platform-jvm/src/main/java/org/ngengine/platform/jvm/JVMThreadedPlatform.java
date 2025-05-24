@@ -92,27 +92,7 @@ public class JVMThreadedPlatform extends JVMAsyncPlatform {
     }
 
     @Override
-    public AsyncExecutor newRelayExecutor() {
-        return new TExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSubscriptionExecutor() {
-        return new TExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSignerExecutor() {
-        return new TExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newPoolExecutor() {
-        return new TExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newVStoreExecutor() {
+    public AsyncExecutor newAsyncExecutor(Object hint) {
         return new TExecutor();
     }
 
@@ -124,7 +104,7 @@ public class JVMThreadedPlatform extends JVMAsyncPlatform {
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         JVMRTCTransport transport = new JVMRTCTransport();
-        transport.start(settings, new TExecutor(), connId, stunServers);
+        transport.start(settings, newAsyncExecutor(RTCTransport.class), connId, stunServers);
         return transport;
     }
 }

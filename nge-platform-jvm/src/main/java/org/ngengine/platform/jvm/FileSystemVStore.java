@@ -51,11 +51,11 @@ public class FileSystemVStore implements VStore {
     public FileSystemVStore(Path basePath) {
         this.basePath = basePath;
         NGEPlatform platform = NGEPlatform.get();
-        this.executor = platform.newVStoreExecutor();
+        this.executor = platform.newAsyncExecutor(VStore.class);
     }
 
     @Override
-    public AsyncTask<InputStream> read(String path) throws IOException {
+    public AsyncTask<InputStream> read(String path) {
         return executor.run(() -> {
             Path fullPath = Util.safePath(basePath, path, false);
             return new FileInputStream(fullPath.toFile());
@@ -63,7 +63,7 @@ public class FileSystemVStore implements VStore {
     }
 
     @Override
-    public AsyncTask<OutputStream> write(String path) throws IOException {
+    public AsyncTask<OutputStream> write(String path) {
         return executor.run(() -> {
             Path fullPath = Util.safePath(basePath, path, true);
             return new FileOutputStream(fullPath.toFile());
@@ -71,7 +71,7 @@ public class FileSystemVStore implements VStore {
     }
 
     @Override
-    public AsyncTask<Boolean> exists(String path) throws IOException {
+    public AsyncTask<Boolean> exists(String path) {
         return executor.run(() -> {
             try {
                 Path fullPath = Util.safePath(basePath, path, false);
@@ -86,7 +86,7 @@ public class FileSystemVStore implements VStore {
     }
 
     @Override
-    public AsyncTask<Void> delete(String path) throws IOException {
+    public AsyncTask<Void> delete(String path) {
         return executor.run(() -> {
             Path fullPath = Util.safePath(basePath, path, false);
             if (fullPath != null) {
@@ -97,7 +97,7 @@ public class FileSystemVStore implements VStore {
     }
 
     @Override
-    public AsyncTask<List<String>> listAll() throws IOException {
+    public AsyncTask<List<String>> listAll() {
         return executor.run(() -> {
             try {
                 return Files.walk(basePath).filter(Files::isRegularFile).map(basePath::relativize).map(Path::toString).toList();
