@@ -151,7 +151,7 @@ public final class RTCSettings implements Cloneable, Serializable {
     @Override
     public String toString() {
         return (
-            "NostrRTCSettings{" +
+            "RTCSettings{" +
             "announceInterval=" +
             signalingLoopInterval +
             ", peerExpiration=" +

@@ -216,7 +216,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
             return mac.doFinal();
         } catch (Exception e) {
-            throw new Error(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -268,7 +268,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             return Arrays.copyOf(okm, length);
         } catch (Exception e) {
-            throw new Error(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -301,7 +301,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             return cipher.doFinal(padded);
         } catch (Exception e) {
-            throw new Error(e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -329,7 +329,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             cipher.doFinal(out, len);
             return out;
         } catch (InvalidCipherTextException e) {
-            throw new Error(e);
+            throw new RuntimeException(e);
         }
     }
 

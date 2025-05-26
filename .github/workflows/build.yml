@@ -45,7 +45,7 @@ jobs:
         export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
         ./gradlew --no-daemon build javadoc
       
-    - name: Delete all -SNAPSHOT versions
+    - name: Delete all nge-platform-common -SNAPSHOT versions
       if: github.event_name != 'pull_request' && github.event_name != 'release'
       uses: actions/delete-package-versions@v5
       with:
@@ -56,7 +56,7 @@ jobs:
         ignore-versions: '^(?!.*-SNAPSHOT$).*'
         token: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: Delete all -SNAPSHOT versions
+    - name: Delete all nge-platform-jvm -SNAPSHOT versions
       if: github.event_name != 'pull_request' && github.event_name != 'release'
       uses: actions/delete-package-versions@v5
       with:

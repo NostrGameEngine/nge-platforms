@@ -113,7 +113,7 @@ class Schnorr {
             }
 
             if (attempt == 21 - 1) {
-                throw new Error("Failed due to bad luck.");
+                throw new RuntimeException("Failed due to bad luck.");
             }
         }
 
@@ -205,7 +205,7 @@ class Schnorr {
             KeyPair processorKeyPair = kpg.genKeyPair();
             return Util.bytesFromBigInteger(((ECPrivateKey) processorKeyPair.getPrivate()).getS());
         } catch (Exception e) {
-            throw new Error(e);
+            throw new RuntimeException(e);
         }
     }
 }
