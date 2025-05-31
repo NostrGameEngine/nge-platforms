@@ -56,10 +56,11 @@ public class TestAsyncTask {
     public void testBasicPromiseResolution() throws Exception {
         // Create a simple resolved promise
         AsyncTask<String> promise = platform.promisify(
-                (resolve, reject) -> {
-                    resolve.accept("success");
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                resolve.accept("success");
+            },
+            platform.newSignerExecutor()
+        );
         try {
             promise.await();
         } catch (Exception e) {
@@ -76,10 +77,11 @@ public class TestAsyncTask {
     public void testBasicPromiseRejection() {
         // Create a simple rejected promise
         AsyncTask<String> promise = platform.promisify(
-                (resolve, reject) -> {
-                    reject.accept(new RuntimeException("failed"));
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                reject.accept(new RuntimeException("failed"));
+            },
+            platform.newSignerExecutor()
+        );
 
         try {
             promise.await();
@@ -108,19 +110,20 @@ public class TestAsyncTask {
         AtomicReference<AsyncTask<String>> promiseRef = new AtomicReference<>();
 
         AsyncTask<String> promise = platform.promisify(
-                (resolve, reject) -> {
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(100); // Simulate async operation
-                            resolve.accept("async success");
-                            latch.countDown();
-                        } catch (Exception e) {
-                            reject.accept(e);
-                        }
-                    })
-                            .start();
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(100); // Simulate async operation
+                        resolve.accept("async success");
+                        latch.countDown();
+                    } catch (Exception e) {
+                        reject.accept(e);
+                    }
+                })
+                    .start();
+            },
+            platform.newSignerExecutor()
+        );
 
         promiseRef.set(promise);
 
@@ -137,12 +140,13 @@ public class TestAsyncTask {
     @Test
     public void testSimpleThenChaining() throws Exception {
         AsyncTask<Integer> promise = platform
-                .promisify(
-                        (resolve, reject) -> {
-                            resolve.accept(5);
-                        },
-                        platform.newSignerExecutor())
-                .then(value -> ((Integer) value) * 2);
+            .promisify(
+                (resolve, reject) -> {
+                    resolve.accept(5);
+                },
+                platform.newSignerExecutor()
+            )
+            .then(value -> ((Integer) value) * 2);
 
         assertEquals(Integer.valueOf(10), promise.await());
     }
@@ -150,14 +154,15 @@ public class TestAsyncTask {
     @Test
     public void testMultipleThenChaining() throws Exception {
         AsyncTask<Integer> promise = platform
-                .promisify(
-                        (resolve, reject) -> {
-                            resolve.accept(5);
-                        },
-                        platform.newSignerExecutor())
-                .then(value -> Integer.valueOf(((Integer) value) * 2))
-                .then(value -> value + 3)
-                .then(value -> value * value);
+            .promisify(
+                (resolve, reject) -> {
+                    resolve.accept(5);
+                },
+                platform.newSignerExecutor()
+            )
+            .then(value -> Integer.valueOf(((Integer) value) * 2))
+            .then(value -> value + 3)
+            .then(value -> value * value);
 
         assertEquals(Integer.valueOf(169), promise.await()); // ((5*2)+3)^2 = 13^2 = 169
     }
@@ -167,24 +172,25 @@ public class TestAsyncTask {
         final List<String> executionPath = new ArrayList<>();
 
         AsyncTask<String> promise = platform
-                .promisify(
-                        (resolve, reject) -> {
-                            executionPath.add("start");
-                            resolve.accept("step1");
-                        },
-                        platform.newSignerExecutor())
-                .then(value -> {
-                    executionPath.add((String) value);
-                    return value + "-step2";
-                })
-                .then(value -> {
-                    executionPath.add(value);
-                    throw new RuntimeException("Error in chain");
-                })
-                .then(value -> {
-                    executionPath.add("This should not execute");
-                    return value + "-step4";
-                });
+            .promisify(
+                (resolve, reject) -> {
+                    executionPath.add("start");
+                    resolve.accept("step1");
+                },
+                platform.newSignerExecutor()
+            )
+            .then(value -> {
+                executionPath.add((String) value);
+                return value + "-step2";
+            })
+            .then(value -> {
+                executionPath.add(value);
+                throw new RuntimeException("Error in chain");
+            })
+            .then(value -> {
+                executionPath.add("This should not execute");
+                return value + "-step4";
+            });
 
         // Check that the chain executed properly until the exception
         try {
@@ -209,16 +215,17 @@ public class TestAsyncTask {
         AtomicReference<Throwable> capturedError = new AtomicReference<>();
 
         platform
-                .promisify(
-                        (resolve, reject) -> {
-                            reject.accept(new RuntimeException("test error"));
-                        },
-                        platform.newSignerExecutor())
-                .catchException(error -> {
-                    handlerCalled.set(true);
-                    capturedError.set(error);
-                    latch.countDown();
-                });
+            .promisify(
+                (resolve, reject) -> {
+                    reject.accept(new RuntimeException("test error"));
+                },
+                platform.newSignerExecutor()
+            )
+            .catchException(error -> {
+                handlerCalled.set(true);
+                capturedError.set(error);
+                latch.countDown();
+            });
 
         // Wait for exceptionally to be called with timeout
         assertTrue("Exceptionally handler was not called", latch.await(5, TimeUnit.SECONDS));
@@ -234,17 +241,18 @@ public class TestAsyncTask {
         AtomicBoolean handlerCalled = new AtomicBoolean(false);
 
         platform
-                .promisify(
-                        (resolve, reject) -> {
-                            reject.accept(new RuntimeException("original error"));
-                        },
-                        platform.newSignerExecutor())
-                .catchException(error -> {
-                    // Verify we got the right error
-                    assertEquals("original error", error.getMessage());
-                    handlerCalled.set(true);
-                    latch.countDown();
-                });
+            .promisify(
+                (resolve, reject) -> {
+                    reject.accept(new RuntimeException("original error"));
+                },
+                platform.newSignerExecutor()
+            )
+            .catchException(error -> {
+                // Verify we got the right error
+                assertEquals("original error", error.getMessage());
+                handlerCalled.set(true);
+                latch.countDown();
+            });
 
         // Wait for exceptionally to process with timeout
         assertTrue("Exceptionally handler was not called", latch.await(5, TimeUnit.SECONDS));
@@ -258,31 +266,32 @@ public class TestAsyncTask {
         AtomicReference<Exception> capturedError = new AtomicReference<>();
 
         AsyncTask<Integer> promise = platform
-                .promisify(
-                        (resolve, reject) -> {
-                            resolve.accept(1);
-                        },
-                        platform.newSignerExecutor())
-                .then(v -> {
-                    counter.incrementAndGet();
-                    return ((Integer) v) + 1;
-                })
-                .then(v -> {
-                    counter.incrementAndGet();
-                    if (v == 2) {
-                        throw new RuntimeException("Simulated error");
-                    }
-                    return v + 1;
-                })
-                .catchException(e -> {
-                    counter.incrementAndGet();
-                    latch.countDown();
-                })
-                .then(v -> {
-                    // This won't be called because the previous step failed
-                    counter.incrementAndGet();
-                    return 100;
-                });
+            .promisify(
+                (resolve, reject) -> {
+                    resolve.accept(1);
+                },
+                platform.newSignerExecutor()
+            )
+            .then(v -> {
+                counter.incrementAndGet();
+                return ((Integer) v) + 1;
+            })
+            .then(v -> {
+                counter.incrementAndGet();
+                if (v == 2) {
+                    throw new RuntimeException("Simulated error");
+                }
+                return v + 1;
+            })
+            .catchException(e -> {
+                counter.incrementAndGet();
+                latch.countDown();
+            })
+            .then(v -> {
+                // This won't be called because the previous step failed
+                counter.incrementAndGet();
+                return 100;
+            });
 
         // Wait for exceptionally to be called
         assertTrue("Exceptionally handler was not called", latch.await(5, TimeUnit.SECONDS));
@@ -310,19 +319,20 @@ public class TestAsyncTask {
         for (int i = 0; i < promiseCount; i++) {
             final int index = i;
             AsyncTask<Integer> promise = platform.promisify(
-                    (resolve, reject) -> {
-                        new Thread(() -> {
-                            try {
-                                Thread.sleep(10 * index);
-                                resolve.accept(index);
-                                latch.countDown();
-                            } catch (Exception e) {
-                                reject.accept(e);
-                            }
-                        })
-                                .start();
-                    },
-                    platform.newSignerExecutor());
+                (resolve, reject) -> {
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(10 * index);
+                            resolve.accept(index);
+                            latch.countDown();
+                        } catch (Exception e) {
+                            reject.accept(e);
+                        }
+                    })
+                        .start();
+                },
+                platform.newSignerExecutor()
+            );
             promises.add(promise);
         }
 
@@ -342,34 +352,36 @@ public class TestAsyncTask {
 
         // Create promises that depend on each other
         AsyncTask<Integer> promise1 = platform.promisify(
-                (resolve, reject) -> {
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(50);
-                            resolve.accept(5);
-                            promise1Latch.countDown();
-                        } catch (Exception e) {
-                            reject.accept(e);
-                        }
-                    })
-                            .start();
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(50);
+                        resolve.accept(5);
+                        promise1Latch.countDown();
+                    } catch (Exception e) {
+                        reject.accept(e);
+                    }
+                })
+                    .start();
+            },
+            platform.newSignerExecutor()
+        );
 
         AsyncTask<Integer> promise2 = platform.promisify(
-                (resolve, reject) -> {
-                    new Thread(() -> {
-                        try {
-                            Thread.sleep(50);
-                            resolve.accept(10);
-                            promise2Latch.countDown();
-                        } catch (Exception e) {
-                            reject.accept(e);
-                        }
-                    })
-                            .start();
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(50);
+                        resolve.accept(10);
+                        promise2Latch.countDown();
+                    } catch (Exception e) {
+                        reject.accept(e);
+                    }
+                })
+                    .start();
+            },
+            platform.newSignerExecutor()
+        );
 
         // Wait for individual promises to resolve
         assertTrue("Promise 1 didn't complete", promise1Latch.await(5, TimeUnit.SECONDS));
@@ -397,20 +409,22 @@ public class TestAsyncTask {
         for (int i = 0; i < 5; i++) {
             final int value = i;
             promises.add(
-                    platform.promisify(
-                            (resolve, reject) -> {
-                                new Thread(() -> {
-                                    try {
-                                        // Different delays to test ordering
-                                        Thread.sleep(50 * (5 - value));
-                                        resolve.accept(value);
-                                    } catch (Exception e) {
-                                        reject.accept(e);
-                                    }
-                                })
-                                        .start();
-                            },
-                            platform.newSignerExecutor()));
+                platform.promisify(
+                    (resolve, reject) -> {
+                        new Thread(() -> {
+                            try {
+                                // Different delays to test ordering
+                                Thread.sleep(50 * (5 - value));
+                                resolve.accept(value);
+                            } catch (Exception e) {
+                                reject.accept(e);
+                            }
+                        })
+                            .start();
+                    },
+                    platform.newSignerExecutor()
+                )
+            );
         }
 
         // Wait for all promises to complete
@@ -449,35 +463,41 @@ public class TestAsyncTask {
 
         // Add a successful promise
         promises.add(
-                platform.promisify(
-                        (resolve, reject) -> {
-                            resolve.accept("success");
-                        },
-                        platform.newSignerExecutor()));
+            platform.promisify(
+                (resolve, reject) -> {
+                    resolve.accept("success");
+                },
+                platform.newSignerExecutor()
+            )
+        );
 
         // Add a failing promise
         promises.add(
-                platform.promisify(
-                        (resolve, reject) -> {
-                            new Thread(() -> {
-                                try {
-                                    Thread.sleep(50);
-                                    reject.accept(new RuntimeException("Deliberate failure"));
-                                } catch (Exception e) {
-                                    reject.accept(e);
-                                }
-                            })
-                                    .start();
-                        },
-                        platform.newSignerExecutor()));
+            platform.promisify(
+                (resolve, reject) -> {
+                    new Thread(() -> {
+                        try {
+                            Thread.sleep(50);
+                            reject.accept(new RuntimeException("Deliberate failure"));
+                        } catch (Exception e) {
+                            reject.accept(e);
+                        }
+                    })
+                        .start();
+                },
+                platform.newSignerExecutor()
+            )
+        );
 
         // Add another successful promise
         promises.add(
-                platform.promisify(
-                        (resolve, reject) -> {
-                            resolve.accept("another success");
-                        },
-                        platform.newSignerExecutor()));
+            platform.promisify(
+                (resolve, reject) -> {
+                    resolve.accept("another success");
+                },
+                platform.newSignerExecutor()
+            )
+        );
 
         // Wait for all promises
         AsyncTask<List<String>> combinedPromise = platform.awaitAll(promises);
@@ -497,8 +517,7 @@ public class TestAsyncTask {
             combinedPromise.await();
             fail("Should have thrown exception");
         } catch (Exception e) {
-            assertTrue("Should contain the right error message",
-                    e.getCause().getMessage().contains("Deliberate failure"));
+            assertTrue("Should contain the right error message", e.getCause().getMessage().contains("Deliberate failure"));
         }
     }
 
@@ -514,19 +533,21 @@ public class TestAsyncTask {
             final int delay = (letters.length - i) * 50; // E completes first, A last
 
             promises.add(
-                    platform.promisify(
-                            (resolve, reject) -> {
-                                new Thread(() -> {
-                                    try {
-                                        Thread.sleep(delay);
-                                        resolve.accept(letter);
-                                    } catch (Exception e) {
-                                        reject.accept(e);
-                                    }
-                                })
-                                        .start();
-                            },
-                            platform.newSignerExecutor()));
+                platform.promisify(
+                    (resolve, reject) -> {
+                        new Thread(() -> {
+                            try {
+                                Thread.sleep(delay);
+                                resolve.accept(letter);
+                            } catch (Exception e) {
+                                reject.accept(e);
+                            }
+                        })
+                            .start();
+                    },
+                    platform.newSignerExecutor()
+                )
+            );
         }
 
         // Wait for all promises
@@ -549,30 +570,32 @@ public class TestAsyncTask {
         for (int i = 0; i < promiseCount; i++) {
             final int value = i;
             promises.add(
-                    platform.promisify(
-                            (resolve, reject) -> {
-                                new Thread(() -> {
-                                    try {
-                                        // Random delay between 10-100ms
-                                        Thread.sleep(10 + (int) (Math.random() * 90));
-                                        resolve.accept(value);
-                                    } catch (Exception e) {
-                                        reject.accept(e);
-                                    }
-                                })
-                                        .start();
-                            },
-                            platform.newSignerExecutor()));
+                platform.promisify(
+                    (resolve, reject) -> {
+                        new Thread(() -> {
+                            try {
+                                // Random delay between 10-100ms
+                                Thread.sleep(10 + (int) (Math.random() * 90));
+                                resolve.accept(value);
+                            } catch (Exception e) {
+                                reject.accept(e);
+                            }
+                        })
+                            .start();
+                    },
+                    platform.newSignerExecutor()
+                )
+            );
         }
 
         // Use then to capture when all promises complete
         platform
-                .awaitAll(promises)
-                .then(results -> {
-                    resultRef.set(results);
-                    allResolved.countDown();
-                    return results;
-                });
+            .awaitAll(promises)
+            .then(results -> {
+                resultRef.set(results);
+                allResolved.countDown();
+                return results;
+            });
 
         // Wait for completion
         assertTrue("Not all promises completed in time", allResolved.await(5, TimeUnit.SECONDS));
@@ -587,7 +610,6 @@ public class TestAsyncTask {
         }
     }
 
-
     @Test
     public void testResolveCalledTwiceShouldExecuteThenOnlyOnce() throws Exception {
         // Track how many times the 'then' callback is executed
@@ -596,12 +618,13 @@ public class TestAsyncTask {
 
         // Create a promise where resolve is called twice
         AsyncTask<String> promise = platform.promisify(
-                (resolve, reject) -> {
-                    // Call resolve twice deliberately
-                    resolve.accept("first");
-                    resolve.accept("second"); // This should be ignored
-                },
-                platform.newSignerExecutor());
+            (resolve, reject) -> {
+                // Call resolve twice deliberately
+                resolve.accept("first");
+                resolve.accept("second"); // This should be ignored
+            },
+            platform.newSignerExecutor()
+        );
 
         // Add a then callback that counts executions
         promise.then(result -> {
@@ -626,20 +649,22 @@ public class TestAsyncTask {
         CountDownLatch latch = new CountDownLatch(1);
 
         AsyncTask<String> promise = platform.promisify(
-                (resolve, reject) -> {
-                    new Thread(() -> {
-                        resolve.accept("first");
+            (resolve, reject) -> {
+                new Thread(() -> {
+                    resolve.accept("first");
 
-                        // Try resolving again after a short delay
-                        try {
-                            Thread.sleep(50);
-                            resolve.accept("second"); // Should be ignored
-                        } catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                        }
-                    }).start();
-                },
-                platform.newSignerExecutor());
+                    // Try resolving again after a short delay
+                    try {
+                        Thread.sleep(50);
+                        resolve.accept("second"); // Should be ignored
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                })
+                    .start();
+            },
+            platform.newSignerExecutor()
+        );
 
         promise.then(result -> {
             thenCallCount.incrementAndGet();
