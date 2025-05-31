@@ -603,18 +603,23 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
     {
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            logger.fine("Shutting down executor service...");
-            executor.shutdownNow();
-            try {
-                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                    logger.warning("Executor did not terminate in the specified time.");
-                }
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-        }));
+        Runtime
+            .getRuntime()
+            .addShutdownHook(
+                new Thread(() -> {
+                    logger.fine("Shutting down executor service...");
+                    executor.shutdownNow();
+                    try {
+                        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                            logger.warning("Executor did not terminate in the specified time.");
+                        }
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                })
+            );
     }
 
     protected class VtExecutor implements AsyncExecutor {
@@ -828,8 +833,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
             Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
             Object contents = stringSelectionClass.getConstructor(String.class).newInstance(data);
             clipboardClass
-                    .getMethod("setContents", transferableClass, Class.forName("java.awt.datatransfer.ClipboardOwner"))
-                    .invoke(clipboard, contents, null);
+                .getMethod("setContents", transferableClass, Class.forName("java.awt.datatransfer.ClipboardOwner"))
+                .invoke(clipboard, contents, null);
         } catch (Exception e) {
             logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
         }
@@ -844,11 +849,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
             Object toolkit = toolkitClass.getMethod("getDefaultToolkit").invoke(null);
             Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
             Object stringFlavor = dataFlavorClass.getField("stringFlavor").get(null);
-            Boolean isAvailable = (Boolean) clipboardClass.getMethod("isDataFlavorAvailable", dataFlavorClass)
-                    .invoke(clipboard, stringFlavor);
+            Boolean isAvailable = (Boolean) clipboardClass
+                .getMethod("isDataFlavorAvailable", dataFlavorClass)
+                .invoke(clipboard, stringFlavor);
             if (isAvailable) {
-                Object data = clipboardClass.getMethod("getData", dataFlavorClass)
-                        .invoke(clipboard, stringFlavor);
+                Object data = clipboardClass.getMethod("getData", dataFlavorClass).invoke(clipboard, stringFlavor);
                 return data.toString();
             }
         } catch (Exception e) {
@@ -874,9 +879,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 Boolean isSupported = (Boolean) desktopClass.getMethod("isDesktopSupported").invoke(null);
                 if (isSupported) {
                     Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-                    Boolean browseSupported = (Boolean) desktopClass.getMethod("isSupported",
-                            Class.forName("java.awt.Desktop$Action")).invoke(desktop,
-                                    Enum.valueOf((Class<Enum>) Class.forName("java.awt.Desktop$Action"), "BROWSE"));
+                    Boolean browseSupported = (Boolean) desktopClass
+                        .getMethod("isSupported", Class.forName("java.awt.Desktop$Action"))
+                        .invoke(desktop, Enum.valueOf((Class<Enum>) Class.forName("java.awt.Desktop$Action"), "BROWSE"));
                     if (browseSupported) {
                         URI uri = new URI(url);
                         desktopClass.getMethod("browse", URI.class).invoke(desktop, uri);
@@ -894,8 +899,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                         try {
                             Runtime.getRuntime().exec(new String[] { browser, url });
                             return;
-                        } catch (Exception e) {
-                        }
+                        } catch (Exception e) {}
                     }
                 }
             } catch (Exception e) {
@@ -913,7 +917,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             // Check url too long
             if (url.length() > 4096) {
-                return false; 
+                return false;
             }
 
             // Check for non-printable characters
@@ -928,9 +932,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
             String scheme = uri.getScheme();
 
             // Check invalid scheme
-            if (scheme == null || !(scheme.equalsIgnoreCase("http") ||
-                    scheme.equalsIgnoreCase("https") ||
-                    scheme.equalsIgnoreCase("mailto"))) {
+            if (
+                scheme == null ||
+                !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https") || scheme.equalsIgnoreCase("mailto"))
+            ) {
                 return false;
             }
 
