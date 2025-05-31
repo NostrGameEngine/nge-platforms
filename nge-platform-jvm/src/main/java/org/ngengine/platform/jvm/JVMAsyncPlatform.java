@@ -32,9 +32,6 @@ package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.awt.Toolkit;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.net.URI;
@@ -823,36 +820,130 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public void setClipboardContent(String data) {
         try {
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            clipboard.setContents(new java.awt.datatransfer.StringSelection(data), null);
+            Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
+            Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
+            Class<?> transferableClass = Class.forName("java.awt.datatransfer.Transferable");
+            Class<?> stringSelectionClass = Class.forName("java.awt.datatransfer.StringSelection");
+            Object toolkit = toolkitClass.getMethod("getDefaultToolkit").invoke(null);
+            Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
+            Object contents = stringSelectionClass.getConstructor(String.class).newInstance(data);
+            clipboardClass
+                    .getMethod("setContents", transferableClass, Class.forName("java.awt.datatransfer.ClipboardOwner"))
+                    .invoke(clipboard, contents, null);
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
         }
     }
 
     @Override
     public String getClipboardContent() {
         try {
-            Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            if (clipboard.isDataFlavorAvailable(DataFlavor.stringFlavor)) {
-                return (String) clipboard.getData(DataFlavor.stringFlavor);
+            Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
+            Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
+            Class<?> dataFlavorClass = Class.forName("java.awt.datatransfer.DataFlavor");
+            Object toolkit = toolkitClass.getMethod("getDefaultToolkit").invoke(null);
+            Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
+            Object stringFlavor = dataFlavorClass.getField("stringFlavor").get(null);
+            Boolean isAvailable = (Boolean) clipboardClass.getMethod("isDataFlavorAvailable", dataFlavorClass)
+                    .invoke(clipboard, stringFlavor);
+            if (isAvailable) {
+                Object data = clipboardClass.getMethod("getData", dataFlavorClass)
+                        .invoke(clipboard, stringFlavor);
+                return data.toString();
             }
-        } catch (Exception e) {}
+        } catch (Exception e) {
+            logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
+        }
 
         return "";
     }
 
     @Override
     public void openInWebBrowser(String url) {
+        if (!isValidBrowserUrl(url)) {
+            logger.log(Level.WARNING, "Invalid or unsafe URL: " + url);
+            return;
+        }
+
         BrowserInterceptor interceptor = NGEPlatform.getBrowserInterceptor();
         if (interceptor != null) {
             interceptor.openLink(url);
         } else {
             try {
-                java.awt.Desktop.getDesktop().browse(URI.create(url));
+                Class<?> desktopClass = Class.forName("java.awt.Desktop");
+                Boolean isSupported = (Boolean) desktopClass.getMethod("isDesktopSupported").invoke(null);
+                if (isSupported) {
+                    Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
+                    Boolean browseSupported = (Boolean) desktopClass.getMethod("isSupported",
+                            Class.forName("java.awt.Desktop$Action")).invoke(desktop,
+                                    Enum.valueOf((Class<Enum>) Class.forName("java.awt.Desktop$Action"), "BROWSE"));
+                    if (browseSupported) {
+                        URI uri = new URI(url);
+                        desktopClass.getMethod("browse", URI.class).invoke(desktop, uri);
+                        return;
+                    }
+                }
+                String os = System.getProperty("os.name").toLowerCase();
+                if (os.contains("win")) {
+                    Runtime.getRuntime().exec(new String[] { "rundll32", "url.dll,FileProtocolHandler", url });
+                } else if (os.contains("mac")) {
+                    Runtime.getRuntime().exec(new String[] { "open", url });
+                } else if (os.contains("nix") || os.contains("nux")) {
+                    String[] browsers = { "xdg-open", "google-chrome", "firefox", "mozilla", "opera" };
+                    for (String browser : browsers) {
+                        try {
+                            Runtime.getRuntime().exec(new String[] { browser, url });
+                            return;
+                        } catch (Exception e) {
+                        }
+                    }
+                }
             } catch (Exception e) {
                 logger.log(Level.WARNING, "Failed to open URL in browser", e);
             }
+        }
+    }
+
+    private boolean isValidBrowserUrl(String url) {
+        try {
+            // Check for null or empty URLs
+            if (url == null || url.isEmpty()) {
+                return false;
+            }
+
+            // Check url too long
+            if (url.length() > 4096) {
+                return false; 
+            }
+
+            // Check for non-printable characters
+            for (int i = 0; i < url.length(); i++) {
+                char c = url.charAt(i);
+                if (c <= 0x1F || c == 0x7F) {
+                    return false;
+                }
+            }
+
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+
+            // Check invalid scheme
+            if (scheme == null || !(scheme.equalsIgnoreCase("http") ||
+                    scheme.equalsIgnoreCase("https") ||
+                    scheme.equalsIgnoreCase("mailto"))) {
+                return false;
+            }
+
+            // Check invalid host
+            if (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https")) {
+                if (uri.getHost() == null || uri.getHost().isEmpty()) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
         }
     }
 
