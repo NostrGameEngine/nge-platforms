@@ -11,3 +11,6 @@ package-lock.json
 bin
 reports
 build.date
+.project
+.classpath
+.settings

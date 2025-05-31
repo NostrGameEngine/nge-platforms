@@ -20,8 +20,37 @@ gradle.allprojects { proj ->
     
     def isSnapshot = projectVersion.endsWith("-SNAPSHOT")
 
+    proj.apply plugin: 'eclipse'
+    proj.eclipse {
+        classpath {
+            downloadSources = true
+            downloadJavadoc = true
+        }
+    }
+    
+    proj.plugins.withId('com.android.library') {
+        proj.eclipse {
+            classpath {
+                downloadSources = true
+                downloadJavadoc = true
+                file {
+                    whenMerged { classpath ->
+                        def sourceEntry = new org.gradle.plugins.ide.eclipse.model.SourceFolder("src/main/java", null)
+                        sourceEntry.entryAttributes['optional'] = 'true' 
+                        classpath.entries.add(sourceEntry)
+                        
 
-    proj.plugins.withId('java-library') {
+                        classpath.entries.add(new org.gradle.plugins.ide.eclipse.model.Library(fileReference(file("${System.getenv('ANDROID_HOME')}/platforms/android-34/android.jar"))))
+                        classpath.entries.add(new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-common"))
+                        classpath.entries.add(new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-jvm"))
+                    }
+                }
+            }
+        }
+    }  
+
+    // proj.plugins.withId('java-library') {
+    if (proj.plugins.hasPlugin('java-library') || proj.plugins.hasPlugin('com.android.library')) {
         proj.apply plugin: 'com.github.spotbugs'
         proj.apply plugin: 'com.diffplug.spotless'
         proj.apply plugin: 'maven-publish'
@@ -152,6 +181,7 @@ rootProject.name = 'nge-platforms'
 
 include('nge-platform-common')
 include('nge-platform-jvm')
+include('nge-platform-android')
     
 gradle.allprojects { proj ->
     proj.plugins.withId('com.github.spotbugs') {

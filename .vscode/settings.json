@@ -1,3 +1,9 @@
 {
-    "java.configuration.updateBuildConfiguration": "automatic"
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.jdt.ls.androidSupport.enabled":"on",
+    "java.compile.nullAnalysis.mode": "automatic",
+    "java.format.enabled": true,
+    "java.completion.enabled": true,
+    "java.completion.importOrder": ["java", "javax", "android", "com", "org"],
+    "java.errors.incompleteClasspath.severity": "warning"
 }

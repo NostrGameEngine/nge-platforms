@@ -1,5 +1,23 @@
-allprojects {
+buildscript {
     repositories {
+        google()
         mavenCentral()
     }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2' 
+    }
 }
+
+allprojects {
+    repositories {
+        maven {
+            url "https://maven.rblb.it/NostrGameEngine/libdatachannel-java"
+        }
+        google()
+        mavenCentral()
+       
+    }
+    
+}
+
+ 
