@@ -605,9 +605,22 @@ public class JVMAsyncPlatform extends NGEPlatform {
         });
     }
 
-    private ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    {
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            logger.fine("Shutting down executor service...");
+            executor.shutdownNow();
+            try {
+                if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+                    logger.warning("Executor did not terminate in the specified time.");
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }));
+    }
 
-    private class VtExecutor implements AsyncExecutor {
+    protected class VtExecutor implements AsyncExecutor {
 
         protected final ExecutorService executor;
 
