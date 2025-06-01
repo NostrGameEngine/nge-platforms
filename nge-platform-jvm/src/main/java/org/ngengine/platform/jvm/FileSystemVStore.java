@@ -102,7 +102,7 @@ public class FileSystemVStore implements VStore {
             try {
                 return Files.walk(basePath).filter(Files::isRegularFile).map(basePath::relativize).map(Path::toString).toList();
             } catch (IOException e) {
-                throw new IOException("Failed to list files in directory: " + basePath, e);
+                return List.of();
             }
         });
     }
