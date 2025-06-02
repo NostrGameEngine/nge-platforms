@@ -33,7 +33,6 @@ package org.ngengine.platform.teavm;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -48,13 +47,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import java.util.logging.Level;
-
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
+import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSBody;
@@ -347,20 +345,7 @@ public class TeaVMPlatform extends NGEPlatform {
         };
     }
 
-    @Override
-    public AsyncExecutor newRelayExecutor() {
-        return newJsExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSignerExecutor() {
-        return newJsExecutor();
-    }
-
-    @Override
-    public AsyncExecutor newSubscriptionExecutor() {
-        return newJsExecutor();
-    }
+ 
 
     @Override
     public WebsocketTransport newTransport() {
@@ -394,56 +379,10 @@ public class TeaVMPlatform extends NGEPlatform {
         }, null);
     }
 
-    @Override
-    public AsyncTask<String> httpGet(String url, Duration timeout , Map<String, String> headers){
-        return wrapPromise((res, rej) -> {
-                try {
-                    XMLHttpRequest xhr = XMLHttpRequest.create();
-                    xhr.open("GET", url);
-                    
-
-                    xhr.setOnReadyStateChange(
-                        new ReadyStateChangeHandler() {
-                            @Override
-                            public void stateChanged() {
-                                if (
-                                    xhr.getReadyState() == XMLHttpRequest.DONE
-                                ) {
-                                    int status = xhr.getStatus();
-                                    if (status >= 200 && status < 300) {
-                                        res.accept(xhr.getResponseText());
-                                    } else {
-                                        rej.accept(
-                                            new IOException(
-                                                "HTTP error: " +
-                                                status +
-                                                " " +
-                                                xhr.getStatusText()
-                                            )
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                    );
-
-                    xhr.send();
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            });
-    }
 
     @Override
-    public AsyncExecutor newPoolExecutor() {
+    public AsyncExecutor newAsyncExecutor(Object hint) {
         return newJsExecutor();
-
-    }
-
-    @Override
-    public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
     }
 
     @Override
@@ -477,6 +416,43 @@ public class TeaVMPlatform extends NGEPlatform {
         });
     }
 
+ 
+    @Override
+    public AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers) {
+        // TODO: timeout
+        return wrapPromise((res, rej) -> {
+            try {
+                XMLHttpRequest xhr = XMLHttpRequest.create();
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    xhr.setRequestHeader(entry.getKey(), entry.getValue());
+                }
+                xhr.open("GET", url);
+                xhr.setOnReadyStateChange(
+                        new ReadyStateChangeHandler() {
+                            @Override
+                            public void stateChanged() {
+                                if (xhr.getReadyState() == XMLHttpRequest.DONE) {
+                                    int status = xhr.getStatus();
+                                    if (status >= 200 && status < 300) {
+                                        res.accept(xhr.getResponseText());
+                                    } else {
+                                        rej.accept(
+                                                new IOException(
+                                                        "HTTP error: " +
+                                                                status +
+                                                                " " +
+                                                                xhr.getStatusText()));
+                                    }
+                                }
+                            }
+                        });
+
+                xhr.send();
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
 
     @Override
     public void setClipboardContent(String data) {
@@ -489,8 +465,24 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
+        // TODO
+        throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
+    }
+
+    @Override
+    public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
+        // TODO: Implement RTCTransport for TeaVM
+        throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
+    }
+
+
+    @Override
     public void openInWebBrowser(String url) {
-        throw new UnsupportedOperationException("Unimplemented method 'openInWebBrowser'");
+        try {
+            // getBinds().openInWebBrowser(url);
+        } catch (Exception e) {
+        }
     }
 
     @Override
@@ -510,6 +502,22 @@ public class TeaVMPlatform extends NGEPlatform {
     public String nfkc(String str) {
         
         throw new UnsupportedOperationException("Unimplemented method 'nfkc'");
+    }
+
+    
+
+
+
+    @Override
+    public VStore getDataStore(String appName, String storeName) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getDataStore'");
+    }
+
+    @Override
+    public VStore getCacheStore(String appName, String cacheName) {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getCacheStore'");
     }
 
     
