@@ -63,7 +63,12 @@ public class JVMRTCTransport implements RTCTransport {
     private static final Logger logger = Logger.getLogger(JVMRTCTransport.class.getName());
 
     static {
-        LibDataChannelArchDetect.initialize();
+        try{
+            LibDataChannelArchDetect.initialize();
+        } catch (Throwable t) {
+            logger.log(Level.WARNING, "Failed to initialize LibDataChannel", t);
+            throw new RuntimeException("Failed to initialize LibDataChannel", t);
+        }
     }
 
     private List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
@@ -77,7 +82,9 @@ public class JVMRTCTransport implements RTCTransport {
     private AsyncExecutor executor;
     private volatile boolean connected = false;
 
-    public JVMRTCTransport() {}
+    public JVMRTCTransport() {
+        logger.fine("JVMRTCTransport initialized");
+    }
 
     @Override
     public AsyncTask<Void> start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
@@ -95,10 +102,14 @@ public class JVMRTCTransport implements RTCTransport {
                     }
                 }
 
+                logger.finer("Using STUN servers: " + stunUris);
                 this.config = PeerConnectionConfiguration.DEFAULT.withIceServers(stunUris).withDisableAutoNegotiation(false);
                 this.connId = connId;
                 this.conn = PeerConnection.createPeer(this.config);
+                logger.finer("PeerConnection created with ID: " + connId);
                 this.conn.onIceStateChange.register((PeerConnection peer, IceState state) -> {
+                        logger.finer("ICE state changed: " + state);
+
                         if (state == IceState.RTC_ICE_FAILED) {
                             // for (RTCTransportListener listener : listeners) {
                             //     listener.onRTCIceFailed();
@@ -123,6 +134,7 @@ public class JVMRTCTransport implements RTCTransport {
                 // });
 
                 this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
+                        logger.fine("Local ICE candidate: " + candidate);
                         for (RTCTransportListener listener : listeners) {
                             try {
                                 listener.onLocalRTCIceCandidate(candidate);
@@ -135,6 +147,7 @@ public class JVMRTCTransport implements RTCTransport {
                 this.executor.runLater(
                         () -> {
                             if (connected) return null;
+                            logger.warning("RTC Connection attempt timed out, closing connection");
                             for (RTCTransportListener listener : listeners) {
                                 try {
                                     listener.onRTCDisconnected("timeout");
@@ -198,6 +211,7 @@ public class JVMRTCTransport implements RTCTransport {
             //     }
             // });
             channel.onError.register((c, error) -> {
+                logger.log(Level.WARNING, "Channel error: " + error);
                 for (RTCTransportListener listener : listeners) {
                     try {
                         listener.onRTCChannelError(new Exception(error));
@@ -209,6 +223,7 @@ public class JVMRTCTransport implements RTCTransport {
             });
 
             this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
+                logger.fine("Peer connection state changed: " + state);
                     if (state == PeerState.RTC_CLOSED) {
                         this.connected = false;
                         for (RTCTransportListener listener : listeners) {
@@ -249,6 +264,7 @@ public class JVMRTCTransport implements RTCTransport {
                     })
                 );
                 this.connected = true;
+                logger.fine("Channel is open, notifying listeners");
                 for (RTCTransportListener listener : listeners) {
                     try {
                         listener.onRTCConnected();
