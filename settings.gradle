@@ -2,4 +2,4 @@ rootProject.name = "nge-platforms"
 
 include("nge-platform-common")
 include("nge-platform-jvm")
-include("nge-platform-android")
+// include("nge-platform-android")
