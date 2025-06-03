@@ -14,3 +14,4 @@ build.date
 .project
 .classpath
 .settings
+*.log

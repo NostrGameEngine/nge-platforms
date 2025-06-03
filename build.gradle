@@ -19,6 +19,7 @@ plugins {
 
 allprojects {
     repositories {
+        mavenLocal()
         maven {
             url "https://maven.rblb.it/NostrGameEngine/libdatachannel-java"
         }
