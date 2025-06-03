@@ -63,7 +63,7 @@ public class JVMRTCTransport implements RTCTransport {
     private static final Logger logger = Logger.getLogger(JVMRTCTransport.class.getName());
 
     static {
-        try{
+        try {
             LibDataChannelArchDetect.initialize();
         } catch (Throwable t) {
             logger.log(Level.WARNING, "Failed to initialize LibDataChannel", t);
@@ -223,7 +223,7 @@ public class JVMRTCTransport implements RTCTransport {
             });
 
             this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
-                logger.fine("Peer connection state changed: " + state);
+                    logger.fine("Peer connection state changed: " + state);
                     if (state == PeerState.RTC_CLOSED) {
                         this.connected = false;
                         for (RTCTransportListener listener : listeners) {
