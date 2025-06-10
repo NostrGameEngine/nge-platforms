@@ -7,7 +7,7 @@ buildscript {
     dependencies {
         classpath "com.android.tools.build:gradle:8.2.2"
     }
-}
+ }
 
 
 plugins {
@@ -15,6 +15,19 @@ plugins {
     id "com.github.spotbugs"                            version "5.1.3" apply false
     id "com.diffplug.spotless"                          version "7.0.2" apply false
     id "io.github.gradle-nexus.publish-plugin"          version "2.0.0" 
+}
+
+ext {
+    repo="NostrGameEngine/nge-platforms"
+    website="https://github.com/NostrGameEngine/nge-platforms"
+    baseVersion="0.0.0-SNAPSHOT"
+    baseGroup="org.ngengine"
+    description="Nostr Game Engine platform libraries"
+    author="Riccardo Balbo"
+    authorAlias="rblb"
+    authorEmail="os@rblb.it"
+    license="BSD 3-Clause License"
+    licenseUrl="https://opensource.org/licenses/BSD-3-Clause"
 }
 
 if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername")){
@@ -34,12 +47,16 @@ if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername"
 
 
 allprojects {
+
     def projectVersion = System.getenv("VERSION")
     if (projectVersion == null || projectVersion.trim().isEmpty()) {
-        projectVersion = "0.0.0-SNAPSHOT"
+        projectVersion = rootProject.ext.baseVersion
     }
-    def projectGroup = System.getenv("GROUP") ?: "org.ngengine"
+    def projectGroup = System.getenv("GROUP") ?: rootProject.ext.baseGroup 
     
+    println "Using project version: ${projectVersion}"
+    println "Using project group: ${projectGroup}"
+
     version = projectVersion
     group   = projectGroup
 
@@ -126,25 +143,25 @@ def applyConf(proj, isAndroid){
 
                     pom {
                         name        = proj.name
-                        description = "Nostr Game Engine platform libraries"
-                        url         = "https://github.com/NostrGameEngine/nge-platforms"
+                        description = rootProject.ext.description
+                        url         = rootProject.ext.website
                         licenses {
                             license {
-                                name = "BSD 3-Clause License"
-                                url  = "https://opensource.org/licenses/BSD-3-Clause"
+                                name = rootProject.ext.license
+                                url  = rootProject.ext.licenseUrl
                             }
                         }
                         developers {
                             developer {
-                                id = "rblb"
-                                name = "Riccardo Balbo"
-                                email = "os@rblb.it"
+                                id = rootProject.ext.authorAlias
+                                name = rootProject.ext.author
+                                email = rootProject.ext.authorEmail
                             }
                         }
                         scm {
-                            connection = "scm:git:git://github.com/NostrGameEngine/nge-platforms.git"
-                            developerConnection = "scm:git:ssh://github.com:NostrGameEngine/nge-platforms.git"
-                            url = "https://github.com/NostrGameEngine/nge-platforms"
+                            connection = "scm:git:git://github.com/${rootProject.ext.repo}.git"
+                            developerConnection = "scm:git:ssh://github.com:${rootProject.ext.repo}.git"
+                            url = "https://github.com/${rootProject.ext.repo}"
                         }
                     }
                 }
