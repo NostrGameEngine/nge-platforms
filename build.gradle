@@ -14,10 +14,36 @@ plugins {
     id "org.gradle.toolchains.foojay-resolver-convention" version "0.9.0" apply false
     id "com.github.spotbugs"                            version "5.1.3" apply false
     id "com.diffplug.spotless"                          version "7.0.2" apply false
+    id "io.github.gradle-nexus.publish-plugin"          version "2.0.0" 
+}
+
+if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername")){
+    nexusPublishing {
+        repositories {
+            sonatype {
+                nexusUrl.set(uri("https://ossrh-staging-api.central.sonatype.com/service/local/"))
+                snapshotRepositoryUrl.set(uri("https://central.sonatype.com/repository/maven-snapshots/"))
+
+                username = System.getenv("SONATYPE_USERNAME") ?: project.findProperty("sonatypeUsername") ?: ""
+                password = System.getenv("SONATYPE_PASSWORD") ?: project.findProperty("sonatypePassword") ?: ""
+            }
+        }
+    }
 }
 
 
+
 allprojects {
+    def projectVersion = System.getenv("VERSION")
+    if (projectVersion == null || projectVersion.trim().isEmpty()) {
+        projectVersion = "0.0.0-SNAPSHOT"
+    }
+    def projectGroup = System.getenv("GROUP") ?: "org.ngengine"
+    
+    version = projectVersion
+    group   = projectGroup
+
+
     repositories {
         mavenLocal()
         maven {
@@ -76,6 +102,7 @@ def applyConf(proj, isAndroid){
     // common    
     proj.apply plugin: "com.diffplug.spotless"
     proj.apply plugin: "maven-publish"
+    proj.apply plugin: "signing"  
 
     proj.tasks.withType(Javadoc).configureEach { Javadoc javadocTask ->
         javadocTask.options.encoding   = "UTF-8"
@@ -107,6 +134,18 @@ def applyConf(proj, isAndroid){
                                 url  = "https://opensource.org/licenses/BSD-3-Clause"
                             }
                         }
+                        developers {
+                            developer {
+                                id = "rblb"
+                                name = "Riccardo Balbo"
+                                email = "os@rblb.it"
+                            }
+                        }
+                        scm {
+                            connection = "scm:git:git://github.com/NostrGameEngine/nge-platforms.git"
+                            developerConnection = "scm:git:ssh://github.com:NostrGameEngine/nge-platforms.git"
+                            url = "https://github.com/NostrGameEngine/nge-platforms"
+                        }
                     }
                 }
             }
@@ -129,11 +168,18 @@ def applyConf(proj, isAndroid){
                     }
                 }
             }
+
+            if (System.getenv("GPG_PRIVATE_KEY") != null && System.getenv("GPG_PASSPHRASE") != null) {
+                proj.signing {
+                    def signingKey = System.getenv("GPG_PRIVATE_KEY")
+                    def signingPassword = System.getenv("GPG_PASSPHRASE")
+                    useInMemoryPgpKeys(signingKey, signingPassword)
+                    sign proj.publishing.publications.mavenJava
+                }
+            }
         }
 
-        proj.tasks.register("outputCoordinates") {
-            dependsOn proj.tasks.withType(PublishToMavenRepository)
-            dependsOn proj.tasks.withType(PublishToMavenLocal)
+        proj.tasks.register("outputCoordinates") {      
             doLast {
                 proj.publishing.publications.forEach { publication ->
                     if (publication instanceof MavenPublication) {
@@ -185,14 +231,7 @@ def applyConf(proj, isAndroid){
 
 
 subprojects { proj ->
-    def projectVersion = System.getenv("VERSION")
-    if (projectVersion == null || projectVersion.trim().isEmpty()) {
-        projectVersion = "0.0.0-SNAPSHOT"
-    }
-    def projectGroup = System.getenv("GROUP") ?: "org.ngengine"
-
-    proj.version = projectVersion
-    proj.group   = projectGroup
+  
 
     proj.apply plugin: "eclipse"
     proj.eclipse {

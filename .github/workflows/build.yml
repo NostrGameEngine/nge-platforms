@@ -3,6 +3,8 @@ name: Build and Publish
 on:
   push: 
   pull_request:
+  release:
+    types: [published]
 
 jobs:
   build:
@@ -37,48 +39,33 @@ jobs:
             echo "Publishing release $VERSION"
         else
             echo "Publishing snapshot"
-        fi
-        export GITHUB_REGISTRY=${{ github.repository }}
-        export GITHUB_USERNAME=${{ github.actor }}
-        export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
+        fi   
         ./gradlew --no-daemon build javadoc
       
-    - name: Delete all nge-platform-common -SNAPSHOT versions
+    - name: Publish Snapshot
       if: github.event_name != 'pull_request' && github.event_name != 'release'
-      uses: actions/delete-package-versions@v5
-      with:
-        owner: ${{ github.repository_owner }}
-        package-name: org.ngengine.nge-platform-common
-        package-type: maven
-        min-versions-to-keep: 0
-        ignore-versions: '^(?!.*-SNAPSHOT$).*'
-        token: ${{ secrets.GITHUB_TOKEN }}
+      env:
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+      run: |       
+        ./gradlew --no-daemon publishAllPublicationsToDistFolder publishToSonatype  --info
 
-    - name: Delete all nge-platform-jvm -SNAPSHOT versions
-      if: github.event_name != 'pull_request' && github.event_name != 'release'
-      uses: actions/delete-package-versions@v5
-      with:
-        owner: ${{ github.repository_owner }}
-        package-name: org.ngengine.nge-platform-jvm
-        package-type: maven
-        min-versions-to-keep: 0
-        ignore-versions: '^(?!.*-SNAPSHOT$).*'
-        token: ${{ secrets.GITHUB_TOKEN }}
-        
-    - name: Publish
-      if: github.event_name != 'pull_request'
+    - name: Publish Release
+      if: github.event_name != 'pull_request' && github.event_name == 'release'
+      env:
+        SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
+        SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
+        GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
       run: |
         export VERSION=""
         if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             export VERSION=${GITHUB_REF#refs/tags/}
             echo "Publishing release $VERSION"
-        else
-            echo "Publishing snapshot"
         fi
-        export GITHUB_REGISTRY=${{ github.repository }}
-        export GITHUB_USERNAME=${{ github.actor }}
-        export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
-        ./gradlew --no-daemon publishAllPublicationsToLocalRepository publishAllPublicationsToGitHubPackagesRepository
+        ./gradlew --no-daemon publishAllPublicationsToDistFolder publishToSonatype closeAndReleaseSonatypeStagingRepository  --info
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
