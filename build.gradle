@@ -20,7 +20,7 @@ plugins {
 ext {
     repo="NostrGameEngine/nge-platforms"
     website="https://github.com/NostrGameEngine/nge-platforms"
-    baseVersion="0.0.0-SNAPSHOT"
+    baseVersion="0.1.0-SNAPSHOT"
     baseGroup="org.ngengine"
     description="Nostr Game Engine platform libraries"
     author="Riccardo Balbo"

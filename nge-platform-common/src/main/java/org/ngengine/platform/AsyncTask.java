@@ -41,7 +41,7 @@ public interface AsyncTask<T> {
     boolean isFailed();
     boolean isSuccess();
 
-    T await() throws InterruptedException, ExecutionException;
+    T await() throws Exception;
 
     <R> AsyncTask<R> then(Function<T, R> func2);
 

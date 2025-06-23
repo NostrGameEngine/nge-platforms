@@ -30,7 +30,9 @@
  */
 package org.ngengine.platform;
 
+import java.net.URI;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -106,6 +108,7 @@ public class NGEUtils {
      * @return
      */
     public static long safeLong(Object input) {
+        if(input==null) return 0L;
         if (input instanceof Number) {
             return ((Number) input).longValue();
         } else {
@@ -135,7 +138,11 @@ public class NGEUtils {
         }
     }
 
+    private static final String[] EMPTY_STRING_ARRAY = new String[0];
     public static String[] safeStringArray(Object tags) {
+        if(tags == null) {
+            return EMPTY_STRING_ARRAY;
+        }
         if (tags instanceof Collection) {
             Collection<String> c = (Collection<String>) tags;
             return c.toArray(new String[c.size()]);
@@ -148,6 +155,7 @@ public class NGEUtils {
 
     public static List<String> safeStringList(Object tags) {
         if (
+            tags == null ||
             (tags instanceof Collection && ((Collection<?>) tags).isEmpty()) ||
             (tags instanceof String[] && ((String[]) tags).length == 0)
         ) {
@@ -176,8 +184,10 @@ public class NGEUtils {
         }
     }
 
+ 
     public static List<Integer> safeIntList(Object tags) {
         if (
+            tags == null ||
             (tags instanceof Collection && ((Collection<?>) tags).isEmpty()) ||
             (tags instanceof Integer[] && ((Integer[]) tags).length == 0) ||
             (tags instanceof int[] && ((int[]) tags).length == 0)
@@ -215,6 +225,9 @@ public class NGEUtils {
     }
 
     public static Collection<String[]> safeCollectionOfStringArray(Object tags) {
+        if(tags == null) {
+            return List.of();
+        }
         if (tags instanceof Collection && !(tags instanceof List)) {
             tags = new ArrayList<>((Collection<?>) tags);
         }
@@ -246,6 +259,8 @@ public class NGEUtils {
     }
 
     public static boolean safeBool(Object v) {
+        if (v == null)  return false; 
+        
         if (v instanceof Boolean) {
             return (Boolean) v;
         } else if (v instanceof Number) {
@@ -258,6 +273,7 @@ public class NGEUtils {
     }
 
     public static Instant safeSecondsInstant(Object object) {
+        if(object==null) return Instant.now();
         if (object instanceof Instant) {
             return (Instant) object;
         } else if (object instanceof String) {
@@ -269,6 +285,57 @@ public class NGEUtils {
         } else {
             return Instant.ofEpochSecond(safeLong(object));
         }
+    }
+
+    public static Duration safeDurationInSeconds(Object object){
+        if(object==null) return Duration.ZERO;
+        long seconds = safeLong(object);
+        if( seconds < 0) {
+            throw new IllegalArgumentException("Duration cannot be negative: " + seconds);
+        }
+        return Duration.ofSeconds(seconds);
+    }
+
+    private static final List<String> VALID_SCHEMES = List.of(
+        "http", "https"
+    );
+
+    private static final boolean ALLOW_LOCALHOST_IN_URIS =  System.getProperty("nge-platforms.allowLoopbackInURIs", "false").equalsIgnoreCase("true");
+
+
+    public static URI safeURI(Object object) {
+        URI uri;
+        if(object instanceof URI){
+            uri = (URI) object;
+            
+        }else{
+            String str = safeString(object);
+            if(str.isEmpty()) {
+                throw new IllegalArgumentException("URI cannot be empty");
+            }
+          
+            uri = URI.create(str);
+        }
+        
+        if (uri.toString().length() > 2000) {
+            throw new IllegalArgumentException("URI is too long: " + uri.toString().length());
+        }
+
+        if (uri.getScheme() == null || uri.getHost() == null) {
+            throw new IllegalArgumentException("Invalid URI: " + uri);
+        }
+
+        if(!VALID_SCHEMES.contains(uri.getScheme().toLowerCase())) {
+            throw new IllegalArgumentException("Invalid URI scheme: " + uri.getScheme()+" - valid schemes are " + VALID_SCHEMES);
+        }
+
+        if(!ALLOW_LOCALHOST_IN_URIS){
+            if(NGEPlatform.get().isLoopbackAddress(uri)){
+                throw new IllegalArgumentException("Loopback addresses are not allowed in URIs: " + uri);
+            }          
+        }
+        
+        return uri;
     }
 
     /**

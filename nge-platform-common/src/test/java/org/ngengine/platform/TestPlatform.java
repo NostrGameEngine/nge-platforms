@@ -39,7 +39,7 @@ import org.junit.Test;
 public class TestPlatform {
 
     @Test
-    public void testHttpGetBytes() throws InterruptedException, ExecutionException {
+    public void testHttpGetBytes() throws Exception {
         NGEPlatform platform = NGEPlatform.get();
         AsyncTask<byte[]> bytesTask = platform.httpGetBytes(
             "https://proof.ovh.net/files/1Mb.dat",

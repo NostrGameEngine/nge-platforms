@@ -33,7 +33,11 @@ package org.ngengine.platform.jvm;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
+import java.lang.ref.Cleaner;
+import java.lang.ref.Cleaner.Cleanable;
 import java.math.BigInteger;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -46,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collection;
+import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -367,7 +372,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             private volatile boolean cancelled = false;
 
             @Override
-            public T await() throws InterruptedException, ExecutionException {
+            public T await() throws Exception {
                 return fut.get();
             }
 
@@ -709,7 +714,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<String> httpGet(String inurl, Duration timeout, Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+
         HttpClient.Builder b = HttpClient
             .newBuilder()
             .connectTimeout(timeout)
@@ -762,7 +769,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<byte[]> httpGetBytes(String inurl, Duration timeout, Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+
         HttpClient.Builder b = HttpClient
             .newBuilder()
             .connectTimeout(timeout)
@@ -996,4 +1005,45 @@ public class JVMAsyncPlatform extends NGEPlatform {
         cacheName = NGEUtils.censorSpecial(cacheName);
         return new FileSystemVStore(Util.getSystemCachePath(appName).resolve(cacheName));
     }
+
+    protected final Cleaner cleaner = Cleaner.create();
+
+    @Override
+    public Runnable registerFinalizer(Object obj, Runnable finalizer) {
+        Cleanable cls = cleaner.register(obj, finalizer);
+        return () -> {
+            if (cls != null) {
+                cls.clean();
+            }
+        };        
+    }
+
+
+    @Override
+    public boolean isLoopbackAddress(URI uri){
+        try {
+            // 1. Loopback and Any Local
+            InetAddress address = InetAddress.getByName(uri.getHost());
+            if(address.isLoopbackAddress() || address.isAnyLocalAddress())return true;
+            
+            // 2. any ip of the local machine
+            Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
+            while (nics.hasMoreElements()) {
+                NetworkInterface nic = nics.nextElement();
+                Enumeration<InetAddress> addrs = nic.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress localAddr = addrs.nextElement();
+                    if (address.equals(localAddr)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Error checking loopback address", e);
+            return super.isLoopbackAddress(uri);
+        }
+    }
+
 }

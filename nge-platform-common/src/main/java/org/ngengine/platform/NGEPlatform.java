@@ -30,6 +30,7 @@
  */
 package org.ngengine.platform;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
@@ -69,6 +70,7 @@ public abstract class NGEPlatform {
         }
         return NGEPlatform.platform;
     }
+
 
     public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
         NGEPlatform.browserInterceptor = interceptor;
@@ -201,4 +203,35 @@ public abstract class NGEPlatform {
     public abstract VStore getDataStore(String appName, String storeName);
 
     public abstract VStore getCacheStore(String appName, String cacheName);
+
+    public abstract Runnable registerFinalizer(Object obj, Runnable finalizer);
+    
+    private static final List<String> LOCAL_HOSTS = List.of(
+        "localhost", 
+        "localhost.localdomain",
+        "local",
+        "localdomain"
+    );
+
+    /**
+     * Checks if the given URI is a loopback address.
+     * Polyfill for non jcl compliant platforms.
+     * 
+     * This method should be overriden by a platform specific implementation
+     * @param uri the URI to check
+     * @return true if the URI is a loopback address, false otherwise
+     */
+    public boolean isLoopbackAddress(URI uri){
+        String host = uri.getHost().toLowerCase();
+        if (host.isEmpty() ||
+                LOCAL_HOSTS.contains(host) ||
+                host.startsWith("127.") ||
+                host.startsWith("0.") ||
+                host.equals("::1") ||
+                host.equalsIgnoreCase("0:0:0:0:0:0:0:1")) {
+            return true;
+        }
+        return false;
+    }
+
 }
