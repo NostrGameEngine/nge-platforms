@@ -33,6 +33,7 @@ package org.ngengine.platform.jvm;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.Cleaner;
 import java.lang.ref.Cleaner.Cleanable;
 import java.math.BigInteger;
@@ -57,7 +58,6 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -72,12 +72,18 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.ChaCha20ParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.generators.SCrypt;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305;
+import org.bouncycastle.crypto.paddings.PKCS7Padding;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.crypto.params.ParametersWithIV;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECPoint;
@@ -171,7 +177,13 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public String toJSON(Object obj) {
+    public String toJSON(Collection obj) {
+        Context ctx = context.get();
+        return ctx.json.toJson(obj);
+    }
+
+    @Override
+    public String toJSON(Map obj) {
         Context ctx = context.get();
         return ctx.json.toJson(obj);
     }
@@ -1015,17 +1027,16 @@ public class JVMAsyncPlatform extends NGEPlatform {
             if (cls != null) {
                 cls.clean();
             }
-        };        
+        };
     }
 
-
     @Override
-    public boolean isLoopbackAddress(URI uri){
+    public boolean isLoopbackAddress(URI uri) {
         try {
             // 1. Loopback and Any Local
             InetAddress address = InetAddress.getByName(uri.getHost());
-            if(address.isLoopbackAddress() || address.isAnyLocalAddress())return true;
-            
+            if (address.isLoopbackAddress() || address.isAnyLocalAddress()) return true;
+
             // 2. any ip of the local machine
             Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
             while (nics.hasMoreElements()) {
@@ -1046,4 +1057,41 @@ public class JVMAsyncPlatform extends NGEPlatform {
         }
     }
 
+    @Override
+    public InputStream openResource(String resourceName) throws IOException {
+        InputStream is = JVMAsyncPlatform.class.getResourceAsStream("/" + resourceName);
+        if (is == null) {
+            throw new IOException("Resource not found: " + resourceName);
+        }
+        return is;
+    }
+
+    @Override
+    public byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption) {
+        try {
+            BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(
+                CBCBlockCipher.newInstance(AESEngine.newInstance()),
+                new PKCS7Padding()
+            );
+
+            KeyParameter keyParam = new KeyParameter(key);
+            ParametersWithIV parameters = new ParametersWithIV(keyParam, iv);
+
+            cipher.init(forEncryption, parameters);
+
+            byte[] output = new byte[cipher.getOutputSize(data.length)];
+            int length = cipher.processBytes(data, 0, data.length, output, 0);
+            length += cipher.doFinal(output, length);
+
+            if (length < output.length) {
+                byte[] result = new byte[length];
+                System.arraycopy(output, 0, result, 0, length);
+                return result;
+            }
+
+            return output;
+        } catch (Exception e) {
+            throw new RuntimeException("AES-256-CBC operation failed", e);
+        }
+    }
 }

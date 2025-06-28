@@ -35,30 +35,30 @@ import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.ngengine.platform.transport.WebsocketTransportListener;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
-import org.teavm.jso.ajax.ReadyStateChangeHandler;
-import org.teavm.jso.ajax.XMLHttpRequest;
 import org.teavm.jso.dom.events.Event;
 import org.teavm.jso.dom.events.EventListener;
 
 public class TeaVMWebsocketTransport implements WebsocketTransport {
+
     private static final Logger logger = Logger.getLogger(TeaVMWebsocketTransport.class.getName());
 
     private volatile BrowserWebSocket ws;
-    private final List<WebsocketTransportListener> listeners =
-        new CopyOnWriteArrayList<>();
+    private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
     private volatile int maxMessageSize = 1024;
     private final StringBuilder aggregator = new StringBuilder();
     private final TeaVMPlatform platform;
+    private final AsyncExecutor asyncExecutor;
 
     public TeaVMWebsocketTransport(TeaVMPlatform platform) {
         this.platform = platform;
+        this.asyncExecutor = platform.newAsyncExecutor();
     }
 
     // Native browser WebSocket interface definition
@@ -108,53 +108,55 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                         this.ws = createWebSocket(url);
 
                         this.ws.setOnOpen(evt -> {
-                                for (WebsocketTransportListener listener : listeners) {
-                                    try{
-                                        listener.onConnectionOpen();
-                                    } catch (Exception e) {
-                                        logger.log(
-                                            Level.WARNING,
-                                            "Error in onConnectionOpen listener",
-                                            e
-                                        );
-                                    }
-                                }
-                                res.accept(null);
+                                this.asyncExecutor.run(() -> {
+                                        for (WebsocketTransportListener listener : listeners) {
+                                            try {
+                                                listener.onConnectionOpen();
+                                            } catch (Exception e) {
+                                                logger.log(Level.WARNING, "Error in onConnectionOpen listener", e);
+                                            }
+                                        }
+                                        res.accept(null);
+                                        return null;
+                                    });
                             });
 
                         this.ws.setOnMessage(evt -> {
-                                String message = ((MessageEvent) evt).getData();
-                                aggregator.append(message);
-                                String fullMessage = aggregator.toString();
-                                for (WebsocketTransportListener listener : listeners) {
-                                    try{
-                                        listener.onConnectionMessage(fullMessage);
-                                    } catch (Exception e) {
-                                        logger.log(
-                                            Level.WARNING,
-                                            "Error in onConnectionMessage listener",
-                                            e
-                                        );
-                                    }
-                                }
-                                aggregator.setLength(0);
+                                this.asyncExecutor.run(() -> {
+                                        String message = ((MessageEvent) evt).getData();
+                                        aggregator.append(message);
+                                        String fullMessage = aggregator.toString();
+                                        for (WebsocketTransportListener listener : listeners) {
+                                            try {
+                                                listener.onConnectionMessage(fullMessage);
+                                            } catch (Exception e) {
+                                                logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
+                                            }
+                                        }
+                                        aggregator.setLength(0);
+                                        return null;
+                                    });
                             });
 
                         this.ws.setOnClose(evt -> {
-                                CloseEvent closeEvent = (CloseEvent) evt;
-                                String reason = closeEvent.getReason();
-                                if (ws != null) {
-                                    ws = null;
-                                    for (WebsocketTransportListener listener : listeners) {
-                                        listener.onConnectionClosedByServer(
-                                            reason
-                                        );
-                                    }
-                                }
+                                this.asyncExecutor.run(() -> {
+                                        CloseEvent closeEvent = (CloseEvent) evt;
+                                        String reason = closeEvent.getReason();
+                                        if (ws != null) {
+                                            ws = null;
+                                            for (WebsocketTransportListener listener : listeners) {
+                                                listener.onConnectionClosedByServer(reason);
+                                            }
+                                        }
+                                        return null;
+                                    });
                             });
 
                         this.ws.setOnError(evt -> {
-                                rej.accept(new IOException("WebSocket error"));
+                                this.asyncExecutor.run(() -> {
+                                        rej.accept(new IOException("WebSocket error"));
+                                        return null;
+                                    });
                             });
                     } else {
                         res.accept(null);
@@ -170,21 +172,15 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         return this.platform.wrapPromise((res, rej) -> {
                 try {
                     if (this.ws != null) {
-                        final String r = reason != null
-                            ? reason
-                            : "Closed by client";
+                        final String r = reason != null ? reason : "Closed by client";
                         BrowserWebSocket wsToClose = this.ws;
                         this.ws = null;
 
                         for (WebsocketTransportListener listener : listeners) {
-                            try{
+                            try {
                                 listener.onConnectionClosedByClient(reason);
                             } catch (Exception e) {
-                                logger.log(
-                                    Level.WARNING,
-                                    "Error in onConnectionClosedByClient listener",
-                                    e
-                                );
+                                logger.log(Level.WARNING, "Error in onConnectionClosedByClient listener", e);
                             }
                         }
 
@@ -235,7 +231,6 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     public void removeListener(WebsocketTransportListener listener) {
         this.listeners.remove(listener);
     }
-
 
     @Override
     public boolean isConnected() {

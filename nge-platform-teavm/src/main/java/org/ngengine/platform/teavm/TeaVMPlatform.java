@@ -30,8 +30,9 @@
  */
 package org.ngengine.platform.teavm;
 
-
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -55,90 +57,90 @@ import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
-import org.teavm.jso.JSBody;
+import org.teavm.jso.JSExport;
+import org.teavm.jso.JSObject;
 import org.teavm.jso.ajax.ReadyStateChangeHandler;
 import org.teavm.jso.ajax.XMLHttpRequest;
 
 public class TeaVMPlatform extends NGEPlatform {
 
-    @JSBody(script = "return window.nostr4j_jsBinds;")
-    private static native TeaVMBinds getBinds();
-
     @Override
-    public byte[] generatePrivateKey()  {
-        return getBinds().generatePrivateKey();
+    public byte[] generatePrivateKey() {
+        return TeaVMBinds.generatePrivateKey();
     }
 
     @Override
-    public byte[] genPubKey(byte[] secKey)  {
-        return getBinds().genPubKey(secKey);
+    public byte[] genPubKey(byte[] secKey) {
+        return TeaVMBinds.genPubKey(secKey);
     }
 
     @Override
-    public String toJSON(Object obj) {
-        return getBinds().toJSON(obj);
+    public String toJSON(Collection obj) {
+        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
     }
 
     @Override
-    public <T> T fromJSON(String json, Class<T> claz)  {
-        return (T) getBinds().fromJSON(json);
+    public String toJSON(Map obj) {
+        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
+    }
+
+    @Override
+    public <T> T fromJSON(String json, Class<T> claz) {
+        JSObject jsObj = (JSObject) TeaVMBinds.fromJSON(json);
+        return TeaVMJsConverter.toJavaObject(jsObj, claz);
     }
 
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
-        return getBinds().secp256k1SharedSecret(privKey, pubKey);
+        return TeaVMBinds.secp256k1SharedSecret(privKey, pubKey);
     }
 
     @Override
     public byte[] hmac(byte[] key, byte[] data1, byte[] data2) {
-        return getBinds().hmac(key, data1, data2);
+        return TeaVMBinds.hmac(key, data1, data2);
     }
 
     @Override
     public byte[] hkdf_extract(byte[] salt, byte[] ikm) {
-        return getBinds().hkdf_extract(salt, ikm);
+        return TeaVMBinds.hkdf_extract(salt, ikm);
     }
 
     @Override
-    public byte[] hkdf_expand(byte[] prk, byte[] info, int length){
-        return getBinds().hkdf_expand(prk, info, length);
+    public byte[] hkdf_expand(byte[] prk, byte[] info, int length) {
+        return TeaVMBinds.hkdf_expand(prk, info, length);
     }
 
     @Override
-    public String base64encode(byte[] data)  {
-        return getBinds().base64encode(data);
+    public String base64encode(byte[] data) {
+        return TeaVMBinds.base64encode(data);
     }
 
     @Override
-    public byte[] base64decode(String data)  {
-        return getBinds().base64decode(data);
+    public byte[] base64decode(String data) {
+        return TeaVMBinds.base64decode(data);
     }
 
     @Override
-    public byte[] chacha20(
-            byte[] key,
-            byte[] nonce,
-            byte[] data,
-            boolean forEncryption)  {
-        return getBinds().chacha20(key, nonce, data);
+    public byte[] chacha20(byte[] key, byte[] nonce, byte[] data, boolean forEncryption) {
+        return TeaVMBinds.chacha20(key, nonce, data);
     }
 
     @Override
     public String sha256(String data) {
         byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-        byte[] hash = getBinds().sha256(bytes);
+        byte[] hash = TeaVMBinds.sha256(bytes);
         return NGEUtils.bytesToHex(hash);
     }
 
     @Override
     public byte[] sha256(byte[] data) {
-        return getBinds().sha256(data);
+        return TeaVMBinds.sha256(data);
     }
 
     @Override
     public String sign(String data, byte priv[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
-        byte sig[] = getBinds().sign(dataB, priv);
+        byte sig[] = TeaVMBinds.sign(dataB, priv);
         return NGEUtils.bytesToHex(sig);
     }
 
@@ -146,12 +148,12 @@ public class TeaVMPlatform extends NGEPlatform {
     public boolean verify(String data, String sign, byte pub[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = NGEUtils.hexToByteArray(sign);
-        return getBinds().verify(dataB, pub, sig);
+        return TeaVMBinds.verify(dataB, pub, sig);
     }
 
     @Override
     public byte[] randomBytes(int n) {
-        return getBinds().randomBytes(n);
+        return TeaVMBinds.randomBytes(n);
     }
 
     @Override
@@ -159,31 +161,104 @@ public class TeaVMPlatform extends NGEPlatform {
         return System.currentTimeMillis() / 1000;
     }
 
+    class TeaVMPromise<T> {
+
+        public T result;
+        public Throwable error;
+        public boolean completed = false;
+        public boolean failed = false;
+        private final List<Consumer<T>> thenCallbacks = new ArrayList<>();
+        private final List<Consumer<Throwable>> catchCallbacks = new ArrayList<>();
+        private Object monitor = new Object();
+
+        public void resolve(T value) {
+            if (!completed) {
+                this.result = value;
+                this.completed = true;
+                for (Consumer<T> callback : thenCallbacks) {
+                    callback.accept(value);
+                }
+            }
+            synchronized (monitor) {
+                monitor.notifyAll();
+            }
+        }
+
+        public void reject(Throwable error) {
+            if (!completed) {
+                this.error = error;
+                this.completed = true;
+                this.failed = true;
+                for (Consumer<Throwable> callback : catchCallbacks) {
+                    callback.accept(error);
+                }
+            }
+            synchronized (monitor) {
+                monitor.notifyAll();
+            }
+        }
+
+        @JSExport
+        public TeaVMPromise<T> then(Consumer<T> onFulfilled) {
+            if (completed && !failed) {
+                onFulfilled.accept(result);
+            } else if (!completed) {
+                thenCallbacks.add(onFulfilled);
+            }
+            return this;
+        }
+
+        @JSExport
+        public TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
+            if (completed && failed) {
+                onRejected.accept(error);
+            } else if (!completed) {
+                catchCallbacks.add(onRejected);
+            }
+            return this;
+        }
+
+        @JSExport
+        public Object await() throws ExecutionException {
+            while (!this.completed && !this.failed) {
+                synchronized (monitor) {
+                    try {
+                        monitor.wait();
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException("Thread interrupted while waiting for promise resolution", e);
+                    }
+                }
+            }
+            if (this.failed) {
+                throw new ExecutionException("Promise failed with error", this.error);
+            }
+            return this.result;
+        }
+        // @Async
+        // public static native Object waitFor(JSObject p);
+        // private static void waitFor(JSObject p, AsyncCallback<Object> callback) {
+        //     waitForAsync(p, result ->{
+        //         callback.complete(result);
+        //     },
+        //     error->{
+        //         callback.error(new Exception(error.toString()));
+        //     });
+        // }
+
+        // @JSBody(params = { "p", "resolve", "reject" }, script = "console.log(p); return p.then(resolve).catch(reject);")
+        // public static native void waitForAsync(JSObject p, JSConsumer<Object> resolve, JSConsumer<Object> reject);
+    }
+
     @Override
-    public <T> AsyncTask<T> promisify(
-            BiConsumer<Consumer<T>, Consumer<Throwable>> func,
-            AsyncExecutor executor) {
-        TeaVMBinds.TeaVMPromise<T> promise = new TeaVMBinds.TeaVMPromise<>();
+    public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
+        TeaVMPromise<T> promise = new TeaVMPromise<>();
 
         func.accept(promise::resolve, promise::reject);
 
         return new AsyncTask<T>() {
             @Override
             public T await() throws InterruptedException, ExecutionException {
-                if (!promise.completed) {
-                    throw new UnsupportedOperationException(
-                            "Blocking await() is not supported in TeaVM");
-                }
-
-                if (promise.failed) {
-                    if (promise.error instanceof Exception) {
-                        throw new ExecutionException( promise.error);
-                    } else {
-                        throw new ExecutionException(promise.error);
-                    }
-                }
-
-                return promise.result;
+                return (T) promise.await();
             }
 
             @Override
@@ -203,8 +278,9 @@ public class TeaVMPlatform extends NGEPlatform {
 
             @Override
             public <R> AsyncTask<R> then(Function<T, R> func2) {
-                return promisify((res, rej) -> {
-                    promise
+                return promisify(
+                    (res, rej) -> {
+                        promise
                             .then(result -> {
                                 try {
                                     res.accept(func2.apply(result));
@@ -213,7 +289,9 @@ public class TeaVMPlatform extends NGEPlatform {
                                 }
                             })
                             .catchError(rej::accept);
-                }, executor);
+                    },
+                    executor
+                );
             }
 
             @Override
@@ -224,11 +302,11 @@ public class TeaVMPlatform extends NGEPlatform {
 
             @Override
             public <R> AsyncTask<R> compose(Function<T, AsyncTask<R>> func2) {
-                return promisify((res, rej) -> {
-                    promise
+                return promisify(
+                    (res, rej) -> {
+                        promise
                             .then(result -> {
                                 try {
-
                                     try {
                                         AsyncTask<R> task2 = func2.apply(result);
                                         task2.catchException(exc -> {
@@ -246,14 +324,13 @@ public class TeaVMPlatform extends NGEPlatform {
                                 }
                             })
                             .catchError(rej::accept);
-                }, executor);
+                    },
+                    executor
+                );
             }
 
             @Override
-            public void cancel() {
-                // TODO Auto-generated method stub
-                throw new UnsupportedOperationException("Unimplemented method 'cancel'");
-            }
+            public void cancel() {}
         };
     }
 
@@ -280,18 +357,62 @@ public class TeaVMPlatform extends NGEPlatform {
                 final int j = i;
                 AsyncTask<T> p = promises.get(i);
                 p
-                        .catchException(e -> {
-                            rej.accept(e);
-                        })
-                        .then(r -> {
-                            results.set(j, r);
-                            if (count.decrementAndGet() == 0) {
-                                res.accept(results);
-                            }
-                            return null;
-                        });
+                    .catchException(e -> {
+                        rej.accept(e);
+                    })
+                    .then(r -> {
+                        results.set(j, r);
+                        if (count.decrementAndGet() == 0) {
+                            res.accept(results);
+                        }
+                        return null;
+                    });
             }
         });
+    }
+
+    private class ExecutorThread extends Thread implements Executor {
+
+        private LinkedList<Runnable> tasks = new LinkedList<>();
+
+        @Override
+        public void run() {
+            while (true) {
+                Runnable task = null;
+                if (!tasks.isEmpty()) {
+                    task = tasks.removeFirst();
+                }
+                if (task != null) {
+                    try {
+                        task.run();
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    try {
+                        synchronized (tasks) {
+                            tasks.wait(100);
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+
+        @Override
+        public void execute(Runnable command) {
+            synchronized (tasks) {
+                tasks.addLast(command);
+                tasks.notifyAll();
+            }
+        }
+    }
+
+    private ExecutorThread executorThread = new ExecutorThread();
+
+    {
+        executorThread.start();
     }
 
     private AsyncExecutor newJsExecutor() {
@@ -299,25 +420,29 @@ public class TeaVMPlatform extends NGEPlatform {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
                 return wrapPromise((res, rej) -> {
+                    executorThread.execute(() -> {
+                        try {
+                            res.accept(r.call());
+                        } catch (Exception e) {
+                            rej.accept(e);
+                        }
+                    });
                     // Execute on the next event loop cycle
-                    getBinds()
-                            .setTimeout(
-                                    () -> {
-                                        try {
-                                            res.accept(r.call());
-                                        } catch (Exception e) {
-                                            rej.accept(e);
-                                        }
-                                    },
-                                    0);
+                    // TeaVMBinds
+                    //         .setTimeout(
+                    //                 () -> {
+                    //                     try {
+                    //                         res.accept(r.call());
+                    //                     } catch (Exception e) {
+                    //                         rej.accept(e);
+                    //                     }
+                    //                 },
+                    //                 0);
                 });
             }
 
             @Override
-            public <T> AsyncTask<T> runLater(
-                    Callable<T> r,
-                    long delay,
-                    TimeUnit unit) {
+            public <T> AsyncTask<T> runLater(Callable<T> r, long delay, TimeUnit unit) {
                 long delayMs = unit.toMillis(delay);
 
                 if (delayMs == 0) {
@@ -325,27 +450,25 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
 
                 return wrapPromise((res, rej) -> {
-                    getBinds()
-                            .setTimeout(
-                                    () -> {
-                                        try {
-                                            res.accept(r.call());
-                                        } catch (Exception e) {
-                                            rej.accept(e);
-                                        }
-                                    },
-                                    (int) delayMs);
+                    TeaVMBinds.setTimeout(
+                        () -> {
+                            executorThread.execute(() -> {
+                                try {
+                                    res.accept(r.call());
+                                } catch (Exception e) {
+                                    rej.accept(e);
+                                }
+                            });
+                        },
+                        (int) delayMs
+                    );
                 });
             }
 
             @Override
-            public void close() {
-                 
-            }
+            public void close() {}
         };
     }
-
- 
 
     @Override
     public WebsocketTransport newTransport() {
@@ -359,26 +482,31 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> signAsync(String data, byte privKey[]) {
-        return promisify((res, rej) -> {
-            try {
-                res.accept(sign(data, privKey));
-            } catch (Exception e) {
-                rej.accept(e);
-            }
-        }, null);
+        return promisify(
+            (res, rej) -> {
+                try {
+                    res.accept(sign(data, privKey));
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            },
+            null
+        );
     }
 
     @Override
     public AsyncTask<Boolean> verifyAsync(String data, String sign, byte pubKey[]) {
-        return promisify((res, rej) -> {
-            try {
-                res.accept(verify(data, sign, pubKey));
-            } catch (Exception e) {
-                rej.accept(e);
-            }
-        }, null);
+        return promisify(
+            (res, rej) -> {
+                try {
+                    res.accept(verify(data, sign, pubKey));
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            },
+            null
+        );
     }
-
 
     @Override
     public AsyncExecutor newAsyncExecutor(Object hint) {
@@ -416,9 +544,10 @@ public class TeaVMPlatform extends NGEPlatform {
         });
     }
 
- 
     @Override
-    public AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<String> httpGet(String inurl, Duration timeout, Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+
         // TODO: timeout
         return wrapPromise((res, rej) -> {
             try {
@@ -428,24 +557,20 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
                 xhr.open("GET", url);
                 xhr.setOnReadyStateChange(
-                        new ReadyStateChangeHandler() {
-                            @Override
-                            public void stateChanged() {
-                                if (xhr.getReadyState() == XMLHttpRequest.DONE) {
-                                    int status = xhr.getStatus();
-                                    if (status >= 200 && status < 300) {
-                                        res.accept(xhr.getResponseText());
-                                    } else {
-                                        rej.accept(
-                                                new IOException(
-                                                        "HTTP error: " +
-                                                                status +
-                                                                " " +
-                                                                xhr.getStatusText()));
-                                    }
+                    new ReadyStateChangeHandler() {
+                        @Override
+                        public void stateChanged() {
+                            if (xhr.getReadyState() == XMLHttpRequest.DONE) {
+                                int status = xhr.getStatus();
+                                if (status >= 200 && status < 300) {
+                                    res.accept(xhr.getResponseText());
+                                } else {
+                                    rej.accept(new IOException("HTTP error: " + status + " " + xhr.getStatusText()));
                                 }
                             }
-                        });
+                        }
+                    }
+                );
 
                 xhr.send();
             } catch (Exception e) {
@@ -456,16 +581,18 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public void setClipboardContent(String data) {
-        getBinds().setClipboardContent(data);
+        TeaVMBinds.setClipboardContent(data);
     }
 
     @Override
     public String getClipboardContent() {
-        return getBinds().getClipboardContent();
+        return TeaVMBinds.getClipboardContent();
     }
 
     @Override
-    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<byte[]> httpGetBytes(String inurl, Duration timeout, Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+
         // TODO
         throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
     }
@@ -476,13 +603,11 @@ public class TeaVMPlatform extends NGEPlatform {
         throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
     }
 
-
     @Override
     public void openInWebBrowser(String url) {
         try {
-            // getBinds().openInWebBrowser(url);
-        } catch (Exception e) {
-        }
+            // TeaVMBinds.openInWebBrowser(url);
+        } catch (Exception e) {}
     }
 
     @Override
@@ -492,21 +617,15 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public byte[] xchacha20poly1305(byte[] key, byte[] nonce, byte[] data, byte[] associatedData,
-            boolean forEncryption) {
+    public byte[] xchacha20poly1305(byte[] key, byte[] nonce, byte[] data, byte[] associatedData, boolean forEncryption) {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'xchacha20poly1305'");
     }
 
     @Override
     public String nfkc(String str) {
-        
         throw new UnsupportedOperationException("Unimplemented method 'nfkc'");
     }
-
-    
-
-
 
     @Override
     public VStore getDataStore(String appName, String storeName) {
@@ -520,5 +639,29 @@ public class TeaVMPlatform extends NGEPlatform {
         throw new UnsupportedOperationException("Unimplemented method 'getCacheStore'");
     }
 
-    
+    @Override
+    public Runnable registerFinalizer(Object obj, Runnable finalizer) {
+        // TODO: implement with FinalizationRegistry ?
+        return () -> {
+            finalizer.run();
+        };
+    }
+
+    @Override
+    public InputStream openResource(String resourceName) throws IOException {
+        if (!TeaVMBinds.hasBundledResource(resourceName)) {
+            throw new IOException("Resource not found: " + resourceName);
+        }
+        byte[] data = TeaVMBinds.getBundledResource(resourceName);
+        if (data == null) {
+            throw new IOException("Resource not found: " + resourceName);
+        }
+        ByteArrayInputStream inputStream = new ByteArrayInputStream(data);
+        return inputStream;
+    }
+
+    @Override
+    public byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption) {
+        return TeaVMBinds.aes256cbc(key, iv, data, forEncryption);
+    }
 }

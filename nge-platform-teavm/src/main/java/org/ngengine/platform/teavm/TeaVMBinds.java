@@ -30,129 +30,111 @@
  */
 package org.ngengine.platform.teavm;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Consumer;
 import org.teavm.jso.JSByRef;
 import org.teavm.jso.JSClass;
 import org.teavm.jso.JSModule;
 import org.teavm.jso.JSObject;
+import org.teavm.jso.JSTopLevel;
 import org.teavm.jso.browser.TimerHandler;
 
 @JSClass
-@JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-public interface TeaVMBinds extends JSObject {
+public class TeaVMBinds implements JSObject {
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] randomBytes(int length);
+    public static native byte[] randomBytes(int length);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] generatePrivateKey();
+    public static native byte[] generatePrivateKey();
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] genPubKey(@JSByRef byte[] secKey);
+    public static native byte[] genPubKey(@JSByRef byte[] secKey);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] sha256(@JSByRef byte[] data);
+    public static native byte[] sha256(@JSByRef byte[] data);
 
-    String toJSON(Object obj);
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native String toJSON(Object obj);
 
-    Object fromJSON(String json);
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native Object fromJSON(String json);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] sign(@JSByRef byte[] data, @JSByRef byte[] privKeyBytes);
+    public static native byte[] sign(@JSByRef byte[] data, @JSByRef byte[] privKeyBytes);
 
-    boolean verify(
-        @JSByRef byte[] data,
-        @JSByRef byte[] pub,
-        @JSByRef byte[] sig
-    );
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native boolean verify(@JSByRef byte[] data, @JSByRef byte[] pub, @JSByRef byte[] sig);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] secp256k1SharedSecret(
-        @JSByRef byte[] privKey,
-        @JSByRef byte[] pubKey
-    );
+    public static native byte[] secp256k1SharedSecret(@JSByRef byte[] privKey, @JSByRef byte[] pubKey);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] hmac(
-        @JSByRef byte[] key,
-        @JSByRef byte[] data1,
-        @JSByRef byte[] data2
-    );
+    public static native byte[] hmac(@JSByRef byte[] key, @JSByRef byte[] data1, @JSByRef byte[] data2);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] hkdf_extract(@JSByRef byte[] salt, @JSByRef byte[] ikm);
+    public static native byte[] hkdf_extract(@JSByRef byte[] salt, @JSByRef byte[] ikm);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] hkdf_expand(@JSByRef byte[] prk, @JSByRef byte[] info, int length);
+    public static native byte[] hkdf_expand(@JSByRef byte[] prk, @JSByRef byte[] info, int length);
 
-    String base64encode(@JSByRef byte[] data);
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native String base64encode(@JSByRef byte[] data);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] base64decode(String data);
+    public static native byte[] base64decode(String data);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    byte[] chacha20(
-        @JSByRef byte[] key,
-        @JSByRef byte[] nonce,
-        @JSByRef byte[] data
-    );
+    public static native byte[] chacha20(@JSByRef byte[] key, @JSByRef byte[] nonce, @JSByRef byte[] data);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native String getClipboardContent();
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void setClipboardContent(String content);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void setTimeout(TimerHandler fn, int delay);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    String getClipboardContent();
+    public static native byte[] getBundledResource(String path);
 
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
-    void setClipboardContent(String content);
+    public static native boolean hasBundledResource(String path);
 
-    void setTimeout(TimerHandler fn, int delay);
-
-    class TeaVMPromise<T> implements JSObject {
-
-        public T result;
-        public Throwable error;
-        public boolean completed = false;
-        public boolean failed = false;
-        private final List<Consumer<T>> thenCallbacks = new ArrayList<>();
-        private final List<Consumer<Throwable>> catchCallbacks =
-            new ArrayList<>();
-
-        public void resolve(T value) {
-            if (!completed) {
-                this.result = value;
-                this.completed = true;
-                for (Consumer<T> callback : thenCallbacks) {
-                    callback.accept(value);
-                }
-            }
-        }
-
-        public void reject(Throwable error) {
-            if (!completed) {
-                this.error = error;
-                this.completed = true;
-                this.failed = true;
-                for (Consumer<Throwable> callback : catchCallbacks) {
-                    callback.accept(error);
-                }
-            }
-        }
-
-        public TeaVMPromise<T> then(Consumer<T> onFulfilled) {
-            if (completed && !failed) {
-                onFulfilled.accept(result);
-            } else if (!completed) {
-                thenCallbacks.add(onFulfilled);
-            }
-            return this;
-        }
-
-        public TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
-            if (completed && failed) {
-                onRejected.accept(error);
-            } else if (!completed) {
-                catchCallbacks.add(onRejected);
-            }
-            return this;
-        }
-    }
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSByRef
+    public static native byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
 }

@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     testImplementation "junit:junit:4.13.2"
+    implementation teavm.libs.jso
     implementation teavm.libs.jsoApis
     api  project(':nge-platform-common')
     testImplementation teavm.libs.jsoApis

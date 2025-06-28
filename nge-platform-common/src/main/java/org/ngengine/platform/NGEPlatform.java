@@ -30,6 +30,8 @@
  */
 package org.ngengine.platform;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Collection;
@@ -71,7 +73,6 @@ public abstract class NGEPlatform {
         return NGEPlatform.platform;
     }
 
-
     public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
         NGEPlatform.browserInterceptor = interceptor;
     }
@@ -92,7 +93,9 @@ public abstract class NGEPlatform {
 
     public abstract byte[] genPubKey(byte[] secKey);
 
-    public abstract String toJSON(Object obj);
+    public abstract String toJSON(Collection obj);
+
+    public abstract String toJSON(Map obj);
 
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
@@ -205,33 +208,42 @@ public abstract class NGEPlatform {
     public abstract VStore getCacheStore(String appName, String cacheName);
 
     public abstract Runnable registerFinalizer(Object obj, Runnable finalizer);
-    
-    private static final List<String> LOCAL_HOSTS = List.of(
-        "localhost", 
-        "localhost.localdomain",
-        "local",
-        "localdomain"
-    );
+
+    private static final List<String> LOCAL_HOSTS = List.of("localhost", "localhost.localdomain", "local", "localdomain");
 
     /**
      * Checks if the given URI is a loopback address.
      * Polyfill for non jcl compliant platforms.
-     * 
+     *
      * This method should be overriden by a platform specific implementation
      * @param uri the URI to check
      * @return true if the URI is a loopback address, false otherwise
      */
-    public boolean isLoopbackAddress(URI uri){
+    public boolean isLoopbackAddress(URI uri) {
         String host = uri.getHost().toLowerCase();
-        if (host.isEmpty() ||
-                LOCAL_HOSTS.contains(host) ||
-                host.startsWith("127.") ||
-                host.startsWith("0.") ||
-                host.equals("::1") ||
-                host.equalsIgnoreCase("0:0:0:0:0:0:0:1")) {
+        if (
+            host.isEmpty() ||
+            LOCAL_HOSTS.contains(host) ||
+            host.startsWith("127.") ||
+            host.startsWith("0.") ||
+            host.equals("::1") ||
+            host.equalsIgnoreCase("0:0:0:0:0:0:0:1")
+        ) {
             return true;
         }
         return false;
     }
 
+    public abstract InputStream openResource(String resourceName) throws IOException;
+
+    /**
+     * Encrypts or decrypts data using AES-256 in CBC mode with PKCS7 padding.
+     *
+     * @param key           A 32-byte key for AES-256
+     * @param iv            A 16-byte initialization vector
+     * @param data          The data to encrypt or decrypt
+     * @param forEncryption True for encryption, false for decryption
+     * @return The encrypted or decrypted data
+     */
+    public abstract byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
 }

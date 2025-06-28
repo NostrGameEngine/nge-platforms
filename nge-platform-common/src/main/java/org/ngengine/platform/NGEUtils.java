@@ -108,7 +108,7 @@ public class NGEUtils {
      * @return
      */
     public static long safeLong(Object input) {
-        if(input==null) return 0L;
+        if (input == null) return 0L;
         if (input instanceof Number) {
             return ((Number) input).longValue();
         } else {
@@ -139,8 +139,9 @@ public class NGEUtils {
     }
 
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
     public static String[] safeStringArray(Object tags) {
-        if(tags == null) {
+        if (tags == null) {
             return EMPTY_STRING_ARRAY;
         }
         if (tags instanceof Collection) {
@@ -184,7 +185,6 @@ public class NGEUtils {
         }
     }
 
- 
     public static List<Integer> safeIntList(Object tags) {
         if (
             tags == null ||
@@ -225,7 +225,7 @@ public class NGEUtils {
     }
 
     public static Collection<String[]> safeCollectionOfStringArray(Object tags) {
-        if(tags == null) {
+        if (tags == null) {
             return List.of();
         }
         if (tags instanceof Collection && !(tags instanceof List)) {
@@ -259,8 +259,8 @@ public class NGEUtils {
     }
 
     public static boolean safeBool(Object v) {
-        if (v == null)  return false; 
-        
+        if (v == null) return false;
+
         if (v instanceof Boolean) {
             return (Boolean) v;
         } else if (v instanceof Number) {
@@ -273,7 +273,7 @@ public class NGEUtils {
     }
 
     public static Instant safeSecondsInstant(Object object) {
-        if(object==null) return Instant.now();
+        if (object == null) return Instant.now();
         if (object instanceof Instant) {
             return (Instant) object;
         } else if (object instanceof String) {
@@ -287,36 +287,81 @@ public class NGEUtils {
         }
     }
 
-    public static Duration safeDurationInSeconds(Object object){
-        if(object==null) return Duration.ZERO;
-        long seconds = safeLong(object);
-        if( seconds < 0) {
+    public static long safeMSats(Object v) {
+        long msats = safeLong(v);
+        if (msats < 0) {
+            throw new IllegalArgumentException("MSats cannot be negative: " + msats);
+        }
+        return msats;
+    }
+
+    public static Duration safeDurationInSeconds(Object object) {
+        if (object == null) return Duration.ZERO;
+
+        Long seconds = null;
+
+        if (object instanceof Duration) {
+            seconds = ((Duration) object).getSeconds();
+        } else if (object instanceof String) {
+            try {
+                seconds = Duration.parse((String) object).getSeconds();
+            } catch (Exception e) {}
+        }
+
+        if (seconds == null) {
+            seconds = safeLong(object);
+        }
+
+        if (seconds < 0) {
             throw new IllegalArgumentException("Duration cannot be negative: " + seconds);
         }
+
         return Duration.ofSeconds(seconds);
     }
 
-    private static final List<String> VALID_SCHEMES = List.of(
-        "http", "https"
-    );
+    public static Instant safeInstantInSeconds(Object object) {
+        if (object == null) return Instant.now();
 
-    private static final boolean ALLOW_LOCALHOST_IN_URIS =  System.getProperty("nge-platforms.allowLoopbackInURIs", "false").equalsIgnoreCase("true");
+        Long seconds = null;
 
+        if (object instanceof Instant) {
+            seconds = ((Instant) object).getEpochSecond();
+        } else if (object instanceof String) {
+            try {
+                return Instant.parse((String) object);
+            } catch (Exception e) {
+                seconds = safeLong(object);
+            }
+        } else {
+            seconds = safeLong(object);
+        }
+
+        if (seconds == null || seconds < 0) {
+            throw new IllegalArgumentException("Invalid Instant: " + object);
+        }
+
+        return Instant.ofEpochSecond(seconds);
+    }
+
+    private static final List<String> VALID_SCHEMES = List.of("http", "https");
+
+    private static final boolean ALLOW_LOCALHOST_IN_URIS = System
+        .getProperty("nge-platforms.allowLoopbackInURIs", "false")
+        .equalsIgnoreCase("true");
 
     public static URI safeURI(Object object) {
         URI uri;
-        if(object instanceof URI){
+        if (object instanceof URI) {
             uri = (URI) object;
-            
-        }else{
+        } else {
             String str = safeString(object);
-            if(str.isEmpty()) {
+            if (str.isEmpty()) {
                 throw new IllegalArgumentException("URI cannot be empty");
             }
-          
+
             uri = URI.create(str);
         }
-        
+
         if (uri.toString().length() > 2000) {
             throw new IllegalArgumentException("URI is too long: " + uri.toString().length());
         }
@@ -325,16 +370,18 @@ public class NGEUtils {
             throw new IllegalArgumentException("Invalid URI: " + uri);
         }
 
-        if(!VALID_SCHEMES.contains(uri.getScheme().toLowerCase())) {
-            throw new IllegalArgumentException("Invalid URI scheme: " + uri.getScheme()+" - valid schemes are " + VALID_SCHEMES);
+        if (!VALID_SCHEMES.contains(uri.getScheme().toLowerCase())) {
+            throw new IllegalArgumentException(
+                "Invalid URI scheme: " + uri.getScheme() + " - valid schemes are " + VALID_SCHEMES
+            );
         }
 
-        if(!ALLOW_LOCALHOST_IN_URIS){
-            if(NGEPlatform.get().isLoopbackAddress(uri)){
+        if (!ALLOW_LOCALHOST_IN_URIS) {
+            if (NGEPlatform.get().isLoopbackAddress(uri)) {
                 throw new IllegalArgumentException("Loopback addresses are not allowed in URIs: " + uri);
-            }          
+            }
         }
-        
+
         return uri;
     }
 

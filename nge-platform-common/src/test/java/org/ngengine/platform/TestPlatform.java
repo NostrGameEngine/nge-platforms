@@ -33,7 +33,6 @@ package org.ngengine.platform;
 import static org.junit.Assert.assertEquals;
 
 import java.time.Duration;
-import java.util.concurrent.ExecutionException;
 import org.junit.Test;
 
 public class TestPlatform {
