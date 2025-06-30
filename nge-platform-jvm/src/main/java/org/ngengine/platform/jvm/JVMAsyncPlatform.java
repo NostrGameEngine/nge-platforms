@@ -58,6 +58,7 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -385,7 +386,21 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             @Override
             public T await() throws Exception {
-                return fut.get();
+                try{
+                    return fut.get();
+                } catch (Exception e) {
+                    if(e instanceof ExecutionException){
+                        ExecutionException excEx = (ExecutionException) e;
+                        Throwable cause = excEx.getCause();
+                        if (cause !=null && cause instanceof Exception) {
+                            throw (Exception) cause;
+                        } else {
+                            throw excEx;
+                        }
+                    } else{
+                        throw e;
+                    }
+                }
             }
 
             @Override
@@ -1059,7 +1074,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public InputStream openResource(String resourceName) throws IOException {
-        InputStream is = JVMAsyncPlatform.class.getResourceAsStream("/" + resourceName);
+        String fullpath = resourceName;
+        if(fullpath.startsWith("/")) {
+            fullpath = fullpath.substring(1);
+        }
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fullpath);
+        if (is == null) {
+            is = JVMAsyncPlatform.class.getClassLoader().getResourceAsStream(fullpath);
+        }
+        
         if (is == null) {
             throw new IOException("Resource not found: " + resourceName);
         }

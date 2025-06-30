@@ -219,7 +219,7 @@ public class TeaVMPlatform extends NGEPlatform {
         }
 
         @JSExport
-        public Object await() throws ExecutionException {
+        public Object await() throws Exception {
             while (!this.completed && !this.failed) {
                 synchronized (monitor) {
                     try {
@@ -257,7 +257,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
         return new AsyncTask<T>() {
             @Override
-            public T await() throws InterruptedException, ExecutionException {
+            public T await() throws Exception {
                 return (T) promise.await();
             }
 
