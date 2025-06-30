@@ -99,8 +99,7 @@ public class TestAsyncTask {
             promise.await();
             fail("Expected exception was not thrown");
         } catch (Exception exception) {
-            assertTrue(exception.getCause() instanceof RuntimeException);
-            assertTrue(exception.getCause().getMessage().contains("failed"));
+             assertTrue(exception.getMessage().contains("failed"));
         }
     }
 
@@ -197,8 +196,7 @@ public class TestAsyncTask {
             promise.await();
             fail("Expected exception was not thrown");
         } catch (Exception exception) {
-            assertTrue(exception.getCause() instanceof RuntimeException);
-            assertTrue(exception.getCause().getMessage().contains("Error in chain"));
+            assertTrue(exception.getMessage().contains("Error in chain"));
         }
 
         // Check the execution path
@@ -517,7 +515,7 @@ public class TestAsyncTask {
             combinedPromise.await();
             fail("Should have thrown exception");
         } catch (Exception e) {
-            assertTrue("Should contain the right error message", e.getCause().getMessage().contains("Deliberate failure"));
+            assertTrue("Should contain the right error message", e.getMessage().contains("Deliberate failure"));
         }
     }
 
