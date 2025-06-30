@@ -386,18 +386,18 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             @Override
             public T await() throws Exception {
-                try{
+                try {
                     return fut.get();
                 } catch (Exception e) {
-                    if(e instanceof ExecutionException){
+                    if (e instanceof ExecutionException) {
                         ExecutionException excEx = (ExecutionException) e;
                         Throwable cause = excEx.getCause();
-                        if (cause !=null && cause instanceof Exception) {
+                        if (cause != null && cause instanceof Exception) {
                             throw (Exception) cause;
                         } else {
                             throw excEx;
                         }
-                    } else{
+                    } else {
                         throw e;
                     }
                 }
@@ -1075,14 +1075,14 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public InputStream openResource(String resourceName) throws IOException {
         String fullpath = resourceName;
-        if(fullpath.startsWith("/")) {
+        if (fullpath.startsWith("/")) {
             fullpath = fullpath.substring(1);
         }
         InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fullpath);
         if (is == null) {
             is = JVMAsyncPlatform.class.getClassLoader().getResourceAsStream(fullpath);
         }
-        
+
         if (is == null) {
             throw new IOException("Resource not found: " + resourceName);
         }
