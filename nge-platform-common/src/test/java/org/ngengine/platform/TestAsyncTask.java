@@ -99,7 +99,7 @@ public class TestAsyncTask {
             promise.await();
             fail("Expected exception was not thrown");
         } catch (Exception exception) {
-             assertTrue(exception.getMessage().contains("failed"));
+            assertTrue(exception.getMessage().contains("failed"));
         }
     }
 
