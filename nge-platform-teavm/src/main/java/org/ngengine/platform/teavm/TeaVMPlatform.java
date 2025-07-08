@@ -629,14 +629,12 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public VStore getDataStore(String appName, String storeName) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getDataStore'");
+        return new VStore(new IndexedDbVStore(appName + "-data-" + storeName));
     }
 
     @Override
     public VStore getCacheStore(String appName, String cacheName) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getCacheStore'");
+        return new VStore(new IndexedDbVStore(appName + "-cache-" + cacheName));
     }
 
     @Override

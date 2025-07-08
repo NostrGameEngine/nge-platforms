@@ -214,35 +214,243 @@ export const aes256cbc = (key/*byte[]*/, iv/*byte[]*/, data/*byte[]*/, forEncryp
     }
 };
 
-// Expose functions on the global object so TeaVM can call them.
-// const nostr4j_jsBinds = {
-//     randomBytes,
-//     generatePrivateKey,
-//     genPubKey,
-//     sha256,
-//     toJSON,
-//     fromJSON,
-//     sign,
-//     verify,
-//     secp256k1SharedSecret,
-//     hmac,
-//     hkdf_extract,
-//     hkdf_expand,
-//     base64encode,
-//     base64decode,
-//     chacha20,
-//     setTimeout,
-//     getClipboardContent,
-//     setClipboardContent
-// };
 
-// if (typeof window !== 'undefined') {
-//     window.nostr4j_jsBinds = nostr4j_jsBinds;
-// } else if (typeof globalThis !== 'undefined') {
-//     globalThis.nostr4j_jsBinds = nostr4j_jsBinds;
-// } else if (typeof global !== 'undefined') {
-//     global.nostr4j_jsBinds = nostr4j_jsBinds;
-// } else if (typeof self !== 'undefined') {
-//     self.nostr4j_jsBinds = nostr4j_jsBinds;
-// }
-// export default nostr4j_jsBinds; 
+// use indexed db as a vfile store
+
+async function getVFileStore(name) {
+    // Get the global object (works in browser, workers, and other JS environments)
+    const globalObj = (typeof window !== 'undefined' && window) ||
+        (typeof self !== 'undefined' && self) ||
+        (typeof globalThis !== 'undefined' && globalThis) ||
+        (typeof global !== 'undefined' && global);
+
+    // Check if IndexedDB is available in the current environment
+    if (!globalObj.indexedDB) {
+        console.warn('IndexedDB is not supported in this environment.');
+        return {
+            exists: async (path) => false,
+            read: async (path) => null,
+            write: async (path, data) => { },
+            delete: async (path) => { },
+            listAll: async () => [],
+        };
+    }
+    const dbName = 'nge-vstore';
+    return new Promise((resolve, reject) => {
+        const request = globalObj.indexedDB.open(dbName, 1);
+
+        request.onupgradeneeded = (event) => {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains(name)) {
+                db.createObjectStore(name);
+            }
+        };
+
+        request.onerror = (event) => {
+            console.error('Error opening IndexedDB:', event.target.error);
+            // Provide fallback implementation when DB can't be opened
+            resolve({
+                exists: async (path) => false,
+                read: async (path) => null,
+                write: async (path, data) => { },
+                delete: async (path) => { },
+                listAll: async () => [],
+            });
+        };
+
+        request.onsuccess = (event) => {
+            const db = event.target.result;
+
+            // Create API object
+            const vfileStore = {
+                close() {
+                    db.close();
+                },
+                async exists(path) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([name], 'readonly');
+                        const store = transaction.objectStore(name);
+                        const request = store.count(path);
+
+                        request.onsuccess = () => {
+                            resolve(request.result > 0);
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('Error checking file existence:', event.target.error);
+                            resolve(false);
+                        };
+                    });
+                },
+
+                async read(path) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([name], 'readonly');
+                        const store = transaction.objectStore(name);
+                        const request = store.get(path);
+
+                        request.onsuccess = () => {
+                            resolve(request.result);
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('Error reading file:', event.target.error);
+                            resolve(null);
+                        };
+                    });
+                },
+
+                async write(path, data) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([name], 'readwrite');
+                        const store = transaction.objectStore(name);
+                        const request = store.put(data, path);
+
+                        request.onsuccess = () => {
+                            resolve();
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('Error writing file:', event.target.error);
+                            resolve();  // Still resolve to avoid breaking the app
+                        };
+                    });
+                },
+
+                async delete(path) {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([name], 'readwrite');
+                        const store = transaction.objectStore(name);
+                        const request = store.delete(path);
+
+                        request.onsuccess = () => {
+                            resolve();
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('Error deleting file:', event.target.error);
+                            resolve();  // Still resolve to avoid breaking the app
+                        };
+                    });
+                },
+
+                async listAll() {
+                    return new Promise((resolve, reject) => {
+                        const transaction = db.transaction([name], 'readonly');
+                        const store = transaction.objectStore(name);
+                        const request = store.getAllKeys();
+
+                        request.onsuccess = () => {
+                            resolve(Array.from(request.result || []));
+                        };
+
+                        request.onerror = (event) => {
+                            console.error('Error listing files:', event.target.error);
+                            resolve([]);
+                        };
+                    });
+                }
+            };
+
+            resolve(vfileStore);
+        };
+    });
+}
+
+export const vfileExists = async (name, path) => { // boolean
+    const vstore = await getVFileStore(name);
+    const v = await vstore.exists(path);
+    vstore.close();
+    return v;
+}
+
+export const vfileRead = async (name, path) => { // byte[]
+    const vstore = await getVFileStore(name);
+    const v  = await vstore.read(path);
+    if (v === null || v === undefined) {
+        console.warn(`File not found: ${path} in store ${name}`);
+        vstore.close();
+        return null;
+    }
+    console.log(`File read: ${path} in store ${name}`);
+    vstore.close();
+    return _u(v);
+}
+
+export const vfileWrite = async (name, path, data) => { // void
+    const vstore = await getVFileStore(name);
+    await vstore.write(path, _u(data));
+    vstore.close();
+    console.log(`File written: ${path} in store ${name}`);
+}
+
+export const vfileDelete = async (name, path) => { // void
+    const vstore = await getVFileStore(name);
+    await vstore.delete(path);
+    vstore.close();
+    console.log(`File deleted: ${path} in store ${name}`);    
+}   
+
+export const vfileListAll = async (name) => { // str[]
+    const vstore = await getVFileStore(name);
+    const files = await vstore.listAll();
+    if (files === undefined || files === null) {
+        console.warn(`No files found in store ${name}`);
+        vstore.close();
+        return [];
+    }
+    const v = files.map(file => file.toString());
+    vstore.close();
+    return v;
+}
+
+export const vfileExistsAsync = (name, path, res, rej) => { // void
+    vfileExists(name, path)
+        .then(result => res(result))
+        .catch(error => {
+            console.error(`Error checking file existence: ${error}`);
+            rej(error);
+        }
+    );
+}
+
+const vfileReadAsync = (name, path, res, rej) => { // void
+    vfileRead(name, path)
+        .then(result => res(result))
+        .catch(error => {
+            console.error(`Error reading file: ${error}`);
+            rej(error);
+        }
+    );
+}
+
+export const vfileWriteAsync = (name, path, data, res, rej) => { // void
+    vfileWrite(name, path, data)
+        .then(() => res())
+        .catch(error => {
+            console.error(`Error writing file: ${error}`);
+            rej(error);
+        }
+    );
+}
+
+export const vfileDeleteAsync = (name, path, res, rej) => { // void
+    vfileDelete(name, path)
+        .then(() => res())  
+        .catch(error => {
+            console.error(`Error deleting file: ${error}`);
+            rej(error);
+        }
+    );
+}
+
+export const vfileListAllAsync = (name, res, rej) => { // str[]
+    vfileListAll(name)
+
+        .then(result => res(result))
+        .catch(error => {
+            console.error(`Error listing files: ${error}`);
+            rej(error);
+        }
+    );
+}

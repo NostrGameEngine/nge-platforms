@@ -28,83 +28,91 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.ngengine.platform.jvm;
+package org.ngengine.platform.teavm;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.List;
-import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
-import org.ngengine.platform.VStore;
 import org.ngengine.platform.VStore.VStoreBackend;
 
-public class FileSystemVStore implements VStoreBackend {
+public class IndexedDbVStore implements VStoreBackend {
 
-    private final AsyncExecutor executor;
-    private final Path basePath;
+    private final String name;
 
-    public FileSystemVStore(Path basePath) {
-        this.basePath = basePath;
-        NGEPlatform platform = NGEPlatform.get();
-        this.executor = platform.newAsyncExecutor(VStore.class);
+    public IndexedDbVStore(String name) {
+        this.name = name;
     }
 
     @Override
     public AsyncTask<InputStream> read(String path) {
-        return executor.run(() -> {
-            Path fullPath = Util.safePath(basePath, path, false);
-            return new FileInputStream(fullPath.toFile());
-        });
+        byte data[] = TeaVMBinds.vfileRead(name, path);
+        ByteArrayInputStream bais = new ByteArrayInputStream(data);
+        return NGEPlatform
+            .get()
+            .wrapPromise((res, rej) -> {
+                res.accept(bais);
+            });
     }
 
     @Override
     public AsyncTask<OutputStream> write(String path) {
-        return executor.run(() -> {
-            Path fullPath = Util.safePath(basePath, path, true);
-            return new FileOutputStream(fullPath.toFile());
-        });
+        return NGEPlatform
+            .get()
+            .wrapPromise((res, rej) -> {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                OutputStream os = new OutputStream() {
+                    @Override
+                    public void write(int b) {
+                        baos.write(b);
+                    }
+
+                    @Override
+                    public void flush() throws IOException {
+                        TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+                    }
+
+                    @Override
+                    public void close() {
+                        TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+                        res.accept(this);
+                    }
+                };
+                res.accept(os);
+            });
     }
 
     @Override
     public AsyncTask<Boolean> exists(String path) {
-        return executor.run(() -> {
-            try {
-                Path fullPath = Util.safePath(basePath, path, false);
-                if (fullPath == null) {
-                    return false;
-                }
-            } catch (IOException e) {
-                return false;
-            }
-            return true;
-        });
+        boolean exists = TeaVMBinds.vfileExists(name, path);
+        return NGEPlatform
+            .get()
+            .wrapPromise((res, rej) -> {
+                res.accept(exists);
+            });
     }
 
     @Override
     public AsyncTask<Void> delete(String path) {
-        return executor.run(() -> {
-            Path fullPath = Util.safePath(basePath, path, false);
-            if (fullPath != null) {
-                Files.deleteIfExists(fullPath);
-            }
-            return null;
-        });
+        TeaVMBinds.vfileDelete(name, path);
+        return NGEPlatform
+            .get()
+            .wrapPromise((res, rej) -> {
+                res.accept(null);
+            });
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
-        return executor.run(() -> {
-            try {
-                return Files.walk(basePath).filter(Files::isRegularFile).map(basePath::relativize).map(Path::toString).toList();
-            } catch (IOException e) {
-                return List.of();
-            }
-        });
+        String[] files = TeaVMBinds.vfileListAll(name);
+        return NGEPlatform
+            .get()
+            .wrapPromise((res, rej) -> {
+                res.accept(List.of(files));
+            });
     }
 }

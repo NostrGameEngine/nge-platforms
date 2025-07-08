@@ -30,12 +30,15 @@
  */
 package org.ngengine.platform.teavm;
 
+import org.teavm.interop.Async;
+import org.teavm.interop.AsyncCallback;
 import org.teavm.jso.JSByRef;
 import org.teavm.jso.JSClass;
 import org.teavm.jso.JSModule;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSTopLevel;
 import org.teavm.jso.browser.TimerHandler;
+import org.teavm.jso.function.JSConsumer;
 
 @JSClass
 public class TeaVMBinds implements JSObject {
@@ -137,4 +140,101 @@ public class TeaVMBinds implements JSObject {
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     @JSByRef
     public static native byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
+
+    /**
+     * Checks if a file exists in the virtual file store
+     */
+    @Async
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native Boolean vfileExists(String name, String path);
+
+    private static void vfileExists(String name, String path, AsyncCallback<Boolean> callback) {
+        vfileExistsAsync(name, path, result -> callback.complete(result), error -> callback.error(error));
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    private static native void vfileExistsAsync(String name, String path, JSConsumer<Boolean> res, JSConsumer<Throwable> rej);
+
+    /**
+     * Reads a file from the virtual file store
+     */
+    @Async
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSByRef
+    public static native byte[] vfileRead(String name, String path);
+
+    private static void vfileRead(String name, String path, @JSByRef AsyncCallback<byte[]> callback) {
+        vfileReadAsync(name, path, result -> callback.complete(result), error -> callback.error(error));
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    private static native void vfileReadAsync(
+        String name,
+        String path,
+        @JSByRef JSConsumer<byte[]> res,
+        JSConsumer<Throwable> rej
+    );
+
+    /**
+     * Writes a file to the virtual file store
+     */
+    @Async
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void vfileWrite(String name, String path, @JSByRef byte[] data);
+
+    private static void vfileWrite(String name, String path, @JSByRef byte[] data, AsyncCallback<Void> callback) {
+        vfileWriteAsync(name, path, data, r -> callback.complete(null), error -> callback.error(error));
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    private static native void vfileWriteAsync(
+        String name,
+        String path,
+        @JSByRef byte[] data,
+        JSConsumer<Void> callback,
+        JSConsumer<Throwable> errorCallback
+    );
+
+    /**
+     * Deletes a file from the virtual file store
+     */
+    @Async
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void vfileDelete(String name, String path);
+
+    private static void vfileDelete(String name, String path, AsyncCallback<Void> callback) {
+        vfileDeleteAsync(name, path, r -> callback.complete(null), error -> callback.error(error));
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    private static native void vfileDeleteAsync(
+        String name,
+        String path,
+        JSConsumer<Void> callback,
+        JSConsumer<Throwable> errorCallback
+    );
+
+    /**
+     * Lists all files in the virtual file store
+     */
+    @Async
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native String[] vfileListAll(String name);
+
+    private static void vfileListAll(String name, AsyncCallback<String[]> callback) {
+        vfileListAllAsync(name, result -> callback.complete(result), error -> callback.error(error));
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    private static native void vfileListAllAsync(String name, JSConsumer<String[]> res, JSConsumer<Throwable> rej);
 }

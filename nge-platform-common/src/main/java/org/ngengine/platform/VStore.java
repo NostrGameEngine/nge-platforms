@@ -30,17 +30,149 @@
  */
 package org.ngengine.platform;
 
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
 
-public interface VStore {
-    AsyncTask<InputStream> read(String path);
+public class VStore {
 
-    AsyncTask<OutputStream> write(String path);
+    public interface VStoreBackend {
+        AsyncTask<InputStream> read(String path);
 
-    AsyncTask<Boolean> exists(String path);
+        AsyncTask<OutputStream> write(String path);
 
-    AsyncTask<Void> delete(String path);
-    AsyncTask<List<String>> listAll();
+        AsyncTask<Boolean> exists(String path);
+
+        AsyncTask<Void> delete(String path);
+        AsyncTask<List<String>> listAll();
+    }
+
+    private final VStoreBackend backend;
+
+    public VStore(VStoreBackend backend) {
+        this.backend = backend;
+    }
+
+    public AsyncTask<InputStream> read(String path) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                backend
+                    .read(path)
+                    .then(in -> {
+                        res.accept(in);
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<OutputStream> write(String path) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                backend
+                    .write(path)
+                    .then(out -> {
+                        res.accept(out);
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<Boolean> exists(String path) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                backend
+                    .exists(path)
+                    .then(exists -> {
+                        res.accept(exists);
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<Void> delete(String path) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                backend
+                    .delete(path)
+                    .then(v -> {
+                        res.accept(null);
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<List<String>> listAll() {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                backend
+                    .listAll()
+                    .then(list -> {
+                        res.accept(list);
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<Void> writeFully(String path, byte data[]) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                write(path)
+                    .then(out -> {
+                        try {
+                            out.write(data);
+                            out.close();
+                            res.accept(null);
+                        } catch (Exception e) {
+                            rej.accept(e);
+                        }
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+    public AsyncTask<byte[]> readFully(String path) {
+        return NGEPlatform
+            .get()
+            .getVStoreQueue()
+            .enqueue((res, rej) -> {
+                read(path)
+                    .then(in -> {
+                        try {
+                            byte[] buffer = new byte[1024];
+                            int bytesRead;
+                            ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                            while ((bytesRead = in.read(buffer)) != -1) {
+                                bos.write(buffer, 0, bytesRead);
+                            }
+                            in.close();
+                            res.accept(bos.toByteArray());
+                        } catch (Exception e) {
+                            rej.accept(e);
+                        }
+                        return null;
+                    })
+                    .catchException(rej);
+            });
+    }
+
+
 }

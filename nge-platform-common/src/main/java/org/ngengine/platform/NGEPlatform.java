@@ -38,6 +38,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
@@ -246,4 +247,15 @@ public abstract class NGEPlatform {
      * @return The encrypted or decrypted data
      */
     public abstract byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
+
+    private final AtomicReference<ExecutionQueue> vstoreQueue = new AtomicReference<>(null);
+
+    public ExecutionQueue getVStoreQueue() {
+        return vstoreQueue.updateAndGet(current -> {
+            if (current == null) {
+                return new ExecutionQueue();
+            }
+            return current;
+        });
+    }
 }
