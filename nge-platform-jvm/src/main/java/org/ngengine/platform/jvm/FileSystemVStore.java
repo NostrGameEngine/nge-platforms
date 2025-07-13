@@ -37,7 +37,9 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
+
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -67,7 +69,7 @@ public class FileSystemVStore implements VStoreBackend {
     public AsyncTask<OutputStream> write(String path) {
         return executor.run(() -> {
             Path fullPath = Util.safePath(basePath, path, true);
-            return new FileOutputStream(fullPath.toFile());
+            return new SafeFileOutputStream(fullPath);
         });
     }
 
@@ -106,5 +108,63 @@ public class FileSystemVStore implements VStoreBackend {
                 return List.of();
             }
         });
+    }
+
+
+    /**
+     * An OutputStream that writes to a temporary file and atomically moves it
+     * to the target location on close, preventing corruption if the process is
+     * interrupted or crashes during write.
+     */
+    private static class SafeFileOutputStream extends OutputStream {
+        private final Path targetPath;
+        private final Path tempPath;
+        private final FileOutputStream tempStream;
+        private boolean closed = false;
+
+        public SafeFileOutputStream(Path targetPath) throws IOException {
+            this.targetPath = targetPath;
+            Files.createDirectories(targetPath.getParent());            
+            this.tempPath = Files.createTempFile( targetPath.getParent(),"vstore",".tmp");                
+            this.tempStream = new FileOutputStream(tempPath.toFile());
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            tempStream.write(b);
+        }
+
+        @Override
+        public void write(byte[] b) throws IOException {
+            tempStream.write(b);
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            tempStream.write(b, off, len);
+        }
+
+        @Override
+        public void flush() throws IOException {
+            tempStream.flush();
+        }
+
+        @Override
+        public void close() throws IOException {
+            if (closed) {
+                return;
+            }
+            
+            // Ensure all data is written to disk
+            tempStream.flush();
+            tempStream.getFD().sync(); // Force sync to disk
+            tempStream.close();
+            
+            // Atomic move
+            Files.move(tempPath, targetPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            
+            closed = true;            
+        }
+
     }
 }
