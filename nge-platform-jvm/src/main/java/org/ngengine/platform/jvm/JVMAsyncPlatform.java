@@ -1117,4 +1117,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             throw new RuntimeException("AES-256-CBC operation failed", e);
         }
     }
+
+    @Override
+    public String getPlatformName() {
+        return "JVM";
+    }
 }

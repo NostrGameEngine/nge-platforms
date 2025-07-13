@@ -454,3 +454,80 @@ export const vfileListAllAsync = (name, res, rej) => { // str[]
         }
     );
 }
+
+export const getPlatformName = () => { // str
+    const pl =  'JavaScript (' + (typeof window !== 'undefined' ? 'browser' : 'runtime') + ')';
+    return pl;
+}
+
+
+function toFunction(f) { // Function
+    const namespace = f.split('.');
+    let obj = null;
+    let fun = null;
+
+    // Get the root object
+    if (namespace[0] === 'window' || namespace[0] === 'globalThis' || namespace[0] === 'self') {
+        obj = (typeof window !== 'undefined' && window) ||
+            (typeof globalThis !== 'undefined' && globalThis) ||
+            (typeof self !== 'undefined' && self);
+    } else {
+        const globalObj = (typeof window !== 'undefined' && window) ||
+            (typeof globalThis !== 'undefined' && globalThis) ||
+            (typeof self !== 'undefined' && self);
+        obj = globalObj[namespace[0]];
+    }
+
+    if (!obj) {
+        throw new Error(`Root object ${namespace[0]} is not defined`);
+    }
+
+    // Navigate to the parent object and function
+    for (let i = 1; i < namespace.length - 1; i++) {
+        if (!obj) {
+            throw new Error(`Object ${namespace.slice(0, i + 1).join('.')} is not defined`);
+        }
+        obj = obj[namespace[i]];
+    }
+
+    // Get the final function
+    const functionName = namespace[namespace.length - 1];
+    fun = obj[functionName];
+
+    if (!fun) {
+        throw new Error(`Function ${functionName} is not defined`);
+    }
+
+    if (typeof fun !== 'function') {
+        throw new Error(`${functionName} is not a function`);
+    }
+
+
+    // Return a bound function to preserve the 'this' context
+    return fun.bind(obj);
+}
+export const callFunction = async (functionName, data, res, rej) => { // void
+    try {
+        const result = await toFunction(functionName)(...(JSON.parse(data).args));
+        res(JSON.stringify({ result: result }));
+    } catch (error) {
+        console.error(`Error executing function ${functionName}:`, error);
+        rej(error);
+    }
+};
+
+export const canCallFunction = async (functionName, res) => { // void
+    try {
+        const canCall = !!toFunction(functionName);
+        if (canCall){
+            console.log(`Function ${functionName} can be called:`, canCall);
+            res(true);
+        } else {
+            console.warn(`Function ${functionName} cannot be called.`);
+            res(false);
+        }
+    } catch (error) {
+        console.error(`Error checking function ${functionName}:`, error);
+        res(false);
+    }
+};

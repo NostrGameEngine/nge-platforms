@@ -97,14 +97,14 @@ public class TeaVMJsConverter {
                 // Fallback to string if conversion fails
             }
             // Otherwise use string representation
-            return JSString.valueOf(obj.toString());
+            return JSString.valueOf(String.valueOf(obj));
         } else if (obj instanceof Enum<?>) {
             // Convert enums to their string representation
             return JSString.valueOf(((Enum<?>) obj).name());
         }
 
         // For other types, try to convert to string
-        return JSString.valueOf(obj.toString());
+        return JSString.valueOf(String.valueOf(obj));
     }
 
     /**
@@ -190,44 +190,44 @@ public class TeaVMJsConverter {
 
         // Handle common Java types
         if (targetClass == String.class) {
-            return (T) jsObj.toString();
+            return (T) String.valueOf(jsObj);
         } else if (targetClass == Integer.class || targetClass == int.class) {
             if (isNumber(jsObj)) {
                 return (T) Integer.valueOf((int) getNumberValue(jsObj));
             }
-            return (T) Integer.valueOf(Integer.parseInt(jsObj.toString()));
+            return (T) Integer.valueOf(Integer.parseInt(String.valueOf(jsObj)));
         } else if (targetClass == Double.class || targetClass == double.class) {
             if (isNumber(jsObj)) {
                 return (T) Double.valueOf(getNumberValue(jsObj));
             }
-            return (T) Double.valueOf(Double.parseDouble(jsObj.toString()));
+            return (T) Double.valueOf(Double.parseDouble(String.valueOf(jsObj)));
         } else if (targetClass == Boolean.class || targetClass == boolean.class) {
             if (isBoolean(jsObj)) {
                 return (T) Boolean.valueOf(getBooleanValue(jsObj));
             }
-            return (T) Boolean.valueOf(Boolean.parseBoolean(jsObj.toString()));
+            return (T) Boolean.valueOf(Boolean.parseBoolean(String.valueOf(jsObj)));
         } else if (targetClass == Long.class || targetClass == long.class) {
             if (isNumber(jsObj)) {
                 return (T) Long.valueOf((long) getNumberValue(jsObj));
             }
-            return (T) Long.valueOf(Long.parseLong(jsObj.toString()));
+            return (T) Long.valueOf(Long.parseLong(String.valueOf(jsObj)));
         } else if (targetClass == Byte.class || targetClass == byte.class) {
             if (isNumber(jsObj)) {
                 return (T) Byte.valueOf((byte) getNumberValue(jsObj));
             }
-            return (T) Byte.valueOf(Byte.parseByte(jsObj.toString()));
+            return (T) Byte.valueOf(Byte.parseByte(String.valueOf(jsObj)));
         } else if (targetClass == Short.class || targetClass == short.class) {
             if (isNumber(jsObj)) {
                 return (T) Short.valueOf((short) getNumberValue(jsObj));
             }
-            return (T) Short.valueOf(Short.parseShort(jsObj.toString()));
+            return (T) Short.valueOf(Short.parseShort(String.valueOf(jsObj)));
         } else if (targetClass == Float.class || targetClass == float.class) {
             if (isNumber(jsObj)) {
                 return (T) Float.valueOf((float) getNumberValue(jsObj));
             }
-            return (T) Float.valueOf(Float.parseFloat(jsObj.toString()));
+            return (T) Float.valueOf(Float.parseFloat(String.valueOf(jsObj)));
         } else if (targetClass == Character.class || targetClass == char.class) {
-            String str = jsObj.toString();
+            String str = String.valueOf(jsObj);
             if (str.length() > 0) {
                 return (T) Character.valueOf(str.charAt(0));
             }
@@ -238,19 +238,19 @@ public class TeaVMJsConverter {
             }
             // Try to parse as string date
             try {
-                return (T) new Date(Long.parseLong(jsObj.toString()));
+                return (T) new Date(Long.parseLong(String.valueOf(jsObj)));
             } catch (NumberFormatException e) {
                 // Not a timestamp, try to parse as ISO string
-                return (T) new Date(parseISODate(jsObj.toString()));
+                return (T) new Date(parseISODate(String.valueOf(jsObj)));
             }
         } else if (targetClass == BigInteger.class) {
-            return (T) new BigInteger(jsObj.toString());
+            return (T) new BigInteger(String.valueOf(jsObj));
         } else if (targetClass == BigDecimal.class) {
-            return (T) new BigDecimal(jsObj.toString());
+            return (T) new BigDecimal(String.valueOf(jsObj));
         }
         // Handle Enum types
         else if (targetClass.isEnum()) {
-            String enumValue = jsObj.toString();
+            String enumValue = String.valueOf(jsObj);
             for (Object enumConstant : targetClass.getEnumConstants()) {
                 if (((Enum<?>) enumConstant).name().equals(enumValue)) {
                     return (T) enumConstant;
@@ -290,7 +290,7 @@ public class TeaVMJsConverter {
         JSObject result = JSObjects.create();
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
-            String key = entry.getKey().toString();
+            String key = String.valueOf(entry.getKey());
             Object value = entry.getValue();
 
             // Use direct property setting instead of JSObjects.setProperty
@@ -305,7 +305,8 @@ public class TeaVMJsConverter {
             } else if (value instanceof Boolean) {
                 setProperty(result, key, JSBoolean.valueOf((Boolean) value));
             } else {
-                setProperty(result, key, JSString.valueOf(value.toString()));
+                System.out.println(value.getClass());
+                setProperty(result, key, JSString.valueOf(String.valueOf(value)));
             }
         }
 
@@ -331,7 +332,7 @@ public class TeaVMJsConverter {
             } else if (item instanceof Boolean) {
                 array.set(index, JSBoolean.valueOf((Boolean) item));
             } else {
-                array.set(index, JSString.valueOf(item.toString()));
+                array.set(index, JSString.valueOf(String.valueOf(item)));
             }
             index++;
         }
@@ -358,7 +359,7 @@ public class TeaVMJsConverter {
             } else if (item instanceof Boolean) {
                 result.set(i, JSBoolean.valueOf((Boolean) item));
             } else {
-                result.set(i, JSString.valueOf(item.toString()));
+                result.set(i, JSString.valueOf(String.valueOf(item)));
             }
         }
 
@@ -468,7 +469,7 @@ public class TeaVMJsConverter {
         }
 
         if (isString(value)) {
-            return value.toString();
+            return String.valueOf(value);
         } else if (isNumber(value)) {
             double d = getNumberValue(value);
             // Check if it's an integer
@@ -485,7 +486,7 @@ public class TeaVMJsConverter {
         }
 
         // Default case
-        return value.toString();
+        return String.valueOf(value);
     }
 
     /**

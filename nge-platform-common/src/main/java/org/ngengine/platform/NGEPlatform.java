@@ -258,4 +258,17 @@ public abstract class NGEPlatform {
             return current;
         });
     }
+
+    /**
+     * Run platform specific script
+     */
+    public void callFunction(String function, Object args, Consumer<Object> res, Consumer<Throwable> rej) {
+        throw new UnsupportedOperationException("This platform does not support dynamic function calls");
+    }
+
+    public void canCallFunction(String function, Consumer<Boolean> res) {
+        res.accept(false);        
+    }
+
+    public abstract String getPlatformName();
 }

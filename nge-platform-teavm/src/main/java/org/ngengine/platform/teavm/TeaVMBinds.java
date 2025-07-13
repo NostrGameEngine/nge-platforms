@@ -30,6 +30,8 @@
  */
 package org.ngengine.platform.teavm;
 
+
+
 import org.teavm.interop.Async;
 import org.teavm.interop.AsyncCallback;
 import org.teavm.jso.JSByRef;
@@ -38,6 +40,8 @@ import org.teavm.jso.JSModule;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSTopLevel;
 import org.teavm.jso.browser.TimerHandler;
+import org.teavm.jso.core.JSBoolean;
+import org.teavm.jso.core.JSString;
 import org.teavm.jso.function.JSConsumer;
 
 @JSClass
@@ -237,4 +241,19 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
     private static native void vfileListAllAsync(String name, JSConsumer<String[]> res, JSConsumer<Throwable> rej);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native String getPlatformName();
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void callFunction(String function, String args, JSConsumer<JSString> res, JSConsumer<Throwable> rej);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    public static native void canCallFunction(String function, JSConsumer<JSBoolean> res);
+      
 }

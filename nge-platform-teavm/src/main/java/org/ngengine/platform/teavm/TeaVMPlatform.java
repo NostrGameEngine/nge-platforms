@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -61,6 +62,7 @@ import org.teavm.jso.JSExport;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.ajax.ReadyStateChangeHandler;
 import org.teavm.jso.ajax.XMLHttpRequest;
+
 
 public class TeaVMPlatform extends NGEPlatform {
 
@@ -661,5 +663,34 @@ public class TeaVMPlatform extends NGEPlatform {
     @Override
     public byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption) {
         return TeaVMBinds.aes256cbc(key, iv, data, forEncryption);
+    }
+
+    @Override
+    public String getPlatformName() {
+        return TeaVMBinds.getPlatformName();
+    }
+
+    @Override
+    public void callFunction(String function, Object args, Consumer<Object> res, Consumer<Throwable> rej) {
+        Map<String, Object> argsMap = new HashMap<>();
+        argsMap.put("args", args);
+        TeaVMBinds.callFunction(function, toJSON(argsMap), (json)->{
+            Map<String,Object> r = fromJSON(json.stringValue(), Map.class);
+            res.accept(r.get("result"));
+        }, (err)->{
+            rej.accept(err);
+        });
+    }
+
+    @Override
+    public void canCallFunction(String function, Consumer<Boolean> res) {
+        TeaVMBinds.canCallFunction(function, (canjs) -> {
+            boolean can = canjs.booleanValue();
+            if(can){
+                res.accept(true);
+            } else {
+                res.accept(false);
+            }
+        } );
     }
 }
