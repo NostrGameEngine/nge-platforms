@@ -31,11 +31,15 @@
 package org.ngengine.platform;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class VStore {
+    private static final Logger logger = Logger.getLogger(VStore.class.getName());
 
     public interface VStoreBackend {
         AsyncTask<InputStream> read(String path);
@@ -138,10 +142,15 @@ public class VStore {
                     .then(out -> {
                         try {
                             out.write(data);
-                            out.close();
                             res.accept(null);
                         } catch (Exception e) {
                             rej.accept(e);
+                        } finally{
+                            try {
+                                out.close();
+                            } catch (IOException e) {
+                                logger.log(Level.WARNING, "Error closing output stream", e);
+                            }
                         }
                         return null;
                     })
@@ -163,10 +172,15 @@ public class VStore {
                             while ((bytesRead = in.read(buffer)) != -1) {
                                 bos.write(buffer, 0, bytesRead);
                             }
-                            in.close();
                             res.accept(bos.toByteArray());
                         } catch (Exception e) {
                             rej.accept(e);
+                        } finally{
+                            try{
+                                in.close();
+                            }catch(IOException e){
+                                logger.log(Level.WARNING,"Error closing input stream", e);
+                            }
                         }
                         return null;
                     })
