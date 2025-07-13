@@ -267,7 +267,7 @@ public abstract class NGEPlatform {
     }
 
     public void canCallFunction(String function, Consumer<Boolean> res) {
-        res.accept(false);        
+        res.accept(false);
     }
 
     public abstract String getPlatformName();

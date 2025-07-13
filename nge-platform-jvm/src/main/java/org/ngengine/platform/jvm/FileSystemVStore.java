@@ -39,7 +39,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -110,13 +109,13 @@ public class FileSystemVStore implements VStoreBackend {
         });
     }
 
-
     /**
      * An OutputStream that writes to a temporary file and atomically moves it
      * to the target location on close, preventing corruption if the process is
      * interrupted or crashes during write.
      */
     private static class SafeFileOutputStream extends OutputStream {
+
         private final Path targetPath;
         private final Path tempPath;
         private final FileOutputStream tempStream;
@@ -124,8 +123,8 @@ public class FileSystemVStore implements VStoreBackend {
 
         public SafeFileOutputStream(Path targetPath) throws IOException {
             this.targetPath = targetPath;
-            Files.createDirectories(targetPath.getParent());            
-            this.tempPath = Files.createTempFile( targetPath.getParent(),"vstore",".tmp");                
+            Files.createDirectories(targetPath.getParent());
+            this.tempPath = Files.createTempFile(targetPath.getParent(), "vstore", ".tmp");
             this.tempStream = new FileOutputStream(tempPath.toFile());
         }
 
@@ -154,17 +153,16 @@ public class FileSystemVStore implements VStoreBackend {
             if (closed) {
                 return;
             }
-            
+
             // Ensure all data is written to disk
             tempStream.flush();
             tempStream.getFD().sync(); // Force sync to disk
             tempStream.close();
-            
+
             // Atomic move
             Files.move(tempPath, targetPath, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            
-            closed = true;            
-        }
 
+            closed = true;
+        }
     }
 }

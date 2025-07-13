@@ -63,7 +63,6 @@ import org.teavm.jso.JSObject;
 import org.teavm.jso.ajax.ReadyStateChangeHandler;
 import org.teavm.jso.ajax.XMLHttpRequest;
 
-
 public class TeaVMPlatform extends NGEPlatform {
 
     @Override
@@ -674,23 +673,31 @@ public class TeaVMPlatform extends NGEPlatform {
     public void callFunction(String function, Object args, Consumer<Object> res, Consumer<Throwable> rej) {
         Map<String, Object> argsMap = new HashMap<>();
         argsMap.put("args", args);
-        TeaVMBinds.callFunction(function, toJSON(argsMap), (json)->{
-            Map<String,Object> r = fromJSON(json.stringValue(), Map.class);
-            res.accept(r.get("result"));
-        }, (err)->{
-            rej.accept(err);
-        });
+        TeaVMBinds.callFunction(
+            function,
+            toJSON(argsMap),
+            json -> {
+                Map<String, Object> r = fromJSON(json.stringValue(), Map.class);
+                res.accept(r.get("result"));
+            },
+            err -> {
+                rej.accept(err);
+            }
+        );
     }
 
     @Override
     public void canCallFunction(String function, Consumer<Boolean> res) {
-        TeaVMBinds.canCallFunction(function, (canjs) -> {
-            boolean can = canjs.booleanValue();
-            if(can){
-                res.accept(true);
-            } else {
-                res.accept(false);
+        TeaVMBinds.canCallFunction(
+            function,
+            canjs -> {
+                boolean can = canjs.booleanValue();
+                if (can) {
+                    res.accept(true);
+                } else {
+                    res.accept(false);
+                }
             }
-        } );
+        );
     }
 }

@@ -39,6 +39,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class VStore {
+
     private static final Logger logger = Logger.getLogger(VStore.class.getName());
 
     public interface VStoreBackend {
@@ -145,7 +146,7 @@ public class VStore {
                             res.accept(null);
                         } catch (Exception e) {
                             rej.accept(e);
-                        } finally{
+                        } finally {
                             try {
                                 out.close();
                             } catch (IOException e) {
@@ -175,11 +176,11 @@ public class VStore {
                             res.accept(bos.toByteArray());
                         } catch (Exception e) {
                             rej.accept(e);
-                        } finally{
-                            try{
+                        } finally {
+                            try {
                                 in.close();
-                            }catch(IOException e){
-                                logger.log(Level.WARNING,"Error closing input stream", e);
+                            } catch (IOException e) {
+                                logger.log(Level.WARNING, "Error closing input stream", e);
                             }
                         }
                         return null;
@@ -187,6 +188,4 @@ public class VStore {
                     .catchException(rej);
             });
     }
-
-
 }
