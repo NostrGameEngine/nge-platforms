@@ -43,14 +43,14 @@ public class VStore {
     private static final Logger logger = Logger.getLogger(VStore.class.getName());
 
     public interface VStoreBackend {
-        AsyncTask<InputStream> read(String path);
+        InputStream read(String path) throws IOException;
 
-        AsyncTask<OutputStream> write(String path);
+        OutputStream write(String path) throws IOException;
 
-        AsyncTask<Boolean> exists(String path);
+        boolean exists(String path) throws IOException;
 
-        AsyncTask<Void> delete(String path);
-        AsyncTask<List<String>> listAll();
+        void delete(String path) throws IOException;
+        List<String> listAll() throws IOException;
     }
 
     private final VStoreBackend backend;
@@ -64,13 +64,11 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                backend
-                    .read(path)
-                    .then(in -> {
-                        res.accept(in);
-                        return null;
-                    })
-                    .catchException(rej);
+                try {
+                    res.accept(backend.read(path));
+                } catch (IOException e) {
+                    rej.accept(e);
+                }
             });
     }
 
@@ -79,13 +77,11 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                backend
-                    .write(path)
-                    .then(out -> {
-                        res.accept(out);
-                        return null;
-                    })
-                    .catchException(rej);
+                try {
+                    res.accept(backend.write(path));
+                } catch (IOException e) {
+                    rej.accept(e);
+                }
             });
     }
 
@@ -94,13 +90,12 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                backend
-                    .exists(path)
-                    .then(exists -> {
-                        res.accept(exists);
-                        return null;
-                    })
-                    .catchException(rej);
+                try {
+                    boolean exists = backend.exists(path);
+                    res.accept(exists);
+                } catch (IOException e) {
+                    rej.accept(e);
+                }
             });
     }
 
@@ -109,13 +104,12 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                backend
-                    .delete(path)
-                    .then(v -> {
-                        res.accept(null);
-                        return null;
-                    })
-                    .catchException(rej);
+                try {
+                    backend.delete(path);
+                    res.accept(null);
+                } catch (IOException e) {
+                    rej.accept(e);
+                }
             });
     }
 
@@ -124,13 +118,12 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                backend
-                    .listAll()
-                    .then(list -> {
-                        res.accept(list);
-                        return null;
-                    })
-                    .catchException(rej);
+                try {
+                    List<String> files = backend.listAll();
+                    res.accept(files);
+                } catch (IOException e) {
+                    rej.accept(e);
+                }
             });
     }
 

@@ -35,10 +35,14 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ExecutionQueue implements Closeable {
 
-    private AtomicReference<AsyncTask> queue = new AtomicReference(null);
+    private static final Logger logger = Logger.getLogger(ExecutionQueue.class.getName());
+
+    private AtomicReference<AsyncTask<Void>> queue = new AtomicReference<>(null);
     private final AsyncExecutor executor;
     private final Runnable close;
 
@@ -50,55 +54,52 @@ public class ExecutionQueue implements Closeable {
     @SuppressWarnings("unchecked")
     protected <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
         NGEPlatform platform = NGEUtils.getPlatform();
+
         return platform.wrapPromise((res, rej) -> {
-            // synchronized(queue){
-            //     AsyncTask<T> nq;
-            //     if(queue.get()==null){
-            //         nq=platform.promisify(runnable,executor);
-            //         queue.set(nq);
-            //     }else{
-            //         AsyncTask<T> q=queue.get();
-            //         nq=q.compose((r -> {
-            //             return platform.wrapPromise(runnable);
-            //         }));
-            //         queue.set(nq);
-            //     }
-            //     nq.then(r -> {
-            //         res.accept(r);
-            //         return null;
-            //     });
-            //     nq.catchException(ex -> {
-            //         rej.accept(ex);
-            //     });
-            // }
             synchronized (queue) {
-                AsyncTask<T> q = queue.updateAndGet(current -> {
+                // Get or create the initial queue
+                AsyncTask<Void> currentQueue = queue.updateAndGet(current -> {
                     if (current == null) {
-                        current =
-                            platform.promisify(
-                                (rs, rj) -> {
-                                    rs.accept(null);
-                                },
-                                executor
-                            );
+                        // Create initial resolved promise
+                        return platform.wrapPromise((resolve, reject) -> {
+                            resolve.accept(null);
+                        });
                     }
-                    current =
-                        current.compose(
-                            (
-                                r -> {
-                                    return platform.wrapPromise(runnable);
-                                }
-                            )
-                        );
                     return current;
                 });
-                q.then(r -> {
-                    res.accept(r);
-                    return null;
+
+                // Chain the new task to the queue
+                AsyncTask<T> newTask = currentQueue.compose(ignored -> {
+                    return platform.wrapPromise((_i0, _i1) -> {
+                        runnable.accept(
+                            r -> {
+                                try {
+                                    res.accept(r);
+                                } catch (Throwable e) {
+                                    rej.accept(e);
+                                }
+                                _i0.accept(null);
+                            },
+                            e -> {
+                                try {
+                                    rej.accept(e);
+                                } catch (Throwable ex) {
+                                    logger.log(Level.SEVERE, "Error in task rejection", ex);
+                                }
+                                _i0.accept(null);
+                            }
+                        );
+                    });
                 });
-                q.catchException(ex -> {
-                    rej.accept(ex);
-                });
+
+                // Update the queue to point to the new task (cast to Void for queue management)
+                queue.set(
+                    newTask.compose(result -> {
+                        return platform.wrapPromise((resolve, reject) -> {
+                            resolve.accept(null);
+                        });
+                    })
+                );
             }
         });
     }

@@ -36,8 +36,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
-import org.ngengine.platform.AsyncTask;
-import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.VStore.VStoreBackend;
 
 public class IndexedDbVStore implements VStoreBackend {
@@ -49,70 +47,48 @@ public class IndexedDbVStore implements VStoreBackend {
     }
 
     @Override
-    public AsyncTask<InputStream> read(String path) {
+    public InputStream read(String path) {
         byte data[] = TeaVMBinds.vfileRead(name, path);
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                res.accept(bais);
-            });
+        return bais;
     }
 
     @Override
-    public AsyncTask<OutputStream> write(String path) {
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                OutputStream os = new OutputStream() {
-                    @Override
-                    public void write(int b) {
-                        baos.write(b);
-                    }
+    public OutputStream write(String path) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        OutputStream os = new OutputStream() {
+            @Override
+            public void write(int b) {
+                baos.write(b);
+            }
 
-                    @Override
-                    public void flush() throws IOException {
-                        TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
-                    }
+            @Override
+            public void flush() throws IOException {
+                TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+            }
 
-                    @Override
-                    public void close() {
-                        TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
-                        res.accept(this);
-                    }
-                };
-                res.accept(os);
-            });
+            @Override
+            public void close() {
+                TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+            }
+        };
+        return os;
     }
 
     @Override
-    public AsyncTask<Boolean> exists(String path) {
+    public boolean exists(String path) {
         boolean exists = TeaVMBinds.vfileExists(name, path);
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                res.accept(exists);
-            });
+        return exists;
     }
 
     @Override
-    public AsyncTask<Void> delete(String path) {
+    public void delete(String path) {
         TeaVMBinds.vfileDelete(name, path);
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                res.accept(null);
-            });
     }
 
     @Override
-    public AsyncTask<List<String>> listAll() {
+    public List<String> listAll() {
         String[] files = TeaVMBinds.vfileListAll(name);
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                res.accept(List.of(files));
-            });
+        return List.of(files);
     }
 }
