@@ -374,7 +374,8 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     private class ExecutorThread extends Thread implements Executor {
-        private  boolean closed = false;
+
+        private boolean closed = false;
 
         private LinkedList<Runnable> tasks = new LinkedList<>();
 
@@ -411,7 +412,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
         }
 
-        public void close(){
+        public void close() {
             closed = true;
             synchronized (tasks) {
                 tasks.notifyAll();
@@ -419,14 +420,12 @@ public class TeaVMPlatform extends NGEPlatform {
         }
     }
 
-
- 
     private AsyncExecutor newJsExecutor() {
-        ExecutorThread executorThread=new ExecutorThread();
+        ExecutorThread executorThread = new ExecutorThread();
         executorThread.start();
         AtomicReference<Runnable> closer = new AtomicReference<>();
 
-        AsyncExecutor aexc =  new AsyncExecutor() {
+        AsyncExecutor aexc = new AsyncExecutor() {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
                 return wrapPromise((res, rej) -> {
@@ -480,7 +479,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 closer.get().run();
             }
         };
-        closer.set(registerFinalizer(aexc, ()->executorThread.close()));
+        closer.set(registerFinalizer(aexc, () -> executorThread.close()));
         return aexc;
     }
 
