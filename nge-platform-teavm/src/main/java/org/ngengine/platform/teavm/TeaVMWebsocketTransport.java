@@ -51,7 +51,6 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
     private volatile BrowserWebSocket ws;
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
-    private volatile int maxMessageSize = 1024;
     private final StringBuilder aggregator = new StringBuilder();
     private final TeaVMPlatform platform;
     private final AsyncExecutor asyncExecutor;
@@ -205,15 +204,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                         return;
                     }
 
-                    int l = message.length();
-                    int sent = 0;
-
-                    do {
-                        int end = Math.min(sent + this.maxMessageSize, l);
-                        String chunk = message.substring(sent, end);
-                        sent = end;
-                        this.ws.send(chunk);
-                    } while (sent < l);
+                    this.ws.send(message);
 
                     res.accept(null);
                 } catch (Exception e) {
