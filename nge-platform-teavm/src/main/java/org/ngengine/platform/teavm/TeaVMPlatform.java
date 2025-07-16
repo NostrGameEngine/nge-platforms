@@ -47,6 +47,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -373,12 +374,13 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     private class ExecutorThread extends Thread implements Executor {
+        private  boolean closed = false;
 
         private LinkedList<Runnable> tasks = new LinkedList<>();
 
         @Override
         public void run() {
-            while (true) {
+            while (!closed) {
                 Runnable task = null;
                 if (!tasks.isEmpty()) {
                     task = tasks.removeFirst();
@@ -408,16 +410,23 @@ public class TeaVMPlatform extends NGEPlatform {
                 tasks.notifyAll();
             }
         }
+
+        public void close(){
+            closed = true;
+            synchronized (tasks) {
+                tasks.notifyAll();
+            }
+        }
     }
 
-    private ExecutorThread executorThread = new ExecutorThread();
 
-    {
-        executorThread.start();
-    }
-
+ 
     private AsyncExecutor newJsExecutor() {
-        return new AsyncExecutor() {
+        ExecutorThread executorThread=new ExecutorThread();
+        executorThread.start();
+        AtomicReference<Runnable> closer = new AtomicReference<>();
+
+        AsyncExecutor aexc =  new AsyncExecutor() {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
                 return wrapPromise((res, rej) -> {
@@ -467,8 +476,12 @@ public class TeaVMPlatform extends NGEPlatform {
             }
 
             @Override
-            public void close() {}
+            public void close() {
+                closer.get().run();
+            }
         };
+        closer.set(registerFinalizer(aexc, ()->executorThread.close()));
+        return aexc;
     }
 
     @Override
