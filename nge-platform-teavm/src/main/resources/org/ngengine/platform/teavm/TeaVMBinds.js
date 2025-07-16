@@ -5,6 +5,7 @@ import { sha256 as _sha256 } from '@noble/hashes/sha2.js';
 import { extract as _hkdf_extract, expand as _hkdf_expand } from '@noble/hashes/hkdf'
 import { base64 as _base64 } from '@scure/base';
 import { cbc } from '@noble/ciphers/aes';
+import {  randomBytes as _randomBytes } from '@noble/hashes/utils.js';
 
 // convert various buffer types to Uint8Array
 const _u = (data) => {
@@ -60,7 +61,7 @@ const sanitizeBigInts = (obj) => {
   };
 
 export const randomBytes = (length /*int*/) => { // Uint8Array (byte[])
-    return _schnorr.utils.randomBytes(length);
+    return _randomBytes(length);
 };
 
 export const generatePrivateKey = () => { // Uint8Array (byte[])
@@ -76,7 +77,7 @@ export const sha256 = (data /*byte[]*/) => { // Uint8Array (byte[])
 };
 
 export const toJSON = (obj /*obj*/) => { // str
-    return JSON.stringify(sanitizeBigInts(obj));
+    return JSON.stringify(sanitizeBigInts(obj), null, 0);
 };
 
 export const fromJSON = (json/*str*/) => {
@@ -98,15 +99,15 @@ export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => 
 
 export const hmac = (key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) => { // Uint8Array (byte[])
     const msg = new Uint8Array([..._u(data1), ..._u(data2)]);
-    return _hmac(sha256, key, msg);
+    return _hmac(_sha256, _u(key), msg);
 };
 
 export const hkdf_extract = (salt /*byte[]*/, ikm /*byte[]*/) => { // Uint8Array (byte[])
-    return _hkdf_extract(sha256, _u(ikm), _u(salt));
+    return _hkdf_extract(_sha256, _u(ikm), _u(salt));
 };
 
 export const hkdf_expand = (prk/*byte[]*/, info/*byte[]*/, length/*int*/) => { // Uint8Array (byte[])
-    return _hkdf_expand(sha256, _u(prk), _u(info), length);
+    return _hkdf_expand(_sha256, _u(prk), _u(info), length);
 };
 
 export const base64encode = (data /*byte[]*/) => { //str
