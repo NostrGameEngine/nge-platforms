@@ -65,7 +65,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Cipher;
@@ -97,6 +96,7 @@ import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
+import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
@@ -599,42 +599,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
         });
     }
 
-    @Override
-    public <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises) {
-        return wrapPromise((res, rej) -> {
-            if (promises.size() == 0) {
-                res.accept(new ArrayList<>());
-                return;
-            }
-
-            AtomicInteger count = new AtomicInteger(promises.size());
-            List<T> results = new ArrayList<>(count.get()); // FIXME: should be concurrent
-            for (int i = 0; i < count.get(); i++) {
-                results.add(null);
-            }
-
-            for (int i = 0; i < promises.size(); i++) {
-                final int index = i;
-                AsyncTask<T> promise = promises.get(i);
-
-                promise
-                    .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAll", e);
-
-                        rej.accept(e);
-                    })
-                    .then(result -> {
-                        int remaining = count.decrementAndGet();
-                        results.set(index, result);
-                        if (remaining == 0) {
-                            res.accept(results);
-                        }
-                        return null;
-                    });
-            }
-        });
-    }
-
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     {
@@ -742,8 +706,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<String> httpGet(String inurl, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<String> httpGet(String inurl, Duration itimeout, Map<String, String> headers) {
         String url = NGEUtils.safeURI(inurl).toString();
+
+        Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(60 * 2);
 
         HttpClient.Builder b = HttpClient
             .newBuilder()
@@ -762,14 +728,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
                     )
                     .GET();
-                if (headers != null) {
-                    for (Map.Entry<String, String> entry : headers.entrySet()) {
-                        requestBuilder.header(entry.getKey(), entry.getValue());
-                    }
-                }
-                if (timeout != null) {
-                    requestBuilder.timeout(timeout);
-                }
+
+                applyHeaders(headers, requestBuilder);
+
+                requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
                 httpClient
@@ -797,8 +759,79 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<byte[]> httpGetBytes(String inurl, Duration timeout, Map<String, String> headers) {
+    public AsyncTask<NGEHttpResponse> httpRequest(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
         String url = NGEUtils.safeURI(inurl).toString();
+        Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(60 * 2);
+
+        HttpClient.Builder b = HttpClient
+            .newBuilder()
+            .connectTimeout(timeout)
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .executor(executor);
+
+        HttpClient httpClient = b.build();
+        return wrapPromise((res, rej) -> {
+            try {
+                HttpRequest.Builder requestBuilder = HttpRequest
+                    .newBuilder()
+                    .uri(URI.create(url))
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+                    );
+                requestBuilder.method(
+                    method.toUpperCase(),
+                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
+                );
+
+                applyHeaders(headers, requestBuilder);
+
+                requestBuilder.timeout(timeout);
+
+                HttpRequest request = requestBuilder.build();
+                httpClient
+                    .sendAsync(request, HttpResponse.BodyHandlers.ofByteArray())
+                    .handleAsync(
+                        (response, e) -> {
+                            if (e != null) {
+                                rej.accept(e);
+                                return null;
+                            }
+                            int statusCode = response.statusCode();
+
+                            byte data[] = null;
+                            try {
+                                data = response.body();
+                            } catch (Exception ex) {
+                                logger.log(Level.WARNING, "Error reading response body", ex);
+                            }
+
+                            if (statusCode >= 200 && statusCode < 300) {
+                                res.accept(new NGEHttpResponse(statusCode, response.headers().map(), data, true));
+                            } else {
+                                res.accept(new NGEHttpResponse(statusCode, response.headers().map(), data, false));
+                            }
+
+                            return null;
+                        },
+                        executor
+                    );
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    @Override
+    public AsyncTask<byte[]> httpGetBytes(String inurl, Duration itimeout, Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+        Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(60 * 2);
 
         HttpClient.Builder b = HttpClient
             .newBuilder()
@@ -817,14 +850,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
                     )
                     .GET();
-                if (headers != null) {
-                    for (Map.Entry<String, String> entry : headers.entrySet()) {
-                        requestBuilder.header(entry.getKey(), entry.getValue());
-                    }
-                }
-                if (timeout != null) {
-                    requestBuilder.timeout(timeout);
-                }
+
+                applyHeaders(headers, requestBuilder);
+
+                requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
                 httpClient
@@ -850,6 +879,21 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 rej.accept(e);
             }
         });
+    }
+
+    private final List<String> protectedHttpHeaders = List.of("content-length", "host", "transfer-encoding", "connection");
+
+    private void applyHeaders(Map<String, String> headers, HttpRequest.Builder requestBuilder) {
+        if (headers != null) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                String key = entry.getKey().toLowerCase();
+                if (protectedHttpHeaders.contains(key)) {
+                    logger.log(Level.FINEST, "Skipping protected HTTP header: " + key);
+                    continue;
+                }
+                requestBuilder.header(entry.getKey(), entry.getValue());
+            }
+        }
     }
 
     @Override

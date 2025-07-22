@@ -50,7 +50,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.Function;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -58,12 +57,15 @@ import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
+import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSExport;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.ajax.ReadyStateChangeHandler;
 import org.teavm.jso.ajax.XMLHttpRequest;
+import org.teavm.jso.typedarrays.ArrayBuffer;
+import org.teavm.jso.typedarrays.Int8Array;
 
 public class TeaVMPlatform extends NGEPlatform {
 
@@ -342,6 +344,7 @@ public class TeaVMPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
+    @Override
     public <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises) {
         return wrapPromise((res, rej) -> {
             if (promises.isEmpty()) {
@@ -569,7 +572,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 for (Map.Entry<String, String> entry : headers.entrySet()) {
                     xhr.setRequestHeader(entry.getKey(), entry.getValue());
                 }
-                xhr.open("GET", url);
+                xhr.open("GET", url, true);
                 xhr.setOnReadyStateChange(
                     new ReadyStateChangeHandler() {
                         @Override
@@ -605,10 +608,104 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<byte[]> httpGetBytes(String inurl, Duration timeout, Map<String, String> headers) {
-        String url = NGEUtils.safeURI(inurl).toString();
+        return wrapPromise((res, rej) -> {
+            httpRequest("GET", inurl, null, timeout, headers)
+                .then(r -> {
+                    if (!r.status()) {
+                        rej.accept(new IOException("HTTP error: " + r.statusCode()));
+                    } else {
+                        res.accept(r.body());
+                    }
+                    return null;
+                })
+                .catchException(e -> {
+                    rej.accept(e);
+                });
+        });
+    }
 
-        // TODO
-        throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
+    @Override
+    public AsyncTask<NGEHttpResponse> httpRequest(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration timeout,
+        Map<String, String> headers
+    ) {
+        String url = NGEUtils.safeURI(inurl).toString();
+        return wrapPromise((res, rej) -> {
+            try {
+                XMLHttpRequest xhr = new XMLHttpRequest();
+                for (Map.Entry<String, String> entry : headers.entrySet()) {
+                    xhr.setRequestHeader(entry.getKey(), entry.getValue());
+                }
+                xhr.open(method.toUpperCase(), url, true);
+                xhr.setResponseType("arraybuffer");
+
+                xhr.setOnReadyStateChange(() -> {
+                    if (xhr.getReadyState() != XMLHttpRequest.DONE) {
+                        return;
+                    }
+
+                    int responseCode = xhr.getStatus();
+                    if (responseCode == 0) {
+                        responseCode = -1;
+                    }
+
+                    var array = new Int8Array((ArrayBuffer) xhr.getResponse());
+                    byte[] bytes = new byte[array.getLength()];
+                    for (int i = 0; i < bytes.length; ++i) {
+                        bytes[i] = array.get(i);
+                    }
+
+                    int responseGroup = responseCode / 100;
+                    if (responseGroup == 4 || responseGroup == 5) {
+                        res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false));
+                    } else {
+                        res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true));
+                    }
+                });
+
+                if (body != null) {
+                    Int8Array array = new Int8Array(body.length);
+                    for (int i = 0; i < body.length; ++i) {
+                        array.set(i, body[i]);
+                    }
+                    xhr.send(array.getBuffer());
+                } else {
+                    xhr.send();
+                }
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    private Map<String, List<String>> parseHeaders(String headers) {
+        Map<String, List<String>> map = new HashMap<>();
+        int index = 0;
+        while (index < headers.length()) {
+            int next = headers.indexOf("\r\n", index);
+            if (next < 0) {
+                next = headers.length();
+            }
+
+            int colon = headers.indexOf(':', index);
+            if (colon < 0 || colon > next) {
+                // No colon found, treat as invalid header line
+                index = next + 2;
+                continue;
+            }
+
+            String key = headers.substring(index, colon).trim();
+            String value = headers.substring(colon + 1, next).trim();
+
+            // Add to map, supporting multiple values per key
+            map.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
+
+            index = next + 2; // Move to start of next line
+        }
+        return map;
     }
 
     @Override

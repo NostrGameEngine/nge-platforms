@@ -34,14 +34,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
@@ -174,7 +180,108 @@ public abstract class NGEPlatform {
 
     public abstract <T> AsyncTask<T> wrapPromise(BiConsumer<Consumer<T>, Consumer<Throwable>> func);
 
-    public abstract <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises);
+    public <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises) {
+        return wrapPromise((res, rej) -> {
+            if (promises.size() == 0) {
+                res.accept(new ArrayList<>());
+                return;
+            }
+
+            AtomicInteger count = new AtomicInteger(promises.size());
+            List<T> results = new ArrayList<>(count.get()); // FIXME: should be concurrent
+            for (int i = 0; i < count.get(); i++) {
+                results.add(null);
+            }
+
+            for (int i = 0; i < promises.size(); i++) {
+                final int index = i;
+                AsyncTask<T> promise = promises.get(i);
+
+                promise
+                    .catchException(e -> {
+                        logger.log(Level.WARNING, "Error in awaitAll", e);
+
+                        rej.accept(e);
+                    })
+                    .then(result -> {
+                        int remaining = count.decrementAndGet();
+                        results.set(index, result);
+                        if (remaining == 0) {
+                            res.accept(results);
+                        }
+                        return null;
+                    });
+            }
+        });
+    }
+
+    public <T> AsyncTask<T> awaitAny(List<AsyncTask<T>> promises) {
+        return wrapPromise((res, rej) -> {
+            if (promises.size() == 0) {
+                res.accept(null);
+                return;
+            }
+
+            AtomicInteger count = new AtomicInteger(promises.size());
+            AtomicBoolean resolved = new AtomicBoolean(false);
+            for (int i = 0; i < promises.size(); i++) {
+                AsyncTask<T> promise = promises.get(i);
+                promise
+                    .catchException(e -> {
+                        logger.log(Level.WARNING, "Error in awaitAny", e);
+                        int remaining = count.decrementAndGet();
+
+                        if (remaining == 0) {
+                            rej.accept(new Exception("All promises failed"));
+                        }
+                    })
+                    .then(result -> {
+                        if (!resolved.getAndSet(true)) {
+                            res.accept(result);
+                        }
+                        return null;
+                    });
+            }
+        });
+    }
+
+    public <T> AsyncTask<T> awaitAny(List<AsyncTask<T>> promises, Predicate<T> filter) {
+        return wrapPromise((res, rej) -> {
+            if (promises.size() == 0) {
+                res.accept(null);
+                return;
+            }
+
+            AtomicInteger count = new AtomicInteger(promises.size());
+            AtomicBoolean resolved = new AtomicBoolean(false);
+
+            for (int i = 0; i < promises.size(); i++) {
+                AsyncTask<T> promise = promises.get(i);
+                promise
+                    .catchException(e -> {
+                        logger.log(Level.WARNING, "Error in awaitAny with filter", e);
+                        int remaining = count.decrementAndGet();
+
+                        if (remaining == 0) {
+                            rej.accept(new Exception("All promises failed"));
+                        }
+                    })
+                    .then(result -> {
+                        if (!resolved.getAndSet(true)) {
+                            if (filter.test(result)) {
+                                res.accept(result);
+                            } else {
+                                int remaining = count.decrementAndGet();
+                                if (remaining == 0) {
+                                    rej.accept(new Exception("No promises matched the filter"));
+                                }
+                            }
+                        }
+                        return null;
+                    });
+            }
+        });
+    }
 
     public abstract <T> AsyncTask<List<AsyncTask<T>>> awaitAllSettled(List<AsyncTask<T>> promises);
 
@@ -184,7 +291,19 @@ public abstract class NGEPlatform {
 
     public abstract AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers);
 
+    /**
+     * @deprecated use {@link #httpRequest(String, String, byte[], Duration, Map)} instead
+     */
+    @Deprecated
     public abstract AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers);
+
+    public abstract AsyncTask<NGEHttpResponse> httpRequest(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration timeout,
+        Map<String, String> headers
+    );
 
     public abstract void setClipboardContent(String data);
 
