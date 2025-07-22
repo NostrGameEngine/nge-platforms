@@ -32,6 +32,7 @@ package org.ngengine.platform;
 
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -133,6 +134,15 @@ public class NGEUtils {
         if (input == null) return "";
         if (input instanceof String) {
             return (String) input;
+        } else if (input instanceof byte[]) {
+            return new String((byte[]) input, StandardCharsets.UTF_8);
+        } else if (input instanceof char[]) {
+            return new String((char[]) input);
+        } else if (input instanceof ByteBuffer) {
+            ByteBuffer buffer = (ByteBuffer) input;
+            byte[] bytes = new byte[buffer.remaining()];
+            buffer.slice().get(bytes);
+            return new String(bytes, StandardCharsets.UTF_8);
         } else {
             return String.valueOf(input);
         }
