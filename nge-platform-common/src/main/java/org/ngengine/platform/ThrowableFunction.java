@@ -30,24 +30,6 @@
  */
 package org.ngengine.platform;
 
-import java.util.List;
-import java.util.function.Consumer;
-
-public interface AsyncTask<T> {
-    void cancel();
-    boolean isDone();
-    boolean isFailed();
-    boolean isSuccess();
-
-    T await() throws Exception;
-
-    <R> AsyncTask<R> then(ThrowableFunction<T, R> func2);
-
-    <R> AsyncTask<R> compose(ThrowableFunction<T, AsyncTask<R>> func2);
-    AsyncTask<T> catchException(Consumer<Throwable> func2);
-
-    static <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> tasks) {
-        NGEPlatform platform = NGEUtils.getPlatform();
-        return platform.awaitAll(tasks);
-    }
+public interface ThrowableFunction<T, R> {
+    R apply(T t) throws Throwable;
 }

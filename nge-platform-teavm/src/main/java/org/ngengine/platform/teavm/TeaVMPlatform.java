@@ -56,6 +56,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
+import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
@@ -279,7 +280,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
 
             @Override
-            public <R> AsyncTask<R> then(Function<T, R> func2) {
+            public <R> AsyncTask<R> then(ThrowableFunction<T, R> func2) {
                 return promisify(
                     (res, rej) -> {
                         promise
@@ -303,7 +304,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
 
             @Override
-            public <R> AsyncTask<R> compose(Function<T, AsyncTask<R>> func2) {
+            public <R> AsyncTask<R> compose(ThrowableFunction<T, AsyncTask<R>> func2) {
                 return promisify(
                     (res, rej) -> {
                         promise
