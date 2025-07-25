@@ -562,41 +562,6 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<String> httpGet(String inurl, Duration timeout, Map<String, String> headers) {
-        String url = NGEUtils.safeURI(inurl).toString();
-
-        // TODO: timeout
-        return wrapPromise((res, rej) -> {
-            try {
-                XMLHttpRequest xhr = XMLHttpRequest.create();
-                for (Map.Entry<String, String> entry : headers.entrySet()) {
-                    xhr.setRequestHeader(entry.getKey(), entry.getValue());
-                }
-                xhr.open("GET", url, true);
-                xhr.setOnReadyStateChange(
-                    new ReadyStateChangeHandler() {
-                        @Override
-                        public void stateChanged() {
-                            if (xhr.getReadyState() == XMLHttpRequest.DONE) {
-                                int status = xhr.getStatus();
-                                if (status >= 200 && status < 300) {
-                                    res.accept(xhr.getResponseText());
-                                } else {
-                                    rej.accept(new IOException("HTTP error: " + status + " " + xhr.getStatusText()));
-                                }
-                            }
-                        }
-                    }
-                );
-
-                xhr.send();
-            } catch (Exception e) {
-                rej.accept(e);
-            }
-        });
-    }
-
-    @Override
     public void setClipboardContent(String data) {
         TeaVMBinds.setClipboardContent(data);
     }
@@ -606,23 +571,7 @@ public class TeaVMPlatform extends NGEPlatform {
         return TeaVMBinds.getClipboardContent();
     }
 
-    @Override
-    public AsyncTask<byte[]> httpGetBytes(String inurl, Duration timeout, Map<String, String> headers) {
-        return wrapPromise((res, rej) -> {
-            httpRequest("GET", inurl, null, timeout, headers)
-                .then(r -> {
-                    if (!r.status()) {
-                        rej.accept(new IOException("HTTP error: " + r.statusCode()));
-                    } else {
-                        res.accept(r.body());
-                    }
-                    return null;
-                })
-                .catchException(e -> {
-                    rej.accept(e);
-                });
-        });
-    }
+  
 
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
@@ -636,33 +585,37 @@ public class TeaVMPlatform extends NGEPlatform {
         return wrapPromise((res, rej) -> {
             try {
                 XMLHttpRequest xhr = new XMLHttpRequest();
-                for (Map.Entry<String, String> entry : headers.entrySet()) {
-                    xhr.setRequestHeader(entry.getKey(), entry.getValue());
-                }
+               
                 xhr.open(method.toUpperCase(), url, true);
                 xhr.setResponseType("arraybuffer");
+                
+                if(headers!=null){
+                    for(Map.Entry<String,String> entry:headers.entrySet()){
+                        xhr.setRequestHeader(entry.getKey(),entry.getValue());
+                    }
+                }
 
                 xhr.setOnReadyStateChange(() -> {
-                    if (xhr.getReadyState() != XMLHttpRequest.DONE) {
-                        return;
-                    }
+                    int state = xhr.getReadyState();
+                    if (state == XMLHttpRequest.DONE) {
+                    
+                        int responseCode = xhr.getStatus();
+                        if (responseCode == 0) {
+                            responseCode = -1;
+                        }
 
-                    int responseCode = xhr.getStatus();
-                    if (responseCode == 0) {
-                        responseCode = -1;
-                    }
+                        var array = new Int8Array((ArrayBuffer) xhr.getResponse());
+                        byte[] bytes = new byte[array.getLength()];
+                        for (int i = 0; i < bytes.length; ++i) {
+                            bytes[i] = array.get(i);
+                        }
 
-                    var array = new Int8Array((ArrayBuffer) xhr.getResponse());
-                    byte[] bytes = new byte[array.getLength()];
-                    for (int i = 0; i < bytes.length; ++i) {
-                        bytes[i] = array.get(i);
-                    }
-
-                    int responseGroup = responseCode / 100;
-                    if (responseGroup == 4 || responseGroup == 5) {
-                        res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false));
-                    } else {
-                        res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true));
+                        int responseGroup = responseCode / 100;
+                        if (responseGroup == 4 || responseGroup == 5) {
+                            res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false));
+                        } else {
+                            res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true));
+                        }
                     }
                 });
 

@@ -81,7 +81,12 @@ export const toJSON = (obj /*obj*/) => { // str
 };
 
 export const fromJSON = (json/*str*/) => {
-    return JSON.parse(json); // obj
+    try{
+        return JSON.parse(json); // obj
+    } catch (e) {
+        console.error('Error parsing JSON:', json, e);
+        throw e;
+    }
 };
 
 export const sign = (data /*byte[]*/, privKeyBytes  /*byte[]*/) => {  // Uint8Array (byte[])
