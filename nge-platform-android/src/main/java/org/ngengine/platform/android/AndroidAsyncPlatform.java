@@ -61,6 +61,7 @@ public class AndroidAsyncPlatform extends JVMAsyncPlatform {
         if (!cacheDir.exists()) {
             cacheDir.mkdirs();
         }
+        logger.fine("Cache store path: " + cacheDir.getAbsolutePath());
         return new FileSystemVStore(cacheDir.toPath().resolve(storeName));
 
     }
@@ -73,6 +74,7 @@ public class AndroidAsyncPlatform extends JVMAsyncPlatform {
         if (!dataDir.exists()) {
             dataDir.mkdirs();
         }
+        logger.fine("Data store path: " + dataDir.getAbsolutePath());
         return new FileSystemVStore(dataDir.toPath().resolve(storeName));
     }
 

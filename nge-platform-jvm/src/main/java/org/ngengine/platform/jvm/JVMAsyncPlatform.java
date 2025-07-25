@@ -1068,6 +1068,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     public VStore getDataStore(String appName, String storeName) {
         appName = NGEUtils.censorSpecial(appName);
         storeName = NGEUtils.censorSpecial(storeName);
+        logger.finer("Data store path: " + Util.getSystemDataPath(appName).resolve(storeName));
         return new VStore(new FileSystemVStore(Util.getSystemDataPath(appName).resolve(storeName)));
     }
 
@@ -1075,6 +1076,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     public VStore getCacheStore(String appName, String cacheName) {
         appName = NGEUtils.censorSpecial(appName);
         cacheName = NGEUtils.censorSpecial(cacheName);
+        logger.finer("Cache store path: " + Util.getSystemCachePath(appName).resolve(cacheName));
         return new VStore(new FileSystemVStore(Util.getSystemCachePath(appName).resolve(cacheName)));
     }
 
