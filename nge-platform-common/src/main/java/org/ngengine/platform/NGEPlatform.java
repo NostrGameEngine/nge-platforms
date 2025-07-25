@@ -229,7 +229,7 @@ public abstract class NGEPlatform {
                 AsyncTask<T> promise = promises.get(i);
                 promise
                     .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAny "+ e);
+                        logger.log(Level.WARNING, "Error in awaitAny " + e);
                         int remaining = count.decrementAndGet();
 
                         if (remaining == 0) {
@@ -290,20 +290,21 @@ public abstract class NGEPlatform {
 
     public abstract <T> Queue<T> newConcurrentQueue(Class<T> claz);
 
-
-    public  AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers){
+    public AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers) {
         return wrapPromise((res, rej) -> {
-            httpRequest("GET",url,null,timeout,headers).then(r -> {
-                if(!r.status()){
-                    rej.accept(new IOException("HTTP error: "+r.statusCode()));
-                }else{
-                    byte[] data = r.body();
-                    res.accept(new String(data,StandardCharsets.UTF_8));
-                }
-                return null;
-            }).catchException(e -> {
-                rej.accept(e);
-            });
+            httpRequest("GET", url, null, timeout, headers)
+                .then(r -> {
+                    if (!r.status()) {
+                        rej.accept(new IOException("HTTP error: " + r.statusCode()));
+                    } else {
+                        byte[] data = r.body();
+                        res.accept(new String(data, StandardCharsets.UTF_8));
+                    }
+                    return null;
+                })
+                .catchException(e -> {
+                    rej.accept(e);
+                });
         });
     }
 
@@ -311,19 +312,21 @@ public abstract class NGEPlatform {
      * @deprecated use {@link #httpRequest(String, String, byte[], Duration, Map)} instead
      */
     @Deprecated
-    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers){
+    public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
         return wrapPromise((res, rej) -> {
-            httpRequest("GET",url,null,timeout,headers).then(r -> {
-                if(!r.status()){
-                    rej.accept(new IOException("HTTP error: "+r.statusCode()));
-                }else{
-                    byte[] data=r.body();
-                    res.accept(data);
-                }
-                return null;
-            }).catchException(e -> {
-                rej.accept(e);
-            });
+            httpRequest("GET", url, null, timeout, headers)
+                .then(r -> {
+                    if (!r.status()) {
+                        rej.accept(new IOException("HTTP error: " + r.statusCode()));
+                    } else {
+                        byte[] data = r.body();
+                        res.accept(data);
+                    }
+                    return null;
+                })
+                .catchException(e -> {
+                    rej.accept(e);
+                });
         });
     }
 

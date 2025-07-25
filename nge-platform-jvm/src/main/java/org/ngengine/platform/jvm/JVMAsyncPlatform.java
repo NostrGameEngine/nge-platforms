@@ -705,7 +705,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
         });
     }
 
-
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
@@ -775,7 +774,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
         });
     }
-
 
     private final List<String> protectedHttpHeaders = List.of("content-length", "host", "transfer-encoding", "connection");
 

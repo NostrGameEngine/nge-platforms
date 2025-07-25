@@ -62,7 +62,6 @@ import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSExport;
 import org.teavm.jso.JSObject;
-import org.teavm.jso.ajax.ReadyStateChangeHandler;
 import org.teavm.jso.ajax.XMLHttpRequest;
 import org.teavm.jso.typedarrays.ArrayBuffer;
 import org.teavm.jso.typedarrays.Int8Array;
@@ -571,8 +570,6 @@ public class TeaVMPlatform extends NGEPlatform {
         return TeaVMBinds.getClipboardContent();
     }
 
-  
-
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
@@ -585,20 +582,19 @@ public class TeaVMPlatform extends NGEPlatform {
         return wrapPromise((res, rej) -> {
             try {
                 XMLHttpRequest xhr = new XMLHttpRequest();
-               
+
                 xhr.open(method.toUpperCase(), url, true);
                 xhr.setResponseType("arraybuffer");
-                
-                if(headers!=null){
-                    for(Map.Entry<String,String> entry:headers.entrySet()){
-                        xhr.setRequestHeader(entry.getKey(),entry.getValue());
+
+                if (headers != null) {
+                    for (Map.Entry<String, String> entry : headers.entrySet()) {
+                        xhr.setRequestHeader(entry.getKey(), entry.getValue());
                     }
                 }
 
                 xhr.setOnReadyStateChange(() -> {
                     int state = xhr.getReadyState();
                     if (state == XMLHttpRequest.DONE) {
-                    
                         int responseCode = xhr.getStatus();
                         if (responseCode == 0) {
                             responseCode = -1;
@@ -612,9 +608,13 @@ public class TeaVMPlatform extends NGEPlatform {
 
                         int responseGroup = responseCode / 100;
                         if (responseGroup == 4 || responseGroup == 5) {
-                            res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false));
+                            res.accept(
+                                new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false)
+                            );
                         } else {
-                            res.accept(new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true));
+                            res.accept(
+                                new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true)
+                            );
                         }
                     }
                 });
