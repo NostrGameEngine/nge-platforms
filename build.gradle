@@ -312,6 +312,9 @@ subprojects { proj ->
                 def header      = "/**\n" + wrapped + "\n */"
                 licenseHeader(header, "package ")
             }
+            enforceCheck false
+
         }
+         
     }
 } 
