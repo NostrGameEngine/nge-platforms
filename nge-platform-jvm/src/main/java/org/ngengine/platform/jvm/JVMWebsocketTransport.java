@@ -210,12 +210,14 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         logger.finest("WebSocket closed: " + statusCode + " " + reason);
-        this.openWebSocket = null;
-        for (WebsocketTransportListener listener : listeners) {
-            try {
-                listener.onConnectionClosedByServer(reason);
-            } catch (Exception e) {
-                logger.warning("Error in close listener: " + e);
+        if(openWebSocket!=null){
+            this.openWebSocket = null;
+            for (WebsocketTransportListener listener : listeners) {
+                try {
+                    listener.onConnectionClosedByServer(reason);
+                } catch (Exception e) {
+                    logger.warning("Error in close listener: " + e);
+                }
             }
         }
         return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
@@ -231,6 +233,26 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 logger.warning("Error in error listener: " + e);
             }
         }
+
+        if (webSocket != null && !webSocket.isOutputClosed()) {
+            try {
+                webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Connection error: " + error.getMessage());
+            } catch (Exception e) {
+                logger.warning("Failed to send close frame on error: " + e);
+            }
+        } 
+
+        if(this.openWebSocket!=null){
+            this.openWebSocket = null;
+            for (WebsocketTransportListener listener : listeners) {
+                try {
+                    listener.onConnectionClosedByServer("lost connection");
+                } catch (Exception e) {
+                    logger.warning("Error in close listener: " + e);
+                }
+            }
+        }
+
         WebSocket.Listener.super.onError(webSocket, error);
     }
 
