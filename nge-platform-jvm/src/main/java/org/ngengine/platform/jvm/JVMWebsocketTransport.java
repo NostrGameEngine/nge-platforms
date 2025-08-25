@@ -210,7 +210,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
         logger.finest("WebSocket closed: " + statusCode + " " + reason);
-        if(openWebSocket!=null){
+        if (openWebSocket != null) {
             this.openWebSocket = null;
             for (WebsocketTransportListener listener : listeners) {
                 try {
@@ -240,9 +240,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
             } catch (Exception e) {
                 logger.warning("Failed to send close frame on error: " + e);
             }
-        } 
+        }
 
-        if(this.openWebSocket!=null){
+        if (this.openWebSocket != null) {
             this.openWebSocket = null;
             for (WebsocketTransportListener listener : listeners) {
                 try {
