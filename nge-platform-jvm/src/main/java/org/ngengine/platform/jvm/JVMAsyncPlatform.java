@@ -67,10 +67,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.crypto.Cipher;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.spec.ChaCha20ParameterSpec;
+import org.bouncycastle.crypto.engines.ChaCha7539Engine;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
@@ -305,17 +304,22 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public byte[] chacha20(byte[] key, byte[] nonce, byte[] padded, boolean forEncryption) {
         try {
-            if (key.length != 32) {
+            if (key == null || key.length != 32) {
                 throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
             }
-            if (nonce.length != 12) {
+            if (nonce == null || nonce.length != 12) {
                 throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
             }
-            Cipher cipher = Cipher.getInstance("ChaCha20");
-            ChaCha20ParameterSpec spec = new ChaCha20ParameterSpec(nonce, 0);
-            cipher.init(forEncryption ? Cipher.ENCRYPT_MODE : Cipher.DECRYPT_MODE, new SecretKeySpec(key, "ChaCha20"), spec);
+            ChaCha7539Engine engine = new ChaCha7539Engine();
+            ParametersWithIV params = new ParametersWithIV(new KeyParameter(key), nonce);
+            engine.init(forEncryption, params); 
 
-            return cipher.doFinal(padded);
+            byte[] out = new byte[padded.length];
+            int n = engine.processBytes(padded, 0, padded.length, out, 0);
+            if (n != out.length) {
+                return Arrays.copyOf(out, n);
+            }
+            return out;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
