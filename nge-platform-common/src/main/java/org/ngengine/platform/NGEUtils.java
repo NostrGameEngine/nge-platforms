@@ -398,9 +398,12 @@ public class NGEUtils {
     /**
      * Wrapper to exploit assert to toggle on/off debug code
      * usage:
-     *  assert dbg(()->{
+     * 
+     * <pre>{@code
+     * assert NGEUtils.dbg(() -> {
      *     // heavy debug code
-     *  });
+     * });
+     * }</pre>
      */
     public static boolean dbg(Runnable r) {
         Supplier<Boolean> s = () -> {
