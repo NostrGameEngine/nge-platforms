@@ -398,7 +398,7 @@ public class NGEUtils {
     /**
      * Wrapper to exploit assert to toggle on/off debug code
      * usage:
-     * 
+     *
      * <pre>{@code
      * assert NGEUtils.dbg(() -> {
      *     // heavy debug code
