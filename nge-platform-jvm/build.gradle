@@ -14,11 +14,22 @@ dependencies {
 }
 
 java {
- 
-    targetCompatibility = JavaVersion.VERSION_21
-    sourceCompatibility = JavaVersion.VERSION_21
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21) 
+    }
 }
 
+tasks.named('compileTestJava') {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.named('test') {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
 
 tasks.named('test') {
     useJUnit()
