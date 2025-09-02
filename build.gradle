@@ -80,41 +80,47 @@ def applyConf(proj, isAndroid){
         }
         proj.apply plugin: "com.github.spotbugs"
 
+
+     
     }
 
-    // android only
-    if(isAndroid){
-        proj.eclipse {
-            classpath {
-                downloadSources = true
-                downloadJavadoc = true
-                file {
-                    whenMerged { classpathDef ->
-                        def sourceEntry = new org.gradle.plugins.ide.eclipse.model.SourceFolder(
-                            "src/main/java",  null
-                        )
-                        sourceEntry.entryAttributes["optional"] = "true"
-                        classpathDef.entries.add(sourceEntry)
 
-                        classpathDef.entries.add(
-                            new org.gradle.plugins.ide.eclipse.model.Library(
-                                fileReference(
-                                    file("${System.getenv("ANDROID_HOME")}/platforms/android-34/android.jar")
-                                )
-                            )
-                        )
 
-                        classpathDef.entries.add(
-                            new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-common")
-                        )
-                        classpathDef.entries.add(
-                            new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-jvm")
-                        )
-                    }
-                }
-            }
-        }
-    }
+ 
+        
+    // // android only
+    // if(isAndroid){
+    //     proj.eclipse {
+    //         classpath {
+    //             downloadSources = true
+    //             downloadJavadoc = true
+    //             file {
+    //                 whenMerged { classpathDef ->
+    //                     def sourceEntry = new org.gradle.plugins.ide.eclipse.model.SourceFolder(
+    //                         "src/main/java",  null
+    //                     )
+    //                     sourceEntry.entryAttributes["optional"] = "true"
+    //                     classpathDef.entries.add(sourceEntry)
+
+    //                     classpathDef.entries.add(
+    //                         new org.gradle.plugins.ide.eclipse.model.Library(
+    //                             fileReference(
+    //                                 file("${System.getenv("ANDROID_HOME")}/platforms/android-34/android.jar")
+    //                             )
+    //                         )
+    //                     )
+
+    //                     classpathDef.entries.add(
+    //                         new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-common")
+    //                     )
+    //                     classpathDef.entries.add(
+    //                         new org.gradle.plugins.ide.eclipse.model.ProjectDependency("/nge-platform-jvm")
+    //                     )
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
     
     // common    
     proj.apply plugin: "com.diffplug.spotless"

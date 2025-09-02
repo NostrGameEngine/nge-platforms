@@ -30,7 +30,68 @@
  */
 package org.ngengine.platform.transport;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-public record NGEHttpResponse(int statusCode, Map<String, List<String>> headers, byte[] body, boolean status) {}
+public class NGEHttpResponse{
+    public final int statusCode;
+    public final Map<String, List<String>> headers;
+    public final byte[] body;
+    public final boolean status;
+    public NGEHttpResponse(int statusCode, Map<String, List<String>> headers, byte[] body, boolean status) {
+        this.statusCode = statusCode;
+        this.headers = headers;
+        this.body = body;
+        this.status = status;
+    }
+
+    public int statusCode(){
+        return statusCode;
+    }
+    public Map<String, List<String>> headers(){
+        return headers;
+    }
+    public byte[] body(){
+        return body;
+    }
+    public boolean status(){
+        return status;
+    }
+
+    @Override
+    public String toString() {
+        return "NGEHttpResponse [statusCode=" + statusCode + ", headers=" +
+                headers + ", body=" + (body != null ? body.length + " bytes" : "null") + ", status=" + status + "]";
+
+    }
+
+    public String bodyAsString(){
+        if(body == null) return null;
+        return new String(body);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(
+                Arrays.hashCode(body),
+                headers,
+                statusCode,
+                status);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (!(obj instanceof NGEHttpResponse))
+            return false;
+        NGEHttpResponse other = (NGEHttpResponse) obj;
+        return statusCode == other.statusCode &&
+                status == other.status &&
+                java.util.Arrays.equals(body, other.body) &&
+                java.util.Objects.equals(headers, other.headers);
+    }
+}
+

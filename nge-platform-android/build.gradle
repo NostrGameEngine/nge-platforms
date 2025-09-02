@@ -3,12 +3,12 @@ plugins {
  }
  
 android {
-    compileSdk 34  
+    compileSdk 36
     namespace 'org.ngengine.platform.android'  
 
     defaultConfig {
-        minSdk 26 
-        targetSdk 34
+        minSdk 33
+        targetSdk 33
         
     }
     
@@ -24,10 +24,19 @@ android {
 
 dependencies {
     api project(':nge-platform-common')
-    implementation project(':nge-platform-jvm')
     
-    implementation 'com.google.code.gson:gson:2.12.1'
+    implementation 'com.google.code.gson:gson:2.13.1'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
     testImplementation 'junit:junit:4.13.2'
+    implementation 'tel.schich:libdatachannel-java-android:0.23.1.2'
+    implementation 'tel.schich:libdatachannel-java:0.23.1.2'
+    implementation 'com.squareup.okhttp3:okhttp:5.1.0'
 
 }
+
+
+def sdk = System.getenv('ANDROID_SDK_ROOT') ?: System.getenv('ANDROID_HOME')
+if (!sdk) {
+    throw new GradleException("Android SDK not found. Set ANDROID_SDK_ROOT or ANDROID_HOME.")
+}
+println "Using Android SDK at: ${sdk}"

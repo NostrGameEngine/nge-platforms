@@ -14,9 +14,9 @@ dependencies {
 }
 
 java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+ 
+    targetCompatibility = JavaVersion.VERSION_21
+    sourceCompatibility = JavaVersion.VERSION_21
 }
 
 
@@ -29,7 +29,4 @@ tasks.named('test') {
 }
 
 
-tasks.withType(JavaCompile) {
-    sourceCompatibility = '21'
-    targetCompatibility = '21'
-}
+ 
