@@ -69,12 +69,12 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
-import org.bouncycastle.crypto.engines.ChaCha7539Engine;
 import javax.crypto.spec.SecretKeySpec;
 import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.InvalidCipherTextException;
 import org.bouncycastle.crypto.engines.AESEngine;
+import org.bouncycastle.crypto.engines.ChaCha7539Engine;
 import org.bouncycastle.crypto.generators.SCrypt;
 import org.bouncycastle.crypto.modes.CBCBlockCipher;
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305;
@@ -312,7 +312,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
             ChaCha7539Engine engine = new ChaCha7539Engine();
             ParametersWithIV params = new ParametersWithIV(new KeyParameter(key), nonce);
-            engine.init(forEncryption, params); 
+            engine.init(forEncryption, params);
 
             byte[] out = new byte[padded.length];
             int n = engine.processBytes(padded, 0, padded.length, out, 0);
