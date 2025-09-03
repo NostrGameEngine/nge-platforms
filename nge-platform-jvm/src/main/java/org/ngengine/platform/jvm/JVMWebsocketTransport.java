@@ -39,6 +39,7 @@ import java.net.http.WebSocket;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
@@ -118,21 +119,30 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     public AsyncTask<Void> connect(String url) {
         logger.finest("Connecting to WebSocket: " + url);
         return this.platform.wrapPromise((res, rej) -> {
+            try{
                 httpClient
                     .newWebSocketBuilder()
                     .connectTimeout(CONNECT_TIMEOUT)
                     .buildAsync(URI.create(url), this)
                     .handle((r, e) -> {
                         if (e != null) {
-                            logger.log(Level.WARNING, "WebSocket connection error", e);
-                            rej.accept(e);
+                            Throwable cause = (e instanceof CompletionException
+                                    && e.getCause() != null)
+                                            ? e.getCause()
+                                            : e;
+                            logger.log(Level.WARNING, "WebSocket connection error", cause);
+                            rej.accept(cause);
                         } else {
                             logger.finest("WebSocket connected: " + url);
                             res.accept(null);
                         }
                         return null;
                     });
-            });
+            }catch(Throwable t){
+                logger.log(Level.WARNING, "WebSocket connect failed", t);
+                rej.accept(t);
+            }
+        });
     }
 
     @Override
