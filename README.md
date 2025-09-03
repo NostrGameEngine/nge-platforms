@@ -36,6 +36,7 @@ dependencies {
     // For HTML5 (GWT)
     // implementation 'org.ngengine:nge-platform-teavm:<version>'
 }
+```
 
 as `<version>` use one of the versions listed in the [releases page](/releases) or `0.0.0-SNAPSHOT` for the latest snapshot.
 
