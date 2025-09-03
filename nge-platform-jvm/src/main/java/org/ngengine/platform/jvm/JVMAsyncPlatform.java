@@ -801,8 +801,55 @@ public class JVMAsyncPlatform extends NGEPlatform {
         return transport;
     }
 
-    @Override
-    public void setClipboardContent(String data) {
+    private boolean setGlfwClipboard(String text) {
+        try {
+            Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
+            java.lang.reflect.Method glfwSetClipboardString = glfwClass.getMethod("glfwSetClipboardString", long.class,
+                    CharSequence.class);
+            java.lang.reflect.Method glfwGetCurrentContext = glfwClass.getMethod("glfwGetCurrentContext");
+
+            long window = (Long) glfwGetCurrentContext.invoke(null);
+            if (window != 0L) {
+                glfwSetClipboardString.invoke(null, window, text);
+                logger.log(Level.FINE, "Set clipboard content via GLFW");
+                return true;
+            } 
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to set GLFW clipboard content", e);
+        }
+        return false;
+    }
+
+
+    private String getGlfwClipboard() {
+        try {
+            Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
+            java.lang.reflect.Method glfwGetClipboardString = glfwClass.getMethod("glfwGetClipboardString", long.class);
+            java.lang.reflect.Method glfwGetCurrentContext = glfwClass.getMethod("glfwGetCurrentContext");
+
+            long window = (Long) glfwGetCurrentContext.invoke(null);
+            if (window != 0L) {
+                String result = (String) glfwGetClipboardString.invoke(null, window);
+                logger.log(Level.FINE, "Retrieved clipboard content via GLFW");
+                return result != null ? result : "";
+            } 
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to get GLFW clipboard content", e);
+        }
+        return null;
+    }
+
+    private boolean isGlfwAvailable() {
+        try {
+            Class.forName("org.lwjgl.glfw.GLFW");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+
+    private boolean setAWTClipboard(String data) {
         try {
             Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
             Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
@@ -814,13 +861,14 @@ public class JVMAsyncPlatform extends NGEPlatform {
             clipboardClass
                 .getMethod("setContents", transferableClass, Class.forName("java.awt.datatransfer.ClipboardOwner"))
                 .invoke(clipboard, contents, null);
+            return true;
         } catch (Exception e) {
             logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
         }
+        return false;
     }
 
-    @Override
-    public String getClipboardContent() {
+    private String getAWTClipboard() {
         try {
             Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
             Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
@@ -829,8 +877,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
             Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
             Object stringFlavor = dataFlavorClass.getField("stringFlavor").get(null);
             Boolean isAvailable = (Boolean) clipboardClass
-                .getMethod("isDataFlavorAvailable", dataFlavorClass)
-                .invoke(clipboard, stringFlavor);
+                    .getMethod("isDataFlavorAvailable", dataFlavorClass)
+                    .invoke(clipboard, stringFlavor);
             if (isAvailable) {
                 Object data = clipboardClass.getMethod("getData", dataFlavorClass).invoke(clipboard, stringFlavor);
                 return data.toString();
@@ -838,8 +886,47 @@ public class JVMAsyncPlatform extends NGEPlatform {
         } catch (Exception e) {
             logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
         }
+        return null;
+    }
 
-        return "";
+    private boolean isAWTAvailable() {
+        try {
+            Class.forName("java.awt.Toolkit");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
+
+    @Override
+    public void setClipboardContent(String data) {
+        try {
+            if (isGlfwAvailable()) {
+                setGlfwClipboard(data);
+            } 
+            if (isAWTAvailable()) {
+                setAWTClipboard(data);
+            }
+        } catch (Exception e) {
+            logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
+        }
+    }
+
+    @Override
+    public String getClipboardContent() {
+        String content = null;
+        try {
+            if(content == null && isGlfwAvailable()) {
+                content = getGlfwClipboard();
+            } 
+            if (content == null && isAWTAvailable()) {
+                content = getAWTClipboard();
+            }
+        } catch (Exception e) {
+            logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
+        }
+        return content != null ? content : "";
     }
 
     @Override
