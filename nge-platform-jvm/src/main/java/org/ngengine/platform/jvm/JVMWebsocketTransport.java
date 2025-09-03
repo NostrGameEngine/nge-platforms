@@ -119,30 +119,27 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     public AsyncTask<Void> connect(String url) {
         logger.finest("Connecting to WebSocket: " + url);
         return this.platform.wrapPromise((res, rej) -> {
-            try{
-                httpClient
-                    .newWebSocketBuilder()
-                    .connectTimeout(CONNECT_TIMEOUT)
-                    .buildAsync(URI.create(url), this)
-                    .handle((r, e) -> {
-                        if (e != null) {
-                            Throwable cause = (e instanceof CompletionException
-                                    && e.getCause() != null)
-                                            ? e.getCause()
-                                            : e;
-                            logger.log(Level.WARNING, "WebSocket connection error", cause);
-                            rej.accept(cause);
-                        } else {
-                            logger.finest("WebSocket connected: " + url);
-                            res.accept(null);
-                        }
-                        return null;
-                    });
-            }catch(Throwable t){
-                logger.log(Level.WARNING, "WebSocket connect failed", t);
-                rej.accept(t);
-            }
-        });
+                try {
+                    httpClient
+                        .newWebSocketBuilder()
+                        .connectTimeout(CONNECT_TIMEOUT)
+                        .buildAsync(URI.create(url), this)
+                        .handle((r, e) -> {
+                            if (e != null) {
+                                Throwable cause = (e instanceof CompletionException && e.getCause() != null) ? e.getCause() : e;
+                                logger.log(Level.WARNING, "WebSocket connection error", cause);
+                                rej.accept(cause);
+                            } else {
+                                logger.finest("WebSocket connected: " + url);
+                                res.accept(null);
+                            }
+                            return null;
+                        });
+                } catch (Throwable t) {
+                    logger.log(Level.WARNING, "WebSocket connect failed", t);
+                    rej.accept(t);
+                }
+            });
     }
 
     @Override

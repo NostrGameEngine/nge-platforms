@@ -804,8 +804,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private boolean setGlfwClipboard(String text) {
         try {
             Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
-            java.lang.reflect.Method glfwSetClipboardString = glfwClass.getMethod("glfwSetClipboardString", long.class,
-                    CharSequence.class);
+            java.lang.reflect.Method glfwSetClipboardString = glfwClass.getMethod(
+                "glfwSetClipboardString",
+                long.class,
+                CharSequence.class
+            );
             java.lang.reflect.Method glfwGetCurrentContext = glfwClass.getMethod("glfwGetCurrentContext");
 
             long window = (Long) glfwGetCurrentContext.invoke(null);
@@ -813,13 +816,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 glfwSetClipboardString.invoke(null, window, text);
                 logger.log(Level.FINE, "Set clipboard content via GLFW");
                 return true;
-            } 
+            }
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to set GLFW clipboard content", e);
         }
         return false;
     }
-
 
     private String getGlfwClipboard() {
         try {
@@ -832,7 +834,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 String result = (String) glfwGetClipboardString.invoke(null, window);
                 logger.log(Level.FINE, "Retrieved clipboard content via GLFW");
                 return result != null ? result : "";
-            } 
+            }
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to get GLFW clipboard content", e);
         }
@@ -847,7 +849,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
             return false;
         }
     }
-
 
     private boolean setAWTClipboard(String data) {
         try {
@@ -877,8 +878,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
             Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
             Object stringFlavor = dataFlavorClass.getField("stringFlavor").get(null);
             Boolean isAvailable = (Boolean) clipboardClass
-                    .getMethod("isDataFlavorAvailable", dataFlavorClass)
-                    .invoke(clipboard, stringFlavor);
+                .getMethod("isDataFlavorAvailable", dataFlavorClass)
+                .invoke(clipboard, stringFlavor);
             if (isAvailable) {
                 Object data = clipboardClass.getMethod("getData", dataFlavorClass).invoke(clipboard, stringFlavor);
                 return data.toString();
@@ -898,13 +899,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
         }
     }
 
-
     @Override
     public void setClipboardContent(String data) {
         try {
             if (isGlfwAvailable()) {
                 setGlfwClipboard(data);
-            } 
+            }
             if (isAWTAvailable()) {
                 setAWTClipboard(data);
             }
@@ -917,9 +917,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
     public String getClipboardContent() {
         String content = null;
         try {
-            if(content == null && isGlfwAvailable()) {
+            if (content == null && isGlfwAvailable()) {
                 content = getGlfwClipboard();
-            } 
+            }
             if (content == null && isAWTAvailable()) {
                 content = getAWTClipboard();
             }
