@@ -47,12 +47,21 @@ public class ExecutionQueue implements Closeable {
     private final Runnable close;
 
     public ExecutionQueue() {
-        executor = NGEUtils.getPlatform().newAsyncExecutor();
-        close = NGEPlatform.get().registerFinalizer(this, () -> executor.close());
+        this(null);
     }
 
-    @SuppressWarnings("unchecked")
-    protected <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
+    public ExecutionQueue(AsyncExecutor executor) {
+        if(executor==null){
+            this.executor = NGEUtils.getPlatform().newAsyncExecutor();
+            close = NGEPlatform.get().registerFinalizer(this, () -> this.executor.close());
+        } else {
+            this.executor = executor;
+            close = () -> {};
+        }    
+    }
+
+    
+    public <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         return platform.wrapPromise((res, rej) -> {
