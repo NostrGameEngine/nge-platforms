@@ -57,6 +57,7 @@ import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
+import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
@@ -238,19 +239,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
             return this.result;
         }
-        // @Async
-        // public static native Object waitFor(JSObject p);
-        // private static void waitFor(JSObject p, AsyncCallback<Object> callback) {
-        //     waitForAsync(p, result ->{
-        //         callback.complete(result);
-        //     },
-        //     error->{
-        //         callback.error(new Exception(error.toString()));
-        //     });
-        // }
-
-        // @JSBody(params = { "p", "resolve", "reject" }, script = "console.log(p); return p.then(resolve).catch(reject);")
-        // public static native void waitForAsync(JSObject p, JSConsumer<Object> resolve, JSConsumer<Object> reject);
+     
     }
 
     @Override
@@ -376,32 +365,48 @@ public class TeaVMPlatform extends NGEPlatform {
         });
     }
 
-    private class ExecutorThread extends Thread implements Executor {
+    private class ExecutorThread implements Executor {
 
         private boolean closed = false;
+        private List<Runnable> tasks = new LinkedList<>();
+        private Thread threadPool[];
 
-        private LinkedList<Runnable> tasks = new LinkedList<>();
+        public ExecutorThread(int n){
+            threadPool = new Thread[n];
+            for(int i=0; i<n; ++i){
+                threadPool[i] = new Thread(this::run);
+                threadPool[i].setName("TeaVMPlatform-ExecutorThread-"+i);
+                threadPool[i].setDaemon(true);
+            }
+        }
 
-        @Override
+        public void start(){
+            for(Thread t : threadPool){
+                t.start();
+            }
+        }
+
+
+
         public void run() {
             while (!closed) {
-                Runnable task = null;
-                if (!tasks.isEmpty()) {
-                    task = tasks.removeFirst();
-                }
-                if (task != null) {
-                    try {
-                        task.run();
-                    } catch (Throwable e) {
-                        e.printStackTrace();
+                synchronized (tasks) {
+                    Runnable task = null;
+                    if (!tasks.isEmpty()) {
+                        task = tasks.remove(0);
                     }
-                } else {
-                    try {
-                        synchronized (tasks) {
-                            tasks.wait(100);
+                    if (task != null) {
+                        try {
+                            task.run();
+                        } catch (Throwable e) {
+                            e.printStackTrace();
                         }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                    } else {
+                        try {
+                            tasks.wait(100);                        
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             }
@@ -410,7 +415,7 @@ public class TeaVMPlatform extends NGEPlatform {
         @Override
         public void execute(Runnable command) {
             synchronized (tasks) {
-                tasks.addLast(command);
+                tasks.add(command);
                 tasks.notifyAll();
             }
         }
@@ -424,33 +429,25 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     private AsyncExecutor newJsExecutor() {
-        ExecutorThread executorThread = new ExecutorThread();
+        ExecutorThread executorThread = new ExecutorThread(3);
         executorThread.start();
+        
+       
         AtomicReference<Runnable> closer = new AtomicReference<>();
+
 
         AsyncExecutor aexc = new AsyncExecutor() {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
                 return wrapPromise((res, rej) -> {
-                    executorThread.execute(() -> {
-                        try {
-                            res.accept(r.call());
-                        } catch (Exception e) {
-                            rej.accept(e);
-                        }
-                    });
-                    // Execute on the next event loop cycle
-                    // TeaVMBinds
-                    //         .setTimeout(
-                    //                 () -> {
-                    //                     try {
-                    //                         res.accept(r.call());
-                    //                     } catch (Exception e) {
-                    //                         rej.accept(e);
-                    //                     }
-                    //                 },
-                    //                 0);
-                });
+                        executorThread.execute(() -> {
+                            try {
+                                res.accept(r.call());
+                            } catch (Exception e) {
+                                rej.accept(e);
+                            }
+                        });
+                 });
             }
 
             @Override
@@ -462,17 +459,24 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
 
                 return wrapPromise((res, rej) -> {
-                    TeaVMBinds.setTimeout(
+                    new Thread( // ensure its on the teavm suspendable context
+
                         () -> {
-                            executorThread.execute(() -> {
-                                try {
-                                    res.accept(r.call());
-                                } catch (Exception e) {
-                                    rej.accept(e);
-                                }
-                            });
-                        },
-                        (int) delayMs
+                            try{
+                                Thread.sleep(delayMs);
+                            } catch (InterruptedException e) {
+                                rej.accept(e);
+                                return;
+                            }
+                            run(r)
+                                .then(result -> {
+                                    res.accept(result);
+                                    return null;
+                                })
+                                .catchException(exc -> {
+                                    rej.accept(exc);
+                                });
+                        }
                     );
                 });
             }
@@ -567,7 +571,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String getClipboardContent() {
-        return TeaVMBinds.getClipboardContent();
+        return TeaVMBindsAsync.getClipboardContent();
     }
 
     @Override
@@ -663,32 +667,29 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
-        // TODO: Implement RTCTransport for TeaVM
-        throw new UnsupportedOperationException("Unimplemented method 'newRTCTransport'");
+        TeaVMRTCTransport transport = new TeaVMRTCTransport();
+        transport.start(settings, null, connId, stunServers);
+        return transport;
     }
 
     @Override
     public void openInWebBrowser(String url) {
-        try {
-            // TeaVMBinds.openInWebBrowser(url);
-        } catch (Exception e) {}
+        TeaVMBinds.openURL(url);
     }
 
     @Override
     public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'scrypt'");
+        return TeaVMBindsAsync.scrypt(P, S, N, r, p2, dkLen);
     }
 
     @Override
     public byte[] xchacha20poly1305(byte[] key, byte[] nonce, byte[] data, byte[] associatedData, boolean forEncryption) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'xchacha20poly1305'");
+        return TeaVMBinds.xchacha20poly1305(key, nonce, data, associatedData, forEncryption);
     }
 
     @Override
     public String nfkc(String str) {
-        throw new UnsupportedOperationException("Unimplemented method 'nfkc'");
+        return TeaVMBinds.nfkc(str);
     }
 
     @Override
@@ -703,9 +704,13 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-        // TODO: implement with FinalizationRegistry ?
+        FinalizerCallback callable = TeaVMBinds.registerFinalizer(obj, ()->{
+            new Thread(()->{
+                finalizer.run();
+            }).start();
+        });
         return () -> {
-            finalizer.run();
+            callable.call();
         };
     }
 

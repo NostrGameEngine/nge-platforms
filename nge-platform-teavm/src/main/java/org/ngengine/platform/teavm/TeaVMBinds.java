@@ -30,10 +30,13 @@
  */
 package org.ngengine.platform.teavm;
 
-import org.teavm.interop.Async;
-import org.teavm.interop.AsyncCallback;
+import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
+import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
+import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
+
 import org.teavm.jso.JSByRef;
 import org.teavm.jso.JSClass;
+import org.teavm.jso.JSFunctor;
 import org.teavm.jso.JSModule;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSTopLevel;
@@ -42,160 +45,133 @@ import org.teavm.jso.core.JSBoolean;
 import org.teavm.jso.core.JSString;
 import org.teavm.jso.function.JSConsumer;
 
+/**
+ * Run ./gradlew build to generate the TeaVMBinds.bundle.js file
+ */
 @JSClass
 public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] randomBytes(int length);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] generatePrivateKey();
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] genPubKey(@JSByRef byte[] secKey);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] sha256(@JSByRef byte[] data);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native String toJSON(Object obj);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native Object fromJSON(String json);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] sign(@JSByRef byte[] data, @JSByRef byte[] privKeyBytes);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native boolean verify(@JSByRef byte[] data, @JSByRef byte[] pub, @JSByRef byte[] sig);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] secp256k1SharedSecret(@JSByRef byte[] privKey, @JSByRef byte[] pubKey);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] hmac(@JSByRef byte[] key, @JSByRef byte[] data1, @JSByRef byte[] data2);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] hkdf_extract(@JSByRef byte[] salt, @JSByRef byte[] ikm);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] hkdf_expand(@JSByRef byte[] prk, @JSByRef byte[] info, int length);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native String base64encode(@JSByRef byte[] data);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] base64decode(String data);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] chacha20(@JSByRef byte[] key, @JSByRef byte[] nonce, @JSByRef byte[] data);
 
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    public static native String getClipboardContent();
+
+
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void getClipboardContentAsync(JSConsumer<String> res, JSConsumer<Throwable> rej);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void setClipboardContent(String content);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void setTimeout(TimerHandler fn, int delay);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] getBundledResource(String path);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native boolean hasBundledResource(String path);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
-    public static native byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
+    public static native byte[] aes256cbc(@JSByRef byte[] key, @JSByRef byte[] iv, @JSByRef byte[] data, boolean forEncryption);
 
-    /**
-     * Checks if a file exists in the virtual file store
-     */
-    @Async
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    public static native Boolean vfileExists(String name, String path);
-
-    private static void vfileExists(String name, String path, AsyncCallback<Boolean> callback) {
-        vfileExistsAsync(name, path, result -> callback.complete(result), error -> callback.error(error));
-    }
+ 
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    private static native void vfileExistsAsync(String name, String path, JSConsumer<Boolean> res, JSConsumer<Throwable> rej);
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void vfileExistsAsync(String name, String path, JSConsumer<Boolean> res, JSConsumer<Throwable> rej);
 
-    /**
-     * Reads a file from the virtual file store
-     */
-    @Async
+ 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    @JSByRef
-    public static native byte[] vfileRead(String name, String path);
-
-    private static void vfileRead(String name, String path, @JSByRef AsyncCallback<byte[]> callback) {
-        vfileReadAsync(name, path, result -> callback.complete(result), error -> callback.error(error));
-    }
-
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    private static native void vfileReadAsync(
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void vfileReadAsync(
         String name,
         String path,
-        @JSByRef JSConsumer<byte[]> res,
+        JSConsumer<byte[]> res,
         JSConsumer<Throwable> rej
     );
 
-    /**
-     * Writes a file to the virtual file store
-     */
-    @Async
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    public static native void vfileWrite(String name, String path, @JSByRef byte[] data);
-
-    private static void vfileWrite(String name, String path, @JSByRef byte[] data, AsyncCallback<Void> callback) {
-        vfileWriteAsync(name, path, data, r -> callback.complete(null), error -> callback.error(error));
-    }
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    private static native void vfileWriteAsync(
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void vfileWriteAsync(
         String name,
         String path,
         @JSByRef byte[] data,
@@ -203,52 +179,123 @@ public class TeaVMBinds implements JSObject {
         JSConsumer<Throwable> errorCallback
     );
 
-    /**
-     * Deletes a file from the virtual file store
-     */
-    @Async
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    public static native void vfileDelete(String name, String path);
 
-    private static void vfileDelete(String name, String path, AsyncCallback<Void> callback) {
-        vfileDeleteAsync(name, path, r -> callback.complete(null), error -> callback.error(error));
-    }
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    private static native void vfileDeleteAsync(
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void vfileDeleteAsync(
         String name,
         String path,
         JSConsumer<Void> callback,
         JSConsumer<Throwable> errorCallback
     );
 
-    /**
-     * Lists all files in the virtual file store
-     */
-    @Async
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    public static native String[] vfileListAll(String name);
-
-    private static void vfileListAll(String name, AsyncCallback<String[]> callback) {
-        vfileListAllAsync(name, result -> callback.complete(result), error -> callback.error(error));
-    }
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
-    private static native void vfileListAllAsync(String name, JSConsumer<String[]> res, JSConsumer<Throwable> rej);
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void vfileListAllAsync(String name,  JSConsumer<String[]> res, JSConsumer<Throwable> rej);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native String getPlatformName();
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void callFunction(String function, String args, JSConsumer<JSString> res, JSConsumer<Throwable> rej);
 
     @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.js")
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void canCallFunction(String function, JSConsumer<JSBoolean> res);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void openURL(String url);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String nfkc(String str);
+
+
+
+    
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void scryptAsync(
+            @JSByRef byte[] P, @JSByRef byte[] S, int N, int r, int p2, int dkLen,
+             JSConsumer<byte[]> res,
+            JSConsumer<Throwable> rej);
+
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef
+    public static native byte[] xchacha20poly1305(@JSByRef byte[] key, 
+            @JSByRef byte[] nonce, @JSByRef byte[] data, @JSByRef byte[] associatedData, boolean forEncryption);
+
+
+    @JSFunctor
+    public static interface FinalizerCallback extends JSObject {
+        void call();
+    }
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef
+    public static native FinalizerCallback registerFinalizer(Object obj, FinalizerCallback callback);
+
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcSetLocalDescriptionAsync(
+            RTCPeerConnection conn, String sdp, String type,
+             JSConsumer<Void> res,
+            JSConsumer<Throwable> rej);
+
+
+
+
+
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcSetRemoteDescriptionAsync(
+            RTCPeerConnection conn, String sdp, String type,
+             JSConsumer<Void> res,
+            JSConsumer<Throwable> rej);
+
+
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcCreateAnswerAsync(
+            RTCPeerConnection conn, 
+             JSConsumer<RTCSessionDescription> res,
+            JSConsumer<Throwable> rej);
+
+
+    
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcCreateOfferAsync(
+            RTCPeerConnection conn, 
+             JSConsumer<RTCSessionDescription> res,
+            JSConsumer<Throwable> rej); 
+
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native RTCPeerConnection rtcCreatePeerConnection(String urls[]);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native RTCIceCandidate rtcCreateIceCandidate(String candidateJson);
 }

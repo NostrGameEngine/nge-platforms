@@ -1,10 +1,9 @@
-
 plugins {
     id 'java-library'
     id "war"
-    id "org.teavm" version "0.11.0"
+    id "org.teavm" version "0.12.3"
+    id "com.github.node-gradle.node" version "3.5.1" 
 }
-
 
 repositories {
     mavenCentral()
@@ -13,32 +12,49 @@ repositories {
 dependencies {
     testImplementation "junit:junit:4.13.2"
  
-    api  project(':nge-platform-common')
+    api project(':nge-platform-common')
     testImplementation teavm.libs.jsoApis
 }
 
+node {
+    version = "22.18.0"
+    download = true
+    nodeProjectDir = file("${project.projectDir}")
+}
+
+task webpack(type: com.github.gradle.node.npm.task.NpxTask) {
+    dependsOn npmInstall
+    command = "webpack"
+    args = ["--config", "webpack.config.js"]
+    
+    doFirst {
+        println "Running webpack with Node.js from: ${node.nodeProjectDir}"
+        println "Using webpack from npm modules"
+    }
+}
+
+task copyWebpackOutput(type: Copy) {
+    dependsOn webpack
+    from "${buildDir}/webpack-output"
+    into "src/main/resources"
+    
+    doFirst {
+        file("${buildDir}/webpack-output").mkdirs()
+    }
+}
+
+processResources {
+    dependsOn copyWebpackOutput
+}
+
+tasks.named('sourcesJar') {
+    dependsOn copyWebpackOutput
+}
+
+
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21) 
+        languageVersion = JavaLanguageVersion.of(11) 
     }
 }
 
-tasks.named('compileTestJava') {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-tasks.named('test') {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-}
-
-sourceSets {
-    test {
-        resources {
-            srcDirs = ['src/test/resources', 'src/main/resources']            
-        }
-    }
-}

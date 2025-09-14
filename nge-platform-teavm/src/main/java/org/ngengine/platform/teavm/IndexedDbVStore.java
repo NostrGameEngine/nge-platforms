@@ -48,7 +48,7 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public InputStream read(String path) {
-        byte data[] = TeaVMBinds.vfileRead(name, path);
+        byte data[] = TeaVMBindsAsync.vfileRead(name, path);
         ByteArrayInputStream bais = new ByteArrayInputStream(data);
         return bais;
     }
@@ -64,12 +64,12 @@ public class IndexedDbVStore implements VStoreBackend {
 
             @Override
             public void flush() throws IOException {
-                TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+                TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
             }
 
             @Override
             public void close() {
-                TeaVMBinds.vfileWrite(name, path, baos.toByteArray());
+                TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
             }
         };
         return os;
@@ -77,18 +77,18 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public boolean exists(String path) {
-        boolean exists = TeaVMBinds.vfileExists(name, path);
+        boolean exists = TeaVMBindsAsync.vfileExists(name, path);
         return exists;
     }
 
     @Override
     public void delete(String path) {
-        TeaVMBinds.vfileDelete(name, path);
+        TeaVMBindsAsync.vfileDelete(name, path);
     }
 
     @Override
     public List<String> listAll() {
-        String[] files = TeaVMBinds.vfileListAll(name);
+        String[] files = TeaVMBindsAsync.vfileListAll(name);
         return List.of(files);
     }
 }

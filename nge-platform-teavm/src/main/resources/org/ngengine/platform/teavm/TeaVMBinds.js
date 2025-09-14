@@ -6,6 +6,8 @@ import { extract as _hkdf_extract, expand as _hkdf_expand } from '@noble/hashes/
 import { base64 as _base64 } from '@scure/base';
 import { cbc } from '@noble/ciphers/aes';
 import {  randomBytes as _randomBytes } from '@noble/hashes/utils.js';
+import { scryptAsync as _scryptAsync } from '@noble/hashes/scrypt'
+import { xchacha20poly1305 as _xchacha20poly1305 } from '@noble/ciphers/chacha'
 
 // convert various buffer types to Uint8Array
 const _u = (data) => {
@@ -28,6 +30,13 @@ const _u = (data) => {
     }
 };
 
+function _s() {
+    return ((typeof window !== 'undefined' && window) ||
+        (typeof globalThis !== 'undefined' && globalThis) ||
+        (typeof global !== 'undefined' && global) ||
+        (typeof self !== 'undefined' && self));
+}
+ 
 const sanitizeBigInts = (obj) => {
     // Base cases for non-objects
     if (obj === null || obj === undefined) {
@@ -134,19 +143,20 @@ export const setTimeout = (callback, delay) => { //void
         (typeof self !== 'undefined' && self)).setTimeout(callback, delay);
 }
 
-export const getClipboardContent = async () => { //str
-    try {
-        const text = await navigator.clipboard.readText();
-        return text;
-    } catch (err) {
-        console.error('Failed to read clipboard contents: ', err);
-        return null;
-    }
+export const getClipboardContentAsync = (res,rej) => { //str
+    navigator.clipboard.readText()
+        .then(text => res(text))
+        .catch(err => {
+            console.error('Failed to read clipboard contents: ', err);
+            res(null);
+        });
 }
 
-export const setClipboardContent = async (text) => { //void
+export const setClipboardContent = (text) => { //void
     try {
-        await navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(text).catch((err) => {
+            console.error('Failed to write to clipboard: ', err);
+        });
     } catch (err) {
         console.error('Failed to write to clipboard: ', err);
     }
@@ -363,14 +373,14 @@ async function getVFileStore(name) {
     });
 }
 
-export const vfileExists = async (name, path) => { // boolean
+const vfileExists = async (name, path) => { // boolean
     const vstore = await getVFileStore(name);
     const v = await vstore.exists(path);
     vstore.close();
     return v;
 }
 
-export const vfileRead = async (name, path) => { // byte[]
+const vfileRead = async (name, path) => { // byte[]
     const vstore = await getVFileStore(name);
     const v  = await vstore.read(path);
     if (v === null || v === undefined) {
@@ -383,21 +393,21 @@ export const vfileRead = async (name, path) => { // byte[]
     return _u(v);
 }
 
-export const vfileWrite = async (name, path, data) => { // void
+const vfileWrite = async (name, path, data) => { // void
     const vstore = await getVFileStore(name);
     await vstore.write(path, _u(data));
     vstore.close();
     console.log(`File written: ${path} in store ${name}`);
 }
 
-export const vfileDelete = async (name, path) => { // void
+const vfileDelete = async (name, path) => { // void
     const vstore = await getVFileStore(name);
     await vstore.delete(path);
     vstore.close();
     console.log(`File deleted: ${path} in store ${name}`);    
 }   
 
-export const vfileListAll = async (name) => { // str[]
+const vfileListAll = async (name) => { // str[]
     const vstore = await getVFileStore(name);
     const files = await vstore.listAll();
     if (files === undefined || files === null) {
@@ -420,7 +430,7 @@ export const vfileExistsAsync = (name, path, res, rej) => { // void
     );
 }
 
-const vfileReadAsync = (name, path, res, rej) => { // void
+export const vfileReadAsync = (name, path, res, rej) => { // void
     vfileRead(name, path)
         .then(result => res(result))
         .catch(error => {
@@ -453,7 +463,10 @@ export const vfileDeleteAsync = (name, path, res, rej) => { // void
 export const vfileListAllAsync = (name, res, rej) => { // str[]
     vfileListAll(name)
 
-        .then(result => res(result))
+        .then(result => {
+            if (!result.length) result = null;
+            res(result)
+        })
         .catch(error => {
             console.error(`Error listing files: ${error}`);
             rej(error);
@@ -537,3 +550,178 @@ export const canCallFunction = async (functionName, res) => { // void
         res(false);
     }
 };
+
+
+export const openURL = (url) => { // void
+    try {
+        const globalObj = (typeof window !== 'undefined' && window) ||
+            (typeof self !== 'undefined' && self) ||
+            (typeof globalThis !== 'undefined' && globalThis) ||
+            (typeof global !== 'undefined' && global);
+
+        if (globalObj && globalObj.open) {
+            globalObj.open(url, '_blank');
+        } else {
+            console.warn('Cannot open URL: No suitable global object found.');
+        }
+    } catch (error) {
+        console.error('Error opening URL:', error);
+    }
+}   
+
+
+export const nfkc = (str) => { // str
+    if (str && str.normalize) {
+        return str.normalize('NFKC');
+    } else {
+        console.warn('String normalization not supported in this environment.');
+        return str;
+    }
+}
+
+
+export const scryptAsync = async(
+    p, /*byte[]*/
+    s,  /*byte[]*/
+    n,  /*int*/
+    r, /*int*/ 
+    p2,  /*int*/
+    dkLen, /*int*/
+    res,
+    rej
+) => { // byte[]
+    await _scryptAsync(
+        _u(p),
+        _u(s),
+        { N: n, r: r, p: p2, dkLen: dkLen }).then(result => res(result))
+        .catch(error => {
+            console.error(`Error in scryptAsync: ${error}`);
+            rej(error);
+        });
+}
+
+
+export const xchacha20poly1305 = (
+    key, /*byte[]*/
+    nonce, /*byte[]*/
+    data,  /*byte[]*/
+    associatedData, /*byte[]*/
+    forEncryption /*bool*/
+) => { // byte[]
+    // let xc2p1 = xchacha20poly1305(key, nonce, aad)
+    key = _u(key);
+    nonce = _u(nonce);
+    data = _u(data);
+    associatedData = _u(associatedData);
+    const cipher = _xchacha20poly1305(key, nonce, associatedData);
+
+    if (forEncryption) {
+        return cipher.encrypt(data);
+    } else {
+        return cipher.decrypt(data);
+    }
+}
+
+export const registerFinalizer = (obj, callback) => { // void
+
+    if (typeof FinalizationRegistry === 'undefined') {
+        return ()=>{
+            callback();
+        }
+    }
+
+    const s = _s();
+
+    if(typeof s._ngeTeaVMFinalizerMap=='undefined'){
+        s._ngeTeaVMFinalizerMap = {};
+    }
+
+    if (typeof s._ngeTeaVMFinalizerMap_counter=='undefined'){
+        s._ngeTeaVMFinalizerMap_counter = 1;
+    }
+
+    const id = "finalizer_" + (s._ngeTeaVMFinalizerMap_counter++);
+    s._ngeTeaVMFinalizerMap[id] = callback;
+    
+    if(typeof s.ngeTeaVMFinalizationRegistry=='undefined'){
+        s.ngeTeaVMFinalizationRegistry = new FinalizationRegistry((id) => {
+            if (s._ngeTeaVMFinalizerMap[id]){
+                try {
+                    s._ngeTeaVMFinalizerMap[id]();
+                } catch (e) {
+                    console.error('Error in finalizer callback:', e);
+                }
+                delete s._ngeTeaVMFinalizerMap[id];
+            }
+        });
+    }
+
+    s.ngeTeaVMFinalizationRegistry.register(obj, id, obj);
+
+    return () => {  
+        if (s.ngeTeaVMFinalizationRegistry && id) {
+            s.ngeTeaVMFinalizationRegistry.unregister(obj);
+            if (s._ngeTeaVMFinalizerMap[id]){
+                delete s._ngeTeaVMFinalizerMap[id];
+            }
+            callback();
+        }
+    }
+
+}
+
+export const rtcSetLocalDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) => { // void
+    conn.setLocalDescription({ type: type, sdp: sdp })
+        .then(() => res())
+        .catch(error => {
+            console.error('Error setting local description:', error);
+            rej(error);
+        });
+}
+
+export const rtcSetRemoteDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) => { // void
+    conn.setRemoteDescription({ type: type, sdp: sdp })
+        .then(() => res())
+        .catch(error => {
+            console.error('Error setting remote description:', error);
+            rej(error);
+        });
+}   
+
+
+export const rtcCreateAnswerAsync = (conn /*RTCPeerConnection*/, res, rej) => { // str
+    conn.createAnswer()
+        .then(answer => res(answer))
+        .catch(error => {
+            console.error('Error creating answer:', error);
+            rej(error);
+        });
+}
+
+
+export const rtcCreateOfferAsync = (conn /*RTCPeerConnection*/, res, rej) => { // str
+    conn.createOffer()
+        .then(offer => res(offer))
+        .catch(error => {
+            console.error('Error creating offer:', error);
+            rej(error);
+        });
+}   
+
+
+export const rtcCreatePeerConnection = (
+    urls /*str[]*/
+) => { // RTCPeerConnection
+    const conf = {
+        iceServers: {
+            urls: urls
+        }
+    };
+    const conn = new RTCPeerConnection(conf);
+    return conn;
+}
+
+
+export const rtcCreateIceCandidate = (sdp /*str*/) => { // RTCIceCandidate
+    return new RTCIceCandidate({ candidate: sdp });
+}
