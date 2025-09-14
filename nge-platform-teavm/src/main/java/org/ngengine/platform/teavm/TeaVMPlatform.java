@@ -239,7 +239,6 @@ public class TeaVMPlatform extends NGEPlatform {
             }
             return this.result;
         }
-     
     }
 
     @Override
@@ -371,22 +370,20 @@ public class TeaVMPlatform extends NGEPlatform {
         private List<Runnable> tasks = new LinkedList<>();
         private Thread threadPool[];
 
-        public ExecutorThread(int n){
+        public ExecutorThread(int n) {
             threadPool = new Thread[n];
-            for(int i=0; i<n; ++i){
+            for (int i = 0; i < n; ++i) {
                 threadPool[i] = new Thread(this::run);
-                threadPool[i].setName("TeaVMPlatform-ExecutorThread-"+i);
+                threadPool[i].setName("TeaVMPlatform-ExecutorThread-" + i);
                 threadPool[i].setDaemon(true);
             }
         }
 
-        public void start(){
-            for(Thread t : threadPool){
+        public void start() {
+            for (Thread t : threadPool) {
                 t.start();
             }
         }
-
-
 
         public void run() {
             while (!closed) {
@@ -403,7 +400,7 @@ public class TeaVMPlatform extends NGEPlatform {
                         }
                     } else {
                         try {
-                            tasks.wait(100);                        
+                            tasks.wait(100);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -431,23 +428,21 @@ public class TeaVMPlatform extends NGEPlatform {
     private AsyncExecutor newJsExecutor() {
         ExecutorThread executorThread = new ExecutorThread(3);
         executorThread.start();
-        
-       
-        AtomicReference<Runnable> closer = new AtomicReference<>();
 
+        AtomicReference<Runnable> closer = new AtomicReference<>();
 
         AsyncExecutor aexc = new AsyncExecutor() {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
                 return wrapPromise((res, rej) -> {
-                        executorThread.execute(() -> {
-                            try {
-                                res.accept(r.call());
-                            } catch (Exception e) {
-                                rej.accept(e);
-                            }
-                        });
-                 });
+                    executorThread.execute(() -> {
+                        try {
+                            res.accept(r.call());
+                        } catch (Exception e) {
+                            rej.accept(e);
+                        }
+                    });
+                });
             }
 
             @Override
@@ -459,25 +454,22 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
 
                 return wrapPromise((res, rej) -> {
-                    new Thread( // ensure its on the teavm suspendable context
-
-                        () -> {
-                            try{
-                                Thread.sleep(delayMs);
-                            } catch (InterruptedException e) {
-                                rej.accept(e);
-                                return;
-                            }
-                            run(r)
-                                .then(result -> {
-                                    res.accept(result);
-                                    return null;
-                                })
-                                .catchException(exc -> {
-                                    rej.accept(exc);
-                                });
+                    new Thread(() -> { // ensure its on the teavm suspendable context
+                        try {
+                            Thread.sleep(delayMs);
+                        } catch (InterruptedException e) {
+                            rej.accept(e);
+                            return;
                         }
-                    );
+                        run(r)
+                            .then(result -> {
+                                res.accept(result);
+                                return null;
+                            })
+                            .catchException(exc -> {
+                                rej.accept(exc);
+                            });
+                    });
                 });
             }
 
@@ -704,11 +696,15 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-        FinalizerCallback callable = TeaVMBinds.registerFinalizer(obj, ()->{
-            new Thread(()->{
-                finalizer.run();
-            }).start();
-        });
+        FinalizerCallback callable = TeaVMBinds.registerFinalizer(
+            obj,
+            () -> {
+                new Thread(() -> {
+                    finalizer.run();
+                })
+                    .start();
+            }
+        );
         return () -> {
             callable.call();
         };
