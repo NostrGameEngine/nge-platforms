@@ -22,8 +22,12 @@ node {
     nodeProjectDir = file("${project.projectDir}")
 }
 
+task npmCi(type: com.github.gradle.node.npm.task.NpmTask) {
+    args = ['ci']
+}
+
 task webpack(type: com.github.gradle.node.npm.task.NpxTask) {
-    dependsOn npmInstall
+    dependsOn npmCi
     command = "webpack"
     args = ["--config", "webpack.config.js"]
     

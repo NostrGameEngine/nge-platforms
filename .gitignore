@@ -16,3 +16,5 @@ build.date
 .settings
 *.log
 local.properties
+!nge-platform-teavm/package.json
+!nge-platform-teavm/package-lock.json
