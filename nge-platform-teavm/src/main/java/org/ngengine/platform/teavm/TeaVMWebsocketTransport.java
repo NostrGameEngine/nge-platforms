@@ -51,7 +51,6 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
     private volatile BrowserWebSocket ws;
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
-    private final StringBuilder aggregator = new StringBuilder();
     private final TeaVMPlatform platform;
     private final AsyncExecutor asyncExecutor;
 
@@ -123,16 +122,13 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                         this.ws.setOnMessage(evt -> {
                                 this.asyncExecutor.run(() -> {
                                         String message = ((MessageEvent) evt).getData();
-                                        aggregator.append(message);
-                                        String fullMessage = aggregator.toString();
                                         for (WebsocketTransportListener listener : listeners) {
                                             try {
-                                                listener.onConnectionMessage(fullMessage);
+                                                listener.onConnectionMessage(message);
                                             } catch (Exception e) {
                                                 logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
                                             }
                                         }
-                                        aggregator.setLength(0);
                                         return null;
                                     });
                             });
