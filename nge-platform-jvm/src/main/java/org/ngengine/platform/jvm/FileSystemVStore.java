@@ -40,8 +40,8 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
 import org.ngengine.platform.AsyncExecutor;
+import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
-import org.ngengine.platform.VStore;
 import org.ngengine.platform.VStore.VStoreBackend;
 
 public class FileSystemVStore implements VStoreBackend {
@@ -52,49 +52,77 @@ public class FileSystemVStore implements VStoreBackend {
     public FileSystemVStore(Path basePath) {
         this.basePath = basePath;
         NGEPlatform platform = NGEPlatform.get();
-        this.executor = platform.newAsyncExecutor(VStore.class);
+        this.executor = platform.newAsyncExecutor(VStoreBackend.class);
     }
 
     @Override
-    public InputStream read(String path) throws IOException {
-        Path fullPath = Util.safePath(basePath, path, false);
-        return new FileInputStream(fullPath.toFile());
-    }
-
-    @Override
-    public OutputStream write(String path) throws IOException {
-        Path fullPath = Util.safePath(basePath, path, true);
-        return new SafeFileOutputStream(fullPath);
-    }
-
-    @Override
-    public boolean exists(String path) {
-        try {
-            Path fullPath = Util.safePath(basePath, path, false);
-            if (fullPath == null) {
-                return false;
+    public AsyncTask<InputStream> read(String path)  {
+        return NGEPlatform.get().promisify((res,rej)->{
+            try{
+                Path fullPath = Util.safePath(basePath, path, false);
+                FileInputStream is = new FileInputStream(fullPath.toFile());
+                res.accept(is);
+            } catch (IOException e) {
+                rej.accept(e);
             }
-        } catch (IOException e) {
-            return false;
-        }
-        return true;
+        }, executor);
+        
     }
 
     @Override
-    public void delete(String path) throws IOException {
-        Path fullPath = Util.safePath(basePath, path, false);
-        if (fullPath != null) {
-            Files.deleteIfExists(fullPath);
-        }
+    public AsyncTask<OutputStream> write(String path) {
+        return NGEPlatform.get().promisify((res,rej)->{
+            try{
+                Path fullPath = Util.safePath(basePath, path, true);
+                SafeFileOutputStream os = new SafeFileOutputStream(fullPath);
+                res.accept(os);
+            } catch (IOException e) {
+                rej.accept(e);
+            }
+        }, executor);
     }
 
     @Override
-    public List<String> listAll() {
-        try {
-            return Files.walk(basePath).filter(Files::isRegularFile).map(basePath::relativize).map(Path::toString).toList();
-        } catch (IOException e) {
-            return List.of();
-        }
+    public AsyncTask<Boolean> exists(String path) {
+        return NGEPlatform.get().promisify((res,rej)->{
+            try{
+                Path fullPath = Util.safePath(basePath, path, false);
+                res.accept(fullPath!=null && Files.exists(fullPath));
+            } catch (IOException e) {
+                res.accept(false);
+            }
+        }, executor);
+    }
+
+    @Override
+    public AsyncTask<Void> delete(String path)  {
+        return NGEPlatform.get().promisify((res,rej)->{
+            try{
+                Path fullPath = Util.safePath(basePath, path, false);
+                if(fullPath!=null){
+                    Files.deleteIfExists(fullPath);
+                }
+                res.accept(null);
+            } catch (IOException e) {
+                rej.accept(e);
+            }
+        }, executor);
+    }
+
+    @Override
+    public AsyncTask<List<String>> listAll() {
+        return NGEPlatform.get().promisify((res,rej)->{
+            try{
+                List<String> files = Files.walk(basePath)
+                    .filter(Files::isRegularFile)
+                    .map(basePath::relativize)
+                    .map(Path::toString)
+                    .toList();
+                res.accept(files);
+            } catch (IOException e) {
+                rej.accept(e);
+            }
+        }, executor);
     }
 
     /**

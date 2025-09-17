@@ -36,6 +36,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+
+import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.VStore.VStoreBackend;
 
 public class IndexedDbVStore implements VStoreBackend {
@@ -47,48 +50,96 @@ public class IndexedDbVStore implements VStoreBackend {
     }
 
     @Override
-    public InputStream read(String path) {
-        byte data[] = TeaVMBindsAsync.vfileRead(name, path);
-        ByteArrayInputStream bais = new ByteArrayInputStream(data);
-        return bais;
-    }
-
-    @Override
-    public OutputStream write(String path) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        OutputStream os = new OutputStream() {
-            @Override
-            public void write(int b) {
-                baos.write(b);
+    public AsyncTask<InputStream> read(String path) {
+        return NGEPlatform.get().wrapPromise((res,rej)->{
+            try {
+                TeaVMBinds.vfileReadAsync(name, path, data -> {
+                    ByteArrayInputStream bais = new ByteArrayInputStream(data);
+                    res.accept(bais);
+                }, error -> {
+                    rej.accept(new IOException("Error reading file: " + error));
+                });
+            } catch (Exception e) {
+                rej.accept(e);
             }
+        });
+    }
 
-            @Override
-            public void flush() throws IOException {
-                TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
+    @Override
+    public AsyncTask<OutputStream> write(String path) {
+        return NGEPlatform.get().wrapPromise((res,rej)->{
+            try {
+                OutputStream os = new OutputStream() {
+                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+                    @Override
+                    public void write(int b) {
+                        baos.write(b);
+                    }
+
+                    @Override
+                    public void flush() throws IOException {
+                        TeaVMBindsAsync.vfileWrite(path, path, baos.toByteArray());
+                    }
+
+                    @Override
+                    public void close() {
+                        try {
+                            flush();
+                        } catch (IOException e) {
+                        }
+                        baos=null;
+                    }
+                };
+                res.accept(os);
+            } catch (Exception e) {
+                rej.accept(e);
             }
+        });
+    }
 
-            @Override
-            public void close() {
-                TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
+    @Override
+    public AsyncTask<Boolean> exists(String path) {
+        return NGEPlatform.get().wrapPromise((res,rej)->{
+            try {
+                TeaVMBinds.vfileExistsAsync(name, path, exists -> {
+                    res.accept(exists);
+                }, error -> {
+                    rej.accept(new IOException("Error checking file existence: " + error));
+                });
+            } catch (Exception e) {
+                rej.accept(e);
             }
-        };
-        return os;
+        });
     }
 
     @Override
-    public boolean exists(String path) {
-        boolean exists = TeaVMBindsAsync.vfileExists(name, path);
-        return exists;
+    public AsyncTask<Void> delete(String path) {
+        return NGEPlatform.get().wrapPromise((res,rej)->{
+            try {
+                TeaVMBinds.vfileDeleteAsync(name, path, (r) -> {
+                    res.accept(null);
+                }, error -> {
+                    rej.accept(new IOException("Error deleting file: " + error));
+                });
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
     }
 
     @Override
-    public void delete(String path) {
-        TeaVMBindsAsync.vfileDelete(name, path);
-    }
-
-    @Override
-    public List<String> listAll() {
-        String[] files = TeaVMBindsAsync.vfileListAll(name);
-        return List.of(files);
+    public AsyncTask<List<String>> listAll() {
+        return NGEPlatform.get().wrapPromise((res,rej)->{
+            try {
+                TeaVMBinds.vfileListAllAsync(name, files -> {
+                     res.accept(files!=null?List.of(files):List.of());
+                }, error -> {
+                    rej.accept(new IOException("Error listing files: " + error));
+                });
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
     }
 }
