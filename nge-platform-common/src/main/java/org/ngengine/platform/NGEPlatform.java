@@ -405,10 +405,18 @@ public abstract class NGEPlatform {
     public ExecutionQueue getVStoreQueue() {
         return vstoreQueue.updateAndGet(current -> {
             if (current == null) {
-                return new ExecutionQueue();
+                return newExecutionQueue();
             }
             return current;
         });
+    }
+
+    public ExecutionQueue newExecutionQueue() {
+        return new ExecutionQueue();
+    }
+
+    public ExecutionQueue newExecutionQueue(AsyncExecutor exc) {
+        return new ExecutionQueue(exc);
     }
 
     /**

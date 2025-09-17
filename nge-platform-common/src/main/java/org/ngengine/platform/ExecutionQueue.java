@@ -32,7 +32,7 @@ package org.ngengine.platform;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -42,81 +42,87 @@ public class ExecutionQueue implements Closeable {
 
     private static final Logger logger = Logger.getLogger(ExecutionQueue.class.getName());
 
-    private AtomicReference<AsyncTask<Void>> queue = new AtomicReference<>(null);
     private final AsyncExecutor executor;
     private final Runnable close;
-
-    public ExecutionQueue() {
+    private volatile AsyncTask<Void> current = null;
+    private final AtomicInteger leakGuard = new AtomicInteger(0);
+ 
+    protected ExecutionQueue() {
         this(null);
     }
 
-    public ExecutionQueue(AsyncExecutor executor) {
+    protected ExecutionQueue(AsyncExecutor executor) {
         if (executor == null) {
-            this.executor = NGEUtils.getPlatform().newAsyncExecutor();
+            this.executor = NGEUtils.getPlatform().newAsyncExecutor(ExecutionQueue.class);
             close = NGEPlatform.get().registerFinalizer(this, () -> this.executor.close());
         } else {
             this.executor = executor;
             close = () -> {};
         }
+        if(logger.isLoggable(Level.FINEST)){
+            debug();
+        }
     }
 
-    public <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
+    private void debug(){
+        this.executor.runLater(()->{
+            int lg = leakGuard.get();
+            logger.log(Level.WARNING, "ExecutionQueue: "+lg+" pending tasks");
+            if(logger.isLoggable(Level.FINEST)){
+                debug();
+            }
+            return null;
+        }, 60000, java.util.concurrent.TimeUnit.MILLISECONDS);
+    }
+
+    public synchronized <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         return platform.wrapPromise((res, rej) -> {
-            synchronized (queue) {
-                // Get or create the initial queue
-                AsyncTask<Void> currentQueue = queue.updateAndGet(current -> {
-                    if (current == null) {
-                        // Create initial resolved promise
-                        return platform.wrapPromise((resolve, reject) -> {
-                            resolve.accept(null);
-                        });
-                    }
-                    return current;
+            if(current==null){
+                current = platform.wrapPromise((forward, _ignored) -> {
+                    forward.accept(null);
                 });
-
-                // Chain the new task to the queue
-                AsyncTask<T> newTask = currentQueue.compose(ignored -> {
-                    return platform.wrapPromise((_i0, _i1) -> {
-                        runnable.accept(
-                            r -> {
-                                try {
-                                    res.accept(r);
-                                } catch (Throwable e) {
-                                    rej.accept(e);
-                                }
-                                _i0.accept(null);
-                            },
-                            e -> {
-                                try {
-                                    rej.accept(e);
-                                } catch (Throwable ex) {
-                                    logger.log(Level.SEVERE, "Error in task rejection", ex);
-                                }
-                                _i0.accept(null);
-                            }
-                        );
-                    });
-                });
-
-                // Update the queue to point to the new task (cast to Void for queue management)
-                queue.set(
-                    newTask.compose(result -> {
-                        return platform.wrapPromise((resolve, reject) -> {
-                            resolve.accept(null);
-                        });
-                    })
-                );
             }
+
+            current = current.compose(ignored -> {
+                return platform.wrapPromise((forward, _ignored) -> {
+                    runnable.accept(
+                        r -> {
+                            try {
+                                res.accept(r);
+                            } catch (Throwable e) {
+                                logger.log(Level.WARNING, "Error in task", e);
+                                rej.accept(e);
+
+                            }
+                            forward.accept(null);
+                        },
+                        e -> {
+                            try {
+                                rej.accept(e);
+                            } catch (Throwable ex) {
+                                logger.log(Level.SEVERE, "Error in task rejection", ex);
+                            }
+                            forward.accept(null);
+                        }
+                    );
+                });
+            });
+
+            if(logger.isLoggable(Level.FINEST)){
+                leakGuard.incrementAndGet();
+                NGEPlatform.get().registerFinalizer(current,()->{
+                    leakGuard.decrementAndGet();
+                });
+            } 
         });
     }
-
+ 
     @Override
-    public void close() throws IOException {
-        AsyncTask task = queue.get();
-        if (task != null) {
-            task.cancel();
+    public synchronized void close() throws IOException {
+        if (current != null) {
+             current.cancel();
         }
         close.run();
     }
