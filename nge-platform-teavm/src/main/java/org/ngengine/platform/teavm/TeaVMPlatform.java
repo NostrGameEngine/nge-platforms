@@ -45,6 +45,7 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -61,11 +62,7 @@ import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
-import org.teavm.jso.JSExport;
 import org.teavm.jso.JSObject;
-import org.teavm.jso.ajax.XMLHttpRequest;
-import org.teavm.jso.typedarrays.ArrayBuffer;
-import org.teavm.jso.typedarrays.Int8Array;
 
 public class TeaVMPlatform extends NGEPlatform {
 
@@ -166,7 +163,7 @@ public class TeaVMPlatform extends NGEPlatform {
         return System.currentTimeMillis() / 1000;
     }
 
-    class TeaVMPromise<T> {
+    static class TeaVMPromise<T> {
 
         public T result;
         public Throwable error;
@@ -174,22 +171,39 @@ public class TeaVMPlatform extends NGEPlatform {
         public boolean failed = false;
         private final List<Consumer<T>> thenCallbacks = new ArrayList<>();
         private final List<Consumer<Throwable>> catchCallbacks = new ArrayList<>();
-        private Object monitor = new Object();
+        private int promiseId = -1;
+    
+        public TeaVMPromise() {
+            StringBuilder stackTrace = new StringBuilder("StackTrace:\n");
+            Exception e = new Exception();
+            for (StackTraceElement ste : e.getStackTrace()) {
+                stackTrace.append(ste.toString()).append("\n");
+            }
+            newPromise();
 
-        public void resolve(T value) {
+        }
+
+        private void newPromise(){
+            int promiseId = TeaVMBinds.newPromise();
+            this.promiseId = promiseId;
+            NGEPlatform.get().registerFinalizer(this, () -> {
+                TeaVMBinds.freePromise(promiseId);
+            });
+        }
+
+
+        public  void resolve(T value) {
             if (!completed) {
                 this.result = value;
                 this.completed = true;
                 for (Consumer<T> callback : thenCallbacks) {
                     callback.accept(value);
                 }
-            }
-            synchronized (monitor) {
-                monitor.notifyAll();
+                TeaVMBinds.resolvePromise(this.promiseId);
             }
         }
 
-        public void reject(Throwable error) {
+        public  void reject(Throwable error) {
             if (!completed) {
                 this.error = error;
                 this.completed = true;
@@ -197,14 +211,11 @@ public class TeaVMPlatform extends NGEPlatform {
                 for (Consumer<Throwable> callback : catchCallbacks) {
                     callback.accept(error);
                 }
-            }
-            synchronized (monitor) {
-                monitor.notifyAll();
+                TeaVMBinds.rejectPromise(this.promiseId);
             }
         }
 
-        @JSExport
-        public TeaVMPromise<T> then(Consumer<T> onFulfilled) {
+        public  TeaVMPromise<T> then(Consumer<T> onFulfilled) {
             if (completed && !failed) {
                 onFulfilled.accept(result);
             } else if (!completed) {
@@ -213,8 +224,7 @@ public class TeaVMPlatform extends NGEPlatform {
             return this;
         }
 
-        @JSExport
-        public TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
+        public  TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
             if (completed && failed) {
                 onRejected.accept(error);
             } else if (!completed) {
@@ -223,17 +233,8 @@ public class TeaVMPlatform extends NGEPlatform {
             return this;
         }
 
-        @JSExport
-        public Object await() throws Exception {
-            while (!this.completed && !this.failed) {
-                synchronized (monitor) {
-                    try {
-                        monitor.wait();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException("Thread interrupted while waiting for promise resolution", e);
-                    }
-                }
-            }
+        public  Object await() throws Exception {
+            TeaVMBindsAsync.waitPromise(promiseId);  
             if (this.failed) {
                 throw new ExecutionException("Promise failed with error", this.error);
             }
@@ -245,7 +246,22 @@ public class TeaVMPlatform extends NGEPlatform {
     public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
         TeaVMPromise<T> promise = new TeaVMPromise<>();
 
-        func.accept(promise::resolve, promise::reject);
+        if(executor == null){
+            try{
+                func.accept(promise::resolve, promise::reject);
+            } catch(Throwable e){
+                promise.reject(e);
+            }
+        }else{
+            executor.run(()->{
+                try{
+                    func.accept(promise::resolve, promise::reject);
+                } catch(Throwable e){
+                    promise.reject(e);
+                }
+                return null;
+            });
+        }
 
         return new AsyncTask<T>() {
             @Override
@@ -387,25 +403,30 @@ public class TeaVMPlatform extends NGEPlatform {
 
         public void run() {
             while (!closed) {
+                Runnable task = null;
                 synchronized (tasks) {
-                    Runnable task = null;
                     if (!tasks.isEmpty()) {
                         task = tasks.remove(0);
                     }
-                    if (task != null) {
-                        try {
-                            task.run();
-                        } catch (Throwable e) {
-                            e.printStackTrace();
+                }
+                if (task != null) {
+                    try {
+                        task.run();
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                    }
+                } else {
+                    try {
+                        synchronized (tasks) {
+                            if (tasks.isEmpty() && !closed) {
+                                tasks.wait(1000);
+                            }
                         }
-                    } else {
-                        try {
-                            tasks.wait(100);
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
                     }
                 }
+            
             }
         }
 
@@ -489,7 +510,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public <T> Queue<T> newConcurrentQueue(Class<T> claz) {
-        return new LinkedList<T>();
+        return new LinkedBlockingDeque<T>();
     }
 
     @Override
@@ -566,95 +587,40 @@ public class TeaVMPlatform extends NGEPlatform {
         return TeaVMBindsAsync.getClipboardContent();
     }
 
+    @SuppressWarnings("unchecked")
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
-        String method,
-        String inurl,
-        byte[] body,
-        Duration timeout,
-        Map<String, String> headers
-    ) {
+            String method,
+            String inurl,
+            byte[] body,
+            Duration timeout,
+            Map<String, String> headers) {
         String url = NGEUtils.safeURI(inurl).toString();
+
+        String reqHeaders = headers != null ? toJSON(headers) : null;
+
+        byte[] reqBody = body != null ? body : new byte[0];
+
         return wrapPromise((res, rej) -> {
-            try {
-                XMLHttpRequest xhr = new XMLHttpRequest();
-
-                xhr.open(method.toUpperCase(), url, true);
-                xhr.setResponseType("arraybuffer");
-
-                if (headers != null) {
-                    for (Map.Entry<String, String> entry : headers.entrySet()) {
-                        xhr.setRequestHeader(entry.getKey(), entry.getValue());
+            TeaVMBinds.fetchAsync(method, url, reqHeaders, reqBody,
+                (r) -> {
+                    try {
+                        int status = r.getStatus();
+                        String jsonHeaders = r.getHeaders();
+                        Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+                        byte[] data = r.getBody();
+                        NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders,
+                                data,
+                                status >= 200 && status < 300);
+                        res.accept(ngeResp);
+                    } catch (Throwable e) {
+                        rej.accept(e);
                     }
-                }
-
-                xhr.setOnReadyStateChange(() -> {
-                    int state = xhr.getReadyState();
-                    if (state == XMLHttpRequest.DONE) {
-                        int responseCode = xhr.getStatus();
-                        if (responseCode == 0) {
-                            responseCode = -1;
-                        }
-
-                        var array = new Int8Array((ArrayBuffer) xhr.getResponse());
-                        byte[] bytes = new byte[array.getLength()];
-                        for (int i = 0; i < bytes.length; ++i) {
-                            bytes[i] = array.get(i);
-                        }
-
-                        int responseGroup = responseCode / 100;
-                        if (responseGroup == 4 || responseGroup == 5) {
-                            res.accept(
-                                new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, false)
-                            );
-                        } else {
-                            res.accept(
-                                new NGEHttpResponse(responseCode, parseHeaders(xhr.getAllResponseHeaders()), bytes, true)
-                            );
-                        }
-                    }
+                }, e -> {
+                    rej.accept(new RuntimeException("Fetch error: " + e));
                 });
-
-                if (body != null) {
-                    Int8Array array = new Int8Array(body.length);
-                    for (int i = 0; i < body.length; ++i) {
-                        array.set(i, body[i]);
-                    }
-                    xhr.send(array.getBuffer());
-                } else {
-                    xhr.send();
-                }
-            } catch (Exception e) {
-                rej.accept(e);
-            }
         });
-    }
 
-    private Map<String, List<String>> parseHeaders(String headers) {
-        Map<String, List<String>> map = new HashMap<>();
-        int index = 0;
-        while (index < headers.length()) {
-            int next = headers.indexOf("\r\n", index);
-            if (next < 0) {
-                next = headers.length();
-            }
-
-            int colon = headers.indexOf(':', index);
-            if (colon < 0 || colon > next) {
-                // No colon found, treat as invalid header line
-                index = next + 2;
-                continue;
-            }
-
-            String key = headers.substring(index, colon).trim();
-            String value = headers.substring(colon + 1, next).trim();
-
-            // Add to map, supporting multiple values per key
-            map.computeIfAbsent(key, k -> new ArrayList<>()).add(value);
-
-            index = next + 2; // Move to start of next line
-        }
-        return map;
     }
 
     @Override

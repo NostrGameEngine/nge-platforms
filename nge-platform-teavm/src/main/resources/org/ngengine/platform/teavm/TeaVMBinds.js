@@ -45,7 +45,6 @@ const sanitizeBigInts = (obj) => {
 
     // Convert BigInt to Number
     if (typeof obj === 'bigint') {
-        // Warning: this may lose precision for very large values
         return Number(obj);
     }
 
@@ -54,7 +53,7 @@ const sanitizeBigInts = (obj) => {
         return obj.map(item => sanitizeBigInts(item));
     }
 
-    // Handle regular objects (but not special types like Date, RegExp, etc.)
+    // Handle {}
     if (typeof obj === 'object' && Object.getPrototypeOf(obj) === Object.prototype) {
         const result = {};
         for (const key in obj) {
@@ -352,18 +351,25 @@ async function getVFileStore(name) {
 
                 async listAll() {
                     return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([name], 'readonly');
-                        const store = transaction.objectStore(name);
-                        const request = store.getAllKeys();
+                        try{
+                            const transaction = db.transaction([name], 'readonly');
+                            const store = transaction.objectStore(name);
+                            const request = store.getAllKeys();
 
-                        request.onsuccess = () => {
-                            resolve(Array.from(request.result || []));
-                        };
+                            request.onsuccess = () => {
+                                resolve(request?.result||[]);
+                            };
 
-                        request.onerror = (event) => {
-                            console.error('Error listing files:', event.target.error);
+                            request.onerror = (event) => {
+                                console.error('Error listing files:', event.target.error);
+                                resolve([]);
+                            };
+
+                         
+                        } catch (e) {
+                            console.error('Error during listAll operation:', e);
                             resolve([]);
-                        };
+                        }
                     });
                 }
             };
@@ -408,16 +414,21 @@ const vfileDelete = async (name, path) => { // void
 }   
 
 const vfileListAll = async (name) => { // str[]
-    const vstore = await getVFileStore(name);
-    const files = await vstore.listAll();
-    if (files === undefined || files === null) {
-        console.warn(`No files found in store ${name}`);
+    try{
+        const vstore = await getVFileStore(name);
+        const files = await vstore.listAll();
+        if (files === undefined || files === null) {
+            console.warn(`No files found in store ${name}`);
+            vstore.close();
+            return [];
+        }
+        const v = files.map(file => file.toString());
         vstore.close();
+        return v;
+    } catch (e) {
+        console.error(`Error listing files in store ${name}:`, e);
         return [];
     }
-    const v = files.map(file => file.toString());
-    vstore.close();
-    return v;
 }
 
 export const vfileExistsAsync = (name, path, res, rej) => { // void
@@ -464,8 +475,8 @@ export const vfileListAllAsync = (name, res, rej) => { // str[]
     vfileListAll(name)
 
         .then(result => {
-            if (!result.length) result = null;
-            res(result)
+            if (!result||!result.length ) res(null);
+            else res(result);
         })
         .catch(error => {
             console.error(`Error listing files: ${error}`);
@@ -580,7 +591,7 @@ export const nfkc = (str) => { // str
 }
 
 
-export const scryptAsync = async(
+export const scryptAsync = (
     p, /*byte[]*/
     s,  /*byte[]*/
     n,  /*int*/
@@ -590,10 +601,13 @@ export const scryptAsync = async(
     res,
     rej
 ) => { // byte[]
-    await _scryptAsync(
+    _scryptAsync(
         _u(p),
         _u(s),
-        { N: n, r: r, p: p2, dkLen: dkLen }).then(result => res(result))
+        { N: n, r: r, p: p2, dkLen: dkLen })
+        .then(result => {
+            res(result);
+        })
         .catch(error => {
             console.error(`Error in scryptAsync: ${error}`);
             rej(error);
@@ -724,4 +738,95 @@ export const rtcCreatePeerConnection = (
 
 export const rtcCreateIceCandidate = (sdp /*str*/) => { // RTCIceCandidate
     return new RTCIceCandidate({ candidate: sdp });
+}
+
+export const fetchAsync = (method, url, headers, body, res, rej) => {
+    const options = {
+        method: method,
+        headers: headers ? JSON.parse(headers) : {},
+    };
+
+     if (body && method !== 'GET' && method !== 'HEAD') {
+        options.body = _u(body);
+    }
+
+    fetch(url, options).then(async (response) => {
+        const respHeaders = {};
+        response.headers.forEach((value, key) => {
+            respHeaders[key] = value;
+        });
+        const respBody = new Uint8Array(await response.arrayBuffer());
+        res({
+            status: response.status,
+            statusText: response.statusText,
+            headers: JSON.stringify(respHeaders),
+            body: new Uint8Array(respBody)
+        });
+    }).catch(error => {
+        rej(error);
+    });
+}
+
+const pendingPromises = {};
+let promiseCounter = 1;
+
+// setInterval(() => {
+//     const pn = Object.entries(pendingPromises).filter(([id, p]) => !p.done).map(([id, p]) => id);
+//     console.log(`Pending promises: ${pn.length}`);
+//     for (const id of pn) {
+//         const p = pendingPromises[id];
+//         console.log(`  Promise (pending) ${id}: ${p.debug}`);
+//     }
+// }, 60000);
+
+export const newPromise = ()=>{
+    const debug = new Error().stack.split('\n').slice(1).join('\n');
+    promiseCounter++;
+    const id =   promiseCounter;
+    let res, rej;
+    const p = new Promise((resolve, reject) => {
+        res = resolve;
+        rej = reject;
+    }).then(()=>{
+    }).catch((e)=>{
+    });
+    pendingPromises[id] = { promise: p, resolve: res, reject: rej, debug, done: false };
+    return id;
+}
+
+export const freePromise = (id) => {
+    if (pendingPromises[id]) {
+        delete pendingPromises[id];
+    }
+}
+
+export const resolvePromise = (id) => {
+    if (pendingPromises[id]) {
+        const  p =pendingPromises[id];
+        p.done = true;
+        p.resolve();
+    } else {
+        console.warn(`Promise with id ${id} not found for resolution.`);
+    }
+}
+
+export const rejectPromise = (id) => {
+    if (pendingPromises[id]) {
+        const p = pendingPromises[id];
+        p.done = true;
+        p.reject(new Error('Promise rejected'));
+    } else {
+        console.warn(`Promise with id ${id} not found for rejection.`);
+    }
+}
+
+export const waitPromiseAsync = (id, res, rej) => {
+    if (pendingPromises[id]) {
+        pendingPromises[id].promise
+            .then(() => res())
+            .catch((error) => rej(error));
+    } else {
+        console.warn(`Promise with id ${id} not found for waiting.`);
+        rej(`Promise with id ${id} not found.`);
+    }
 }

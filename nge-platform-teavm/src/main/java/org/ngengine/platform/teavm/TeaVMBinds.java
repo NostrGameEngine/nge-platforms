@@ -276,4 +276,33 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native RTCIceCandidate rtcCreateIceCandidate(String candidateJson);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void fetchAsync(
+            String method, String url, String headersJson, @JSByRef byte[] body,
+             JSConsumer<TeaVMHttpResponse> res,
+            JSConsumer<Throwable> rej);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int newPromise();
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void resolvePromise(int id);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rejectPromise(int id);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void waitPromiseAsync(int id, JSConsumer<Void> res, JSConsumer<Throwable> rej);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void freePromise(int id);
 }
