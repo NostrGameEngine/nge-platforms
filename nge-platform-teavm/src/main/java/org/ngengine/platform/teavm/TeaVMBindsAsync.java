@@ -32,7 +32,6 @@ package org.ngengine.platform.teavm;
 
 import java.util.List;
 import java.util.Map;
-
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
@@ -162,24 +161,28 @@ public class TeaVMBindsAsync {
         TeaVMBinds.rtcCreateOfferAsync(conn, result -> callback.complete(result), error -> callback.error(error));
     }
 
-
-
-
     @Async
     public static native NGEHttpResponse fetch(String method, String url, String headersJson, byte[] body);
 
-    private static void fetch(String method, String url, String headersJson, byte[] body,
-            AsyncCallback<NGEHttpResponse> callback) {
-        TeaVMBinds.fetchAsync(method, url, headersJson, body,
+    private static void fetch(
+        String method,
+        String url,
+        String headersJson,
+        byte[] body,
+        AsyncCallback<NGEHttpResponse> callback
+    ) {
+        TeaVMBinds.fetchAsync(
+            method,
+            url,
+            headersJson,
+            body,
             response -> {
                 try {
                     int status = response.getStatus();
                     String jsonHeaders = response.getHeaders();
                     Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
                     byte[] data = response.getBody();
-                    NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders, 
-                            data,
-                            status >= 200 && status < 300);
+                    NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders, data, status >= 200 && status < 300);
                     callback.complete(ngeResp);
                 } catch (Throwable e) {
                     callback.error(e);
@@ -187,17 +190,14 @@ public class TeaVMBindsAsync {
             },
             error -> {
                 callback.error(error);
-            });
+            }
+        );
     }
 
-
- 
     @Async
     public static native void waitPromise(int id);
 
     private static void waitPromise(int id, AsyncCallback<Void> callback) {
         TeaVMBinds.waitPromiseAsync(id, r -> callback.complete(null), error -> callback.error(error));
     }
-
-
 }

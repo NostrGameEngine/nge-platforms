@@ -46,7 +46,7 @@ public class ExecutionQueue implements Closeable {
     private final Runnable close;
     private volatile AsyncTask<Void> current = null;
     private final AtomicInteger leakGuard = new AtomicInteger(0);
- 
+
     protected ExecutionQueue() {
         this(null);
     }
@@ -59,70 +59,80 @@ public class ExecutionQueue implements Closeable {
             this.executor = executor;
             close = () -> {};
         }
-        if(logger.isLoggable(Level.FINEST)){
+        if (logger.isLoggable(Level.FINEST)) {
             debug();
         }
     }
 
-    private void debug(){
-        this.executor.runLater(()->{
-            int lg = leakGuard.get();
-            logger.log(Level.WARNING, "ExecutionQueue: "+lg+" pending tasks");
-            if(logger.isLoggable(Level.FINEST)){
-                debug();
-            }
-            return null;
-        }, 60000, java.util.concurrent.TimeUnit.MILLISECONDS);
+    private void debug() {
+        this.executor.runLater(
+                () -> {
+                    int lg = leakGuard.get();
+                    logger.log(Level.WARNING, "ExecutionQueue: " + lg + " pending tasks");
+                    if (logger.isLoggable(Level.FINEST)) {
+                        debug();
+                    }
+                    return null;
+                },
+                60000,
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            );
     }
 
     public synchronized <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> runnable) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         return platform.wrapPromise((res, rej) -> {
-            if(current==null){
-                current = platform.wrapPromise((forward, _ignored) -> {
-                    forward.accept(null);
-                });
+            if (current == null) {
+                current =
+                    platform.wrapPromise((forward, _ignored) -> {
+                        forward.accept(null);
+                    });
             }
 
-            current = current.compose(ignored -> {
-                return platform.wrapPromise((forward, _ignored) -> {
-                    runnable.accept(
-                        r -> {
-                            try {
-                                res.accept(r);
-                            } catch (Throwable e) {
-                                logger.log(Level.WARNING, "Error in task", e);
-                                rej.accept(e);
+            current =
+                current.compose(ignored -> {
+                    return platform.wrapPromise((forward, _ignored) -> {
+                        runnable.accept(
+                            r -> {
+                                try {
+                                    res.accept(r);
+                                } catch (Throwable e) {
+                                    logger.log(Level.WARNING, "Error in task", e);
+                                    rej.accept(e);
+                                }
+                                forward.accept(null);
+                            },
+                            e -> {
+                                try {
+                                    rej.accept(e);
+                                } catch (Throwable ex) {
+                                    logger.log(Level.SEVERE, "Error in task rejection", ex);
+                                }
+                                forward.accept(null);
+                            }
+                        );
+                    });
+                });
 
-                            }
-                            forward.accept(null);
-                        },
-                        e -> {
-                            try {
-                                rej.accept(e);
-                            } catch (Throwable ex) {
-                                logger.log(Level.SEVERE, "Error in task rejection", ex);
-                            }
-                            forward.accept(null);
+            if (logger.isLoggable(Level.FINEST)) {
+                leakGuard.incrementAndGet();
+                NGEPlatform
+                    .get()
+                    .registerFinalizer(
+                        current,
+                        () -> {
+                            leakGuard.decrementAndGet();
                         }
                     );
-                });
-            });
-
-            if(logger.isLoggable(Level.FINEST)){
-                leakGuard.incrementAndGet();
-                NGEPlatform.get().registerFinalizer(current,()->{
-                    leakGuard.decrementAndGet();
-                });
-            } 
+            }
         });
     }
- 
+
     @Override
     public synchronized void close() throws IOException {
         if (current != null) {
-             current.cancel();
+            current.cancel();
         }
         close.run();
     }

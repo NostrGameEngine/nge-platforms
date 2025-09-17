@@ -43,14 +43,14 @@ public class VStore {
     private static final Logger logger = Logger.getLogger(VStore.class.getName());
 
     public interface VStoreBackend {
-        AsyncTask<InputStream> read(String path) ;
+        AsyncTask<InputStream> read(String path);
 
         AsyncTask<OutputStream> write(String path);
 
-        AsyncTask<Boolean> exists(String path) ;
+        AsyncTask<Boolean> exists(String path);
 
-        AsyncTask<Void> delete(String path) ;
-        AsyncTask<List<String>> listAll() ;
+        AsyncTask<Void> delete(String path);
+        AsyncTask<List<String>> listAll();
     }
 
     private final VStoreBackend backend;
@@ -63,11 +63,14 @@ public class VStore {
         return NGEPlatform
             .get()
             .getVStoreQueue()
-            .enqueue((res,rej)->{
-                backend.read(path).then(v->{
-                    res.accept(v);
-                    return null;
-                }).catchException(rej);
+            .enqueue((res, rej) -> {
+                backend
+                    .read(path)
+                    .then(v -> {
+                        res.accept(v);
+                        return null;
+                    })
+                    .catchException(rej);
             });
     }
 
@@ -75,11 +78,14 @@ public class VStore {
         return NGEPlatform
             .get()
             .getVStoreQueue()
-            .enqueue((res,rej)->{
-                backend.write(path).then(v->{
-                    res.accept(v);
-                    return null;
-                }).catchException(rej);
+            .enqueue((res, rej) -> {
+                backend
+                    .write(path)
+                    .then(v -> {
+                        res.accept(v);
+                        return null;
+                    })
+                    .catchException(rej);
             });
     }
 
@@ -87,11 +93,14 @@ public class VStore {
         return NGEPlatform
             .get()
             .getVStoreQueue()
-            .enqueue((res,rej)->{
-                backend.exists(path).then(v->{
-                    res.accept(v);
-                    return null;
-                }).catchException(rej);
+            .enqueue((res, rej) -> {
+                backend
+                    .exists(path)
+                    .then(v -> {
+                        res.accept(v);
+                        return null;
+                    })
+                    .catchException(rej);
             });
     }
 
@@ -99,11 +108,14 @@ public class VStore {
         return NGEPlatform
             .get()
             .getVStoreQueue()
-            .enqueue( (res,rej)->{
-                backend.delete(path).then(v->{
-                    res.accept(v);
-                    return null;
-                }).catchException(rej);
+            .enqueue((res, rej) -> {
+                backend
+                    .delete(path)
+                    .then(v -> {
+                        res.accept(v);
+                        return null;
+                    })
+                    .catchException(rej);
             });
     }
 
@@ -111,11 +123,14 @@ public class VStore {
         return NGEPlatform
             .get()
             .getVStoreQueue()
-            .enqueue( (res,rej)->{
-                backend.listAll().then(v->{
-                    res.accept(v);
-                    return null;
-                }).catchException(rej);
+            .enqueue((res, rej) -> {
+                backend
+                    .listAll()
+                    .then(v -> {
+                        res.accept(v);
+                        return null;
+                    })
+                    .catchException(rej);
             });
     }
 

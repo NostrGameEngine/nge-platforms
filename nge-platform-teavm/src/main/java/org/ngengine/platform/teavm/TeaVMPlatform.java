@@ -172,7 +172,7 @@ public class TeaVMPlatform extends NGEPlatform {
         private final List<Consumer<T>> thenCallbacks = new ArrayList<>();
         private final List<Consumer<Throwable>> catchCallbacks = new ArrayList<>();
         private int promiseId = -1;
-    
+
         public TeaVMPromise() {
             StringBuilder stackTrace = new StringBuilder("StackTrace:\n");
             Exception e = new Exception();
@@ -180,19 +180,22 @@ public class TeaVMPlatform extends NGEPlatform {
                 stackTrace.append(ste.toString()).append("\n");
             }
             newPromise();
-
         }
 
-        private void newPromise(){
+        private void newPromise() {
             int promiseId = TeaVMBinds.newPromise();
             this.promiseId = promiseId;
-            NGEPlatform.get().registerFinalizer(this, () -> {
-                TeaVMBinds.freePromise(promiseId);
-            });
+            NGEPlatform
+                .get()
+                .registerFinalizer(
+                    this,
+                    () -> {
+                        TeaVMBinds.freePromise(promiseId);
+                    }
+                );
         }
 
-
-        public  void resolve(T value) {
+        public void resolve(T value) {
             if (!completed) {
                 this.result = value;
                 this.completed = true;
@@ -203,7 +206,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
         }
 
-        public  void reject(Throwable error) {
+        public void reject(Throwable error) {
             if (!completed) {
                 this.error = error;
                 this.completed = true;
@@ -215,7 +218,7 @@ public class TeaVMPlatform extends NGEPlatform {
             }
         }
 
-        public  TeaVMPromise<T> then(Consumer<T> onFulfilled) {
+        public TeaVMPromise<T> then(Consumer<T> onFulfilled) {
             if (completed && !failed) {
                 onFulfilled.accept(result);
             } else if (!completed) {
@@ -224,7 +227,7 @@ public class TeaVMPlatform extends NGEPlatform {
             return this;
         }
 
-        public  TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
+        public TeaVMPromise<T> catchError(Consumer<Throwable> onRejected) {
             if (completed && failed) {
                 onRejected.accept(error);
             } else if (!completed) {
@@ -233,8 +236,8 @@ public class TeaVMPlatform extends NGEPlatform {
             return this;
         }
 
-        public  Object await() throws Exception {
-            TeaVMBindsAsync.waitPromise(promiseId);  
+        public Object await() throws Exception {
+            TeaVMBindsAsync.waitPromise(promiseId);
             if (this.failed) {
                 throw new ExecutionException("Promise failed with error", this.error);
             }
@@ -246,17 +249,17 @@ public class TeaVMPlatform extends NGEPlatform {
     public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
         TeaVMPromise<T> promise = new TeaVMPromise<>();
 
-        if(executor == null){
-            try{
+        if (executor == null) {
+            try {
                 func.accept(promise::resolve, promise::reject);
-            } catch(Throwable e){
+            } catch (Throwable e) {
                 promise.reject(e);
             }
-        }else{
-            executor.run(()->{
-                try{
+        } else {
+            executor.run(() -> {
+                try {
                     func.accept(promise::resolve, promise::reject);
-                } catch(Throwable e){
+                } catch (Throwable e) {
                     promise.reject(e);
                 }
                 return null;
@@ -426,7 +429,6 @@ public class TeaVMPlatform extends NGEPlatform {
                         e.printStackTrace();
                     }
                 }
-            
             }
         }
 
@@ -590,11 +592,12 @@ public class TeaVMPlatform extends NGEPlatform {
     @SuppressWarnings("unchecked")
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
-            String method,
-            String inurl,
-            byte[] body,
-            Duration timeout,
-            Map<String, String> headers) {
+        String method,
+        String inurl,
+        byte[] body,
+        Duration timeout,
+        Map<String, String> headers
+    ) {
         String url = NGEUtils.safeURI(inurl).toString();
 
         String reqHeaders = headers != null ? toJSON(headers) : null;
@@ -602,25 +605,28 @@ public class TeaVMPlatform extends NGEPlatform {
         byte[] reqBody = body != null ? body : new byte[0];
 
         return wrapPromise((res, rej) -> {
-            TeaVMBinds.fetchAsync(method, url, reqHeaders, reqBody,
-                (r) -> {
+            TeaVMBinds.fetchAsync(
+                method,
+                url,
+                reqHeaders,
+                reqBody,
+                r -> {
                     try {
                         int status = r.getStatus();
                         String jsonHeaders = r.getHeaders();
                         Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
                         byte[] data = r.getBody();
-                        NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders,
-                                data,
-                                status >= 200 && status < 300);
+                        NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders, data, status >= 200 && status < 300);
                         res.accept(ngeResp);
                     } catch (Throwable e) {
                         rej.accept(e);
                     }
-                }, e -> {
+                },
+                e -> {
                     rej.accept(new RuntimeException("Fetch error: " + e));
-                });
+                }
+            );
         });
-
     }
 
     @Override

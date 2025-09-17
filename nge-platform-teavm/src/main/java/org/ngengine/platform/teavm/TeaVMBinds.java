@@ -280,10 +280,13 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void fetchAsync(
-            String method, String url, String headersJson, @JSByRef byte[] body,
-             JSConsumer<TeaVMHttpResponse> res,
-            JSConsumer<Throwable> rej);
-
+        String method,
+        String url,
+        String headersJson,
+        @JSByRef byte[] body,
+        JSConsumer<TeaVMHttpResponse> res,
+        JSConsumer<Throwable> rej
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -300,7 +303,6 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void waitPromiseAsync(int id, JSConsumer<Void> res, JSConsumer<Throwable> rej);
-
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

@@ -56,73 +56,98 @@ public class FileSystemVStore implements VStoreBackend {
     }
 
     @Override
-    public AsyncTask<InputStream> read(String path)  {
-        return NGEPlatform.get().promisify((res,rej)->{
-            try{
-                Path fullPath = Util.safePath(basePath, path, false);
-                FileInputStream is = new FileInputStream(fullPath.toFile());
-                res.accept(is);
-            } catch (IOException e) {
-                rej.accept(e);
-            }
-        }, executor);
-        
+    public AsyncTask<InputStream> read(String path) {
+        return NGEPlatform
+            .get()
+            .promisify(
+                (res, rej) -> {
+                    try {
+                        Path fullPath = Util.safePath(basePath, path, false);
+                        FileInputStream is = new FileInputStream(fullPath.toFile());
+                        res.accept(is);
+                    } catch (IOException e) {
+                        rej.accept(e);
+                    }
+                },
+                executor
+            );
     }
 
     @Override
     public AsyncTask<OutputStream> write(String path) {
-        return NGEPlatform.get().promisify((res,rej)->{
-            try{
-                Path fullPath = Util.safePath(basePath, path, true);
-                SafeFileOutputStream os = new SafeFileOutputStream(fullPath);
-                res.accept(os);
-            } catch (IOException e) {
-                rej.accept(e);
-            }
-        }, executor);
+        return NGEPlatform
+            .get()
+            .promisify(
+                (res, rej) -> {
+                    try {
+                        Path fullPath = Util.safePath(basePath, path, true);
+                        SafeFileOutputStream os = new SafeFileOutputStream(fullPath);
+                        res.accept(os);
+                    } catch (IOException e) {
+                        rej.accept(e);
+                    }
+                },
+                executor
+            );
     }
 
     @Override
     public AsyncTask<Boolean> exists(String path) {
-        return NGEPlatform.get().promisify((res,rej)->{
-            try{
-                Path fullPath = Util.safePath(basePath, path, false);
-                res.accept(fullPath!=null && Files.exists(fullPath));
-            } catch (IOException e) {
-                res.accept(false);
-            }
-        }, executor);
+        return NGEPlatform
+            .get()
+            .promisify(
+                (res, rej) -> {
+                    try {
+                        Path fullPath = Util.safePath(basePath, path, false);
+                        res.accept(fullPath != null && Files.exists(fullPath));
+                    } catch (IOException e) {
+                        res.accept(false);
+                    }
+                },
+                executor
+            );
     }
 
     @Override
-    public AsyncTask<Void> delete(String path)  {
-        return NGEPlatform.get().promisify((res,rej)->{
-            try{
-                Path fullPath = Util.safePath(basePath, path, false);
-                if(fullPath!=null){
-                    Files.deleteIfExists(fullPath);
-                }
-                res.accept(null);
-            } catch (IOException e) {
-                rej.accept(e);
-            }
-        }, executor);
+    public AsyncTask<Void> delete(String path) {
+        return NGEPlatform
+            .get()
+            .promisify(
+                (res, rej) -> {
+                    try {
+                        Path fullPath = Util.safePath(basePath, path, false);
+                        if (fullPath != null) {
+                            Files.deleteIfExists(fullPath);
+                        }
+                        res.accept(null);
+                    } catch (IOException e) {
+                        rej.accept(e);
+                    }
+                },
+                executor
+            );
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
-        return NGEPlatform.get().promisify((res,rej)->{
-            try{
-                List<String> files = Files.walk(basePath)
-                    .filter(Files::isRegularFile)
-                    .map(basePath::relativize)
-                    .map(Path::toString)
-                    .toList();
-                res.accept(files);
-            } catch (IOException e) {
-                rej.accept(e);
-            }
-        }, executor);
+        return NGEPlatform
+            .get()
+            .promisify(
+                (res, rej) -> {
+                    try {
+                        List<String> files = Files
+                            .walk(basePath)
+                            .filter(Files::isRegularFile)
+                            .map(basePath::relativize)
+                            .map(Path::toString)
+                            .toList();
+                        res.accept(files);
+                    } catch (IOException e) {
+                        rej.accept(e);
+                    }
+                },
+                executor
+            );
     }
 
     /**
