@@ -585,8 +585,14 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public String getClipboardContent() {
-        return TeaVMBindsAsync.getClipboardContent();
+    public AsyncTask<String> getClipboardContent() {
+        return wrapPromise((res,rej)->{
+            TeaVMBinds.getClipboardContentAsync(result->{
+                res.accept(result);
+            }, error -> {
+                rej.accept(new Exception(error));
+            });
+        });
     }
 
     @SuppressWarnings("unchecked")

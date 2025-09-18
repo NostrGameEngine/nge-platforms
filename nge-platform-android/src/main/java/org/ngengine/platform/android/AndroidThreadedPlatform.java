@@ -114,16 +114,19 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public String getClipboardContent() {
-        ClipboardManager clipboard = (ClipboardManager) androidContext.getSystemService(Context.CLIPBOARD_SERVICE);
-        if (clipboard != null && clipboard.hasPrimaryClip()) {
-            ClipData clip = clipboard.getPrimaryClip();
-            if (clip != null && clip.getItemCount() > 0) {
-                CharSequence text = clip.getItemAt(0).getText();
-                return text != null ? text.toString() : "";
+    public AsyncTask<String> getClipboardContent() {
+        return wrapPromise((res, rej) -> {
+            ClipboardManager clipboard = (ClipboardManager) androidContext.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (clipboard != null && clipboard.hasPrimaryClip()) {
+                ClipData clip = clipboard.getPrimaryClip();
+                if (clip != null && clip.getItemCount() > 0) {
+                    CharSequence text = clip.getItemAt(0).getText();
+                    res.accept( text != null ? text.toString() : "");
+                    return ;
+                }
             }
-        }
-        return "";
+            res.accept("");
+        });
     }
 
     @Override

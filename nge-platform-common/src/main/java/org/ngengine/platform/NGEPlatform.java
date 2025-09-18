@@ -340,7 +340,7 @@ public abstract class NGEPlatform {
 
     public abstract void setClipboardContent(String data);
 
-    public abstract String getClipboardContent();
+    public abstract AsyncTask<String> getClipboardContent();
 
     public abstract void openInWebBrowser(String url);
 

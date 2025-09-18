@@ -150,7 +150,9 @@ export const setTimeout = (callback, delay) => { //void
 
 export const getClipboardContentAsync = (res,rej) => { //str
     navigator.clipboard.readText()
-        .then(text => res(text))
+        .then(text => {
+            res(text);
+        })
         .catch(err => {
             console.error('Failed to read clipboard contents: ', err);
             res(null);
@@ -399,7 +401,6 @@ const vfileRead = async (name, path) => { // byte[]
         vstore.close();
         return null;
     }
-    console.log(`File read: ${path} in store ${name}`);
     vstore.close();
     return _u(v);
 }
@@ -408,14 +409,12 @@ const vfileWrite = async (name, path, data) => { // void
     const vstore = await getVFileStore(name);
     await vstore.write(path, _u(data));
     vstore.close();
-    console.log(`File written: ${path} in store ${name}`);
 }
 
 const vfileDelete = async (name, path) => { // void
     const vstore = await getVFileStore(name);
     await vstore.delete(path);
     vstore.close();
-    console.log(`File deleted: ${path} in store ${name}`);    
 }   
 
 const vfileListAll = async (name) => { // str[]

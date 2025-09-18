@@ -10339,7 +10339,8 @@ var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
 var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   //str
   navigator.clipboard.readText().then(function (text) {
-    return res(text);
+    console.log('Clipboard content read:', text);
+    res(text);
   })["catch"](function (err) {
     console.error('Failed to read clipboard contents: ', err);
     res(null);
@@ -10756,7 +10757,6 @@ var vfileRead = /*#__PURE__*/function () {
           vstore.close();
           return _context2.a(2, null);
         case 3:
-          console.log("File read: ".concat(path, " in store ").concat(name));
           vstore.close();
           return _context2.a(2, _u(v));
       }
@@ -10780,7 +10780,6 @@ var vfileWrite = /*#__PURE__*/function () {
           return vstore.write(path, _u(data));
         case 2:
           vstore.close();
-          console.log("File written: ".concat(path, " in store ").concat(name));
         case 3:
           return _context3.a(2);
       }
@@ -10804,7 +10803,6 @@ var vfileDelete = /*#__PURE__*/function () {
           return vstore["delete"](path);
         case 2:
           vstore.close();
-          console.log("File deleted: ".concat(path, " in store ").concat(name));
         case 3:
           return _context4.a(2);
       }

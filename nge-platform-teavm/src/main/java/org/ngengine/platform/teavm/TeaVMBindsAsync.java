@@ -41,15 +41,8 @@ import org.teavm.interop.AsyncCallback;
 
 public class TeaVMBindsAsync {
 
-    @Async
-    public static native String getClipboardContent();
-
-    private static void getClipboardContent( AsyncCallback<String> callback) {
-        TeaVMBinds.getClipboardContentAsync(result -> callback.complete(result), error -> callback.error(new Exception(error)));
-    }
-
-    @Async
     
+    @Async
     public static native byte[] scrypt( byte[] P,  byte[] S, int N, int r, int p2, int dkLen);
 
     private static void scrypt(

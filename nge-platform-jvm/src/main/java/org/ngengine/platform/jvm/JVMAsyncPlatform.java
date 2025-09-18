@@ -914,19 +914,22 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public String getClipboardContent() {
-        String content = null;
-        try {
-            if (content == null && isGlfwAvailable()) {
-                content = getGlfwClipboard();
+    public AsyncTask<String> getClipboardContent() {
+        return wrapPromise((res,rej)->{
+            String content = null;
+            try {
+                if (content == null && isGlfwAvailable()) {
+                    content = getGlfwClipboard();
+                }
+                if (content == null && isAWTAvailable()) {
+                    content = getAWTClipboard();
+                }
+            } catch (Exception e) {
+                logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
             }
-            if (content == null && isAWTAvailable()) {
-                content = getAWTClipboard();
-            }
-        } catch (Exception e) {
-            logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
-        }
-        return content != null ? content : "";
+            res.accept(content != null ? content : "");
+        });
+
     }
 
     @Override
