@@ -30,6 +30,12 @@ const _u = (data) => {
     }
 };
 
+
+// wrap Uint8Array in an object 
+export const _bw = (data)=>{
+    return { data };
+}
+
 function _s() {
     return ((typeof window !== 'undefined' && window) ||
         (typeof globalThis !== 'undefined' && globalThis) ||
@@ -250,14 +256,13 @@ async function getVFileStore(name) {
             listAll: async () => [],
         };
     }
-    const dbName = 'nge-vstore';
     return new Promise((resolve, reject) => {
-        const request = globalObj.indexedDB.open(dbName, 1);
+        const request = globalObj.indexedDB.open('nge-vstore-'+name, 1);
 
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
-            if (!db.objectStoreNames.contains(name)) {
-                db.createObjectStore(name);
+            if (!db.objectStoreNames.contains("files")) {
+                db.createObjectStore("files");
             }
         };
 
@@ -283,8 +288,8 @@ async function getVFileStore(name) {
                 },
                 async exists(path) {
                     return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([name], 'readonly');
-                        const store = transaction.objectStore(name);
+                        const transaction = db.transaction(["files"], 'readonly');
+                        const store = transaction.objectStore("files");
                         const request = store.count(path);
 
                         request.onsuccess = () => {
@@ -300,8 +305,8 @@ async function getVFileStore(name) {
 
                 async read(path) {
                     return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([name], 'readonly');
-                        const store = transaction.objectStore(name);
+                        const transaction = db.transaction(["files"], 'readonly');
+                        const store = transaction.objectStore("files");
                         const request = store.get(path);
 
                         request.onsuccess = () => {
@@ -317,8 +322,8 @@ async function getVFileStore(name) {
 
                 async write(path, data) {
                     return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([name], 'readwrite');
-                        const store = transaction.objectStore(name);
+                        const transaction = db.transaction(["files"], 'readwrite');
+                        const store = transaction.objectStore("files");
                         const request = store.put(data, path);
 
                         request.onsuccess = () => {
@@ -334,8 +339,8 @@ async function getVFileStore(name) {
 
                 async delete(path) {
                     return new Promise((resolve, reject) => {
-                        const transaction = db.transaction([name], 'readwrite');
-                        const store = transaction.objectStore(name);
+                        const transaction = db.transaction(["files"], 'readwrite');
+                        const store = transaction.objectStore("files");
                         const request = store.delete(path);
 
                         request.onsuccess = () => {
@@ -352,12 +357,12 @@ async function getVFileStore(name) {
                 async listAll() {
                     return new Promise((resolve, reject) => {
                         try{
-                            const transaction = db.transaction([name], 'readonly');
-                            const store = transaction.objectStore(name);
+                            const transaction = db.transaction(["files"], 'readonly');
+                            const store = transaction.objectStore("files");
                             const request = store.getAllKeys();
 
-                            request.onsuccess = () => {
-                                resolve(request?.result||[]);
+                            request.onsuccess = (event) => {
+                                resolve(event.target.result||[]);
                             };
 
                             request.onerror = (event) => {
@@ -436,17 +441,17 @@ export const vfileExistsAsync = (name, path, res, rej) => { // void
         .then(result => res(result))
         .catch(error => {
             console.error(`Error checking file existence: ${error}`);
-            rej(error);
+            rej(String(error));
         }
     );
 }
 
 export const vfileReadAsync = (name, path, res, rej) => { // void
     vfileRead(name, path)
-        .then(result => res(result))
+        .then(result => res(_bw(result)))
         .catch(error => {
             console.error(`Error reading file: ${error}`);
-            rej(error);
+            rej(String(error));
         }
     );
 }
@@ -456,7 +461,7 @@ export const vfileWriteAsync = (name, path, data, res, rej) => { // void
         .then(() => res())
         .catch(error => {
             console.error(`Error writing file: ${error}`);
-            rej(error);
+            rej(String(error));
         }
     );
 }
@@ -466,7 +471,7 @@ export const vfileDeleteAsync = (name, path, res, rej) => { // void
         .then(() => res())  
         .catch(error => {
             console.error(`Error deleting file: ${error}`);
-            rej(error);
+            rej(String(error));
         }
     );
 }
@@ -475,12 +480,11 @@ export const vfileListAllAsync = (name, res, rej) => { // str[]
     vfileListAll(name)
 
         .then(result => {
-            if (!result||!result.length ) res(null);
-            else res(result);
+            res(result);
         })
         .catch(error => {
             console.error(`Error listing files: ${error}`);
-            rej(error);
+            rej(String(error));
         }
     );
 }
@@ -542,7 +546,7 @@ export const callFunction = async (functionName, data, res, rej) => { // void
         res(JSON.stringify({ result: result }));
     } catch (error) {
         console.error(`Error executing function ${functionName}:`, error);
-        rej(error);
+        rej(String(error));
     }
 };
 
@@ -600,17 +604,17 @@ export const scryptAsync = (
     dkLen, /*int*/
     res,
     rej
-) => { // byte[]
+) => { // Uint8Array byte[]
     _scryptAsync(
         _u(p),
         _u(s),
         { N: n, r: r, p: p2, dkLen: dkLen })
         .then(result => {
-            res(result);
+            res(_bw(result));
         })
         .catch(error => {
             console.error(`Error in scryptAsync: ${error}`);
-            rej(error);
+            rej(String(error));
         });
 }
 
@@ -621,7 +625,7 @@ export const xchacha20poly1305 = (
     data,  /*byte[]*/
     associatedData, /*byte[]*/
     forEncryption /*bool*/
-) => { // byte[]
+) => { // Uint8Array byte[]
     // let xc2p1 = xchacha20poly1305(key, nonce, aad)
     key = _u(key);
     nonce = _u(nonce);
@@ -689,7 +693,7 @@ export const rtcSetLocalDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*st
         .then(() => res())
         .catch(error => {
             console.error('Error setting local description:', error);
-            rej(error);
+            rej(String(error));
         });
 }
 
@@ -698,7 +702,7 @@ export const rtcSetRemoteDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*s
         .then(() => res())
         .catch(error => {
             console.error('Error setting remote description:', error);
-            rej(error);
+            rej(String(error));
         });
 }   
 
@@ -708,7 +712,7 @@ export const rtcCreateAnswerAsync = (conn /*RTCPeerConnection*/, res, rej) => { 
         .then(answer => res(answer))
         .catch(error => {
             console.error('Error creating answer:', error);
-            rej(error);
+            rej(String(error));
         });
 }
 
@@ -718,7 +722,7 @@ export const rtcCreateOfferAsync = (conn /*RTCPeerConnection*/, res, rej) => { /
         .then(offer => res(offer))
         .catch(error => {
             console.error('Error creating offer:', error);
-            rej(error);
+            rej(String(error));
         });
 }   
 
@@ -756,14 +760,15 @@ export const fetchAsync = (method, url, headers, body, res, rej) => {
             respHeaders[key] = value;
         });
         const respBody = new Uint8Array(await response.arrayBuffer());
-        res({
+        const out ={
             status: response.status,
             statusText: response.statusText,
             headers: JSON.stringify(respHeaders),
             body: new Uint8Array(respBody)
-        });
+        };
+        res(out);
     }).catch(error => {
-        rej(error);
+        rej(String(error));
     });
 }
 
@@ -824,9 +829,9 @@ export const waitPromiseAsync = (id, res, rej) => {
     if (pendingPromises[id]) {
         pendingPromises[id].promise
             .then(() => res())
-            .catch((error) => rej(error));
+            .catch((error) => rej(String(error)));
     } else {
         console.warn(`Promise with id ${id} not found for waiting.`);
-        rej(`Promise with id ${id} not found.`);
+        rej(String(`Promise with id ${id} not found.`));
     }
 }

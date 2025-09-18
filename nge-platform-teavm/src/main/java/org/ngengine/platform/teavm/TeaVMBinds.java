@@ -40,6 +40,7 @@ import org.teavm.jso.JSModule;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSTopLevel;
 import org.teavm.jso.browser.TimerHandler;
+import org.teavm.jso.core.JSArray;
 import org.teavm.jso.core.JSBoolean;
 import org.teavm.jso.core.JSString;
 import org.teavm.jso.function.JSConsumer;
@@ -123,7 +124,7 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void getClipboardContentAsync(JSConsumer<String> res, JSConsumer<Throwable> rej);
+    public static native void getClipboardContentAsync(JSConsumer<String> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -150,11 +151,11 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileExistsAsync(String name, String path, JSConsumer<Boolean> res, JSConsumer<Throwable> rej);
+    public static native void vfileExistsAsync(String name, String path, JSConsumer<JSBoolean> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileReadAsync(String name, String path, JSConsumer<byte[]> res, JSConsumer<Throwable> rej);
+    public static native void vfileReadAsync(String name, String path, JSConsumer<BytesWrapper> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -163,7 +164,7 @@ public class TeaVMBinds implements JSObject {
         String path,
         @JSByRef byte[] data,
         JSConsumer<Void> callback,
-        JSConsumer<Throwable> errorCallback
+        JSConsumer<String> errorCallback
     );
 
     @JSTopLevel
@@ -172,12 +173,12 @@ public class TeaVMBinds implements JSObject {
         String name,
         String path,
         JSConsumer<Void> callback,
-        JSConsumer<Throwable> errorCallback
+        JSConsumer<String> errorCallback
     );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileListAllAsync(String name, JSConsumer<String[]> res, JSConsumer<Throwable> rej);
+    public static native void vfileListAllAsync(String name, JSConsumer<JSArray<JSString>> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -185,7 +186,7 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void callFunction(String function, String args, JSConsumer<JSString> res, JSConsumer<Throwable> rej);
+    public static native void callFunction(String function, String args, JSConsumer<JSString> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -208,8 +209,8 @@ public class TeaVMBinds implements JSObject {
         int r,
         int p2,
         int dkLen,
-        JSConsumer<byte[]> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<BytesWrapper> res,
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -240,7 +241,7 @@ public class TeaVMBinds implements JSObject {
         String sdp,
         String type,
         JSConsumer<Void> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -250,7 +251,7 @@ public class TeaVMBinds implements JSObject {
         String sdp,
         String type,
         JSConsumer<Void> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -258,7 +259,7 @@ public class TeaVMBinds implements JSObject {
     public static native void rtcCreateAnswerAsync(
         RTCPeerConnection conn,
         JSConsumer<RTCSessionDescription> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -266,7 +267,7 @@ public class TeaVMBinds implements JSObject {
     public static native void rtcCreateOfferAsync(
         RTCPeerConnection conn,
         JSConsumer<RTCSessionDescription> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -285,7 +286,7 @@ public class TeaVMBinds implements JSObject {
         String headersJson,
         @JSByRef byte[] body,
         JSConsumer<TeaVMHttpResponse> res,
-        JSConsumer<Throwable> rej
+        JSConsumer<String> rej
     );
 
     @JSTopLevel
@@ -302,7 +303,7 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void waitPromiseAsync(int id, JSConsumer<Void> res, JSConsumer<Throwable> rej);
+    public static native void waitPromiseAsync(int id, JSConsumer<Void> res, JSConsumer<String> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

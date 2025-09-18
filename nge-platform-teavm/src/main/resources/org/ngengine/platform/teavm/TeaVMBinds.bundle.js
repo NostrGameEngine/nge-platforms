@@ -10125,6 +10125,7 @@ function randomBytes(bytesLength = 32) {
 /************************************************************************/
 var __webpack_exports__ = {};
 /* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   _bw: () => (/* binding */ _bw),
 /* harmony export */   aes256cbc: () => (/* binding */ aes256cbc),
 /* harmony export */   base64decode: () => (/* binding */ base64decode),
 /* harmony export */   base64encode: () => (/* binding */ base64encode),
@@ -10223,6 +10224,13 @@ var _u = function _u(data) {
   } else {
     throw new TypeError('Unsupported data type for conversion to Uint8Array');
   }
+};
+
+// wrap Uint8Array in an object 
+var _bw = function _bw(data) {
+  return {
+    data: data
+  };
 };
 function _s() {
   return typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g || typeof self !== 'undefined' && self;
@@ -10408,7 +10416,7 @@ function getVFileStore(_x) {
 }
 function _getVFileStore() {
   _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(name) {
-    var globalObj, dbName;
+    var globalObj;
     return _regenerator().w(function (_context22) {
       while (1) switch (_context22.n) {
         case 0:
@@ -10492,13 +10500,12 @@ function _getVFileStore() {
             }()
           });
         case 1:
-          dbName = 'nge-vstore';
           return _context22.a(2, new Promise(function (resolve, reject) {
-            var request = globalObj.indexedDB.open(dbName, 1);
+            var request = globalObj.indexedDB.open('nge-vstore-' + name, 1);
             request.onupgradeneeded = function (event) {
               var db = event.target.result;
-              if (!db.objectStoreNames.contains(name)) {
-                db.createObjectStore(name);
+              if (!db.objectStoreNames.contains("files")) {
+                db.createObjectStore("files");
               }
             };
             request.onerror = function (event) {
@@ -10591,8 +10598,8 @@ function _getVFileStore() {
                       while (1) switch (_context17.n) {
                         case 0:
                           return _context17.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction([name], 'readonly');
-                            var store = transaction.objectStore(name);
+                            var transaction = db.transaction(["files"], 'readonly');
+                            var store = transaction.objectStore("files");
                             var request = store.count(path);
                             request.onsuccess = function () {
                               resolve(request.result > 0);
@@ -10612,8 +10619,8 @@ function _getVFileStore() {
                       while (1) switch (_context18.n) {
                         case 0:
                           return _context18.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction([name], 'readonly');
-                            var store = transaction.objectStore(name);
+                            var transaction = db.transaction(["files"], 'readonly');
+                            var store = transaction.objectStore("files");
                             var request = store.get(path);
                             request.onsuccess = function () {
                               resolve(request.result);
@@ -10633,8 +10640,8 @@ function _getVFileStore() {
                       while (1) switch (_context19.n) {
                         case 0:
                           return _context19.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction([name], 'readwrite');
-                            var store = transaction.objectStore(name);
+                            var transaction = db.transaction(["files"], 'readwrite');
+                            var store = transaction.objectStore("files");
                             var request = store.put(data, path);
                             request.onsuccess = function () {
                               resolve();
@@ -10654,8 +10661,8 @@ function _getVFileStore() {
                       while (1) switch (_context20.n) {
                         case 0:
                           return _context20.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction([name], 'readwrite');
-                            var store = transaction.objectStore(name);
+                            var transaction = db.transaction(["files"], 'readwrite');
+                            var store = transaction.objectStore("files");
                             var request = store["delete"](path);
                             request.onsuccess = function () {
                               resolve();
@@ -10676,11 +10683,11 @@ function _getVFileStore() {
                         case 0:
                           return _context21.a(2, new Promise(function (resolve, reject) {
                             try {
-                              var transaction = db.transaction([name], 'readonly');
-                              var store = transaction.objectStore(name);
+                              var transaction = db.transaction(["files"], 'readonly');
+                              var store = transaction.objectStore("files");
                               var _request = store.getAllKeys();
-                              _request.onsuccess = function () {
-                                resolve((_request === null || _request === void 0 ? void 0 : _request.result) || []);
+                              _request.onsuccess = function (event) {
+                                resolve(event.target.result || []);
                               };
                               _request.onerror = function (event) {
                                 console.error('Error listing files:', event.target.error);
@@ -10853,16 +10860,16 @@ var vfileExistsAsync = function vfileExistsAsync(name, path, res, rej) {
     return res(result);
   })["catch"](function (error) {
     console.error("Error checking file existence: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var vfileReadAsync = function vfileReadAsync(name, path, res, rej) {
   // void
   vfileRead(name, path).then(function (result) {
-    return res(result);
+    return res(_bw(result));
   })["catch"](function (error) {
     console.error("Error reading file: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var vfileWriteAsync = function vfileWriteAsync(name, path, data, res, rej) {
@@ -10871,7 +10878,7 @@ var vfileWriteAsync = function vfileWriteAsync(name, path, data, res, rej) {
     return res();
   })["catch"](function (error) {
     console.error("Error writing file: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var vfileDeleteAsync = function vfileDeleteAsync(name, path, res, rej) {
@@ -10880,16 +10887,16 @@ var vfileDeleteAsync = function vfileDeleteAsync(name, path, res, rej) {
     return res();
   })["catch"](function (error) {
     console.error("Error deleting file: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var vfileListAllAsync = function vfileListAllAsync(name, res, rej) {
   // str[]
   vfileListAll(name).then(function (result) {
-    if (!result || !result.length) res(null);else res(result);
+    res(result);
   })["catch"](function (error) {
     console.error("Error listing files: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var getPlatformName = function getPlatformName() {
@@ -10955,7 +10962,7 @@ var callFunction = /*#__PURE__*/function () {
           _context6.p = 2;
           _t2 = _context6.v;
           console.error("Error executing function ".concat(functionName, ":"), _t2);
-          rej(_t2);
+          rej(String(_t2));
         case 3:
           return _context6.a(2);
       }
@@ -11023,17 +11030,17 @@ r, /*int*/
 p2, /*int*/
 dkLen, /*int*/
 res, rej) {
-  // byte[]
+  // Uint8Array byte[]
   (0,_noble_hashes_scrypt__WEBPACK_IMPORTED_MODULE_8__.scryptAsync)(_u(p), _u(s), {
     N: n,
     r: r,
     p: p2,
     dkLen: dkLen
   }).then(function (result) {
-    res(result);
+    res(_bw(result));
   })["catch"](function (error) {
     console.error("Error in scryptAsync: ".concat(error));
-    rej(error);
+    rej(String(error));
   });
 };
 var xchacha20poly1305 = function xchacha20poly1305(key, /*byte[]*/
@@ -11041,7 +11048,7 @@ nonce, /*byte[]*/
 data, /*byte[]*/
 associatedData, /*byte[]*/
 forEncryption /*bool*/) {
-  // byte[]
+  // Uint8Array byte[]
   // let xc2p1 = xchacha20poly1305(key, nonce, aad)
   key = _u(key);
   nonce = _u(nonce);
@@ -11103,7 +11110,7 @@ var rtcSetLocalDescriptionAsync = function rtcSetLocalDescriptionAsync(conn /*RT
     return res();
   })["catch"](function (error) {
     console.error('Error setting local description:', error);
-    rej(error);
+    rej(String(error));
   });
 };
 var rtcSetRemoteDescriptionAsync = function rtcSetRemoteDescriptionAsync(conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) {
@@ -11115,7 +11122,7 @@ var rtcSetRemoteDescriptionAsync = function rtcSetRemoteDescriptionAsync(conn /*
     return res();
   })["catch"](function (error) {
     console.error('Error setting remote description:', error);
-    rej(error);
+    rej(String(error));
   });
 };
 var rtcCreateAnswerAsync = function rtcCreateAnswerAsync(conn /*RTCPeerConnection*/, res, rej) {
@@ -11124,7 +11131,7 @@ var rtcCreateAnswerAsync = function rtcCreateAnswerAsync(conn /*RTCPeerConnectio
     return res(answer);
   })["catch"](function (error) {
     console.error('Error creating answer:', error);
-    rej(error);
+    rej(String(error));
   });
 };
 var rtcCreateOfferAsync = function rtcCreateOfferAsync(conn /*RTCPeerConnection*/, res, rej) {
@@ -11133,7 +11140,7 @@ var rtcCreateOfferAsync = function rtcCreateOfferAsync(conn /*RTCPeerConnection*
     return res(offer);
   })["catch"](function (error) {
     console.error('Error creating offer:', error);
-    rej(error);
+    rej(String(error));
   });
 };
 var rtcCreatePeerConnection = function rtcCreatePeerConnection(urls /*str[]*/) {
@@ -11162,7 +11169,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
   }
   fetch(url, options).then(/*#__PURE__*/function () {
     var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(response) {
-      var respHeaders, respBody, _t3, _t4;
+      var respHeaders, respBody, out, _t3, _t4;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
           case 0:
@@ -11176,12 +11183,13 @@ var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
           case 1:
             _t4 = _context8.v;
             respBody = new _t3(_t4);
-            res({
+            out = {
               status: response.status,
               statusText: response.statusText,
               headers: JSON.stringify(respHeaders),
               body: new Uint8Array(respBody)
-            });
+            };
+            res(out);
           case 2:
             return _context8.a(2);
         }
@@ -11191,7 +11199,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
       return _ref0.apply(this, arguments);
     };
   }())["catch"](function (error) {
-    rej(error);
+    rej(String(error));
   });
 };
 var pendingPromises = {};
@@ -11252,13 +11260,14 @@ var waitPromiseAsync = function waitPromiseAsync(id, res, rej) {
     pendingPromises[id].promise.then(function () {
       return res();
     })["catch"](function (error) {
-      return rej(error);
+      return rej(String(error));
     });
   } else {
     console.warn("Promise with id ".concat(id, " not found for waiting."));
-    rej("Promise with id ".concat(id, " not found."));
+    rej(String("Promise with id ".concat(id, " not found.")));
   }
 };
+const __webpack_exports___bw = __webpack_exports__._bw;
 const __webpack_exports__aes256cbc = __webpack_exports__.aes256cbc;
 const __webpack_exports__base64decode = __webpack_exports__.base64decode;
 const __webpack_exports__base64encode = __webpack_exports__.base64encode;
@@ -11305,4 +11314,4 @@ const __webpack_exports__vfileReadAsync = __webpack_exports__.vfileReadAsync;
 const __webpack_exports__vfileWriteAsync = __webpack_exports__.vfileWriteAsync;
 const __webpack_exports__waitPromiseAsync = __webpack_exports__.waitPromiseAsync;
 const __webpack_exports__xchacha20poly1305 = __webpack_exports__.xchacha20poly1305;
-export { __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };
+export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };

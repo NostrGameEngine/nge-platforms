@@ -612,12 +612,16 @@ public class TeaVMPlatform extends NGEPlatform {
                 reqBody,
                 r -> {
                     try {
-                        int status = r.getStatus();
                         String jsonHeaders = r.getHeaders();
+                        int statusCode = r.getStatus();
+                        
                         Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
-                        byte[] data = r.getBody();
-                        NGEHttpResponse ngeResp = new NGEHttpResponse(status, respHeaders, data, status >= 200 && status < 300);
+                        boolean status = statusCode >= 200 && statusCode < 300;
+                        byte[] data = status ? r.getBody() : new byte[0];
+
+                        NGEHttpResponse ngeResp = new NGEHttpResponse(statusCode, respHeaders, data, status);
                         res.accept(ngeResp);
+                        
                     } catch (Throwable e) {
                         rej.accept(e);
                     }
@@ -717,7 +721,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 res.accept(r.get("result"));
             },
             err -> {
-                rej.accept(err);
+                rej.accept(new Exception(err));
             }
         );
     }

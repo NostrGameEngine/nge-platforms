@@ -35,6 +35,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.List;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -58,7 +59,7 @@ public class IndexedDbVStore implements VStoreBackend {
                         name,
                         path,
                         data -> {
-                            ByteArrayInputStream bais = new ByteArrayInputStream(data);
+                            ByteArrayInputStream bais = new ByteArrayInputStream(data.getData());
                             res.accept(bais);
                         },
                         error -> {
@@ -87,7 +88,7 @@ public class IndexedDbVStore implements VStoreBackend {
 
                         @Override
                         public void flush() throws IOException {
-                            TeaVMBindsAsync.vfileWrite(path, path, baos.toByteArray());
+                            TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
                         }
 
                         @Override
@@ -115,7 +116,7 @@ public class IndexedDbVStore implements VStoreBackend {
                         name,
                         path,
                         exists -> {
-                            res.accept(exists);
+                            res.accept(exists.booleanValue());
                         },
                         error -> {
                             rej.accept(new IOException("Error checking file existence: " + error));
@@ -158,7 +159,13 @@ public class IndexedDbVStore implements VStoreBackend {
                     TeaVMBinds.vfileListAllAsync(
                         name,
                         files -> {
-                            res.accept(files != null ? List.of(files) : List.of());
+                            ArrayList<String> list  = new ArrayList<>();
+                            if(files!=null){
+                                for(int i=0;i<files.getLength();i++){
+                                    list.add(files.get(i).stringValue());
+                                }
+                            }
+                            res.accept(list);
                         },
                         error -> {
                             rej.accept(new IOException("Error listing files: " + error));
