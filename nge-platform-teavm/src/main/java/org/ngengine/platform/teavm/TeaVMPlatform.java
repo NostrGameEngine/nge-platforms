@@ -586,12 +586,15 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> getClipboardContent() {
-        return wrapPromise((res,rej)->{
-            TeaVMBinds.getClipboardContentAsync(result->{
-                res.accept(result);
-            }, error -> {
-                rej.accept(new Exception(error));
-            });
+        return wrapPromise((res, rej) -> {
+            TeaVMBinds.getClipboardContentAsync(
+                result -> {
+                    res.accept(result);
+                },
+                error -> {
+                    rej.accept(new Exception(error));
+                }
+            );
         });
     }
 
@@ -620,14 +623,13 @@ public class TeaVMPlatform extends NGEPlatform {
                     try {
                         String jsonHeaders = r.getHeaders();
                         int statusCode = r.getStatus();
-                        
+
                         Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
                         boolean status = statusCode >= 200 && statusCode < 300;
                         byte[] data = status ? r.getBody() : new byte[0];
 
                         NGEHttpResponse ngeResp = new NGEHttpResponse(statusCode, respHeaders, data, status);
                         res.accept(ngeResp);
-                        
                     } catch (Throwable e) {
                         rej.accept(e);
                     }

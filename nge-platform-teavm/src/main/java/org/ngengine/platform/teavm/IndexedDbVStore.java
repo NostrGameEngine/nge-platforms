@@ -159,9 +159,9 @@ public class IndexedDbVStore implements VStoreBackend {
                     TeaVMBinds.vfileListAllAsync(
                         name,
                         files -> {
-                            ArrayList<String> list  = new ArrayList<>();
-                            if(files!=null){
-                                for(int i=0;i<files.getLength();i++){
+                            ArrayList<String> list = new ArrayList<>();
+                            if (files != null) {
+                                for (int i = 0; i < files.getLength(); i++) {
                                     list.add(files.get(i).stringValue());
                                 }
                             }

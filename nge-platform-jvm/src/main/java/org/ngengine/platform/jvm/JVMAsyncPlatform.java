@@ -915,7 +915,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> getClipboardContent() {
-        return wrapPromise((res,rej)->{
+        return wrapPromise((res, rej) -> {
             String content = null;
             try {
                 if (content == null && isGlfwAvailable()) {
@@ -929,7 +929,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
             res.accept(content != null ? content : "");
         });
-
     }
 
     @Override
