@@ -836,3 +836,10 @@ export const waitPromiseAsync = (id, res, rej) => {
         rej(String(`Promise with id ${id} not found.`));
     }
 }
+
+export const rtcSetOnMessageHandler = (channel, callback) => { // void
+    channel.onmessage = (event) => {
+        const data = event.data;
+        callback(_u(data));
+    };
+}

@@ -148,6 +148,7 @@ public class TeaVMRTCTransport implements RTCTransport {
     }
 
     private void setupDataChannel(RTCDataChannel channel) {
+        channel.setBinaryType("arraybuffer");
         channel.setOnOpenHandler(() -> {
             logger.fine("Data channel opened");
             this.connected = true;
@@ -183,12 +184,11 @@ public class TeaVMRTCTransport implements RTCTransport {
             }
         });
 
-        channel.setOnMessageHandler(event -> {
+        TeaVMBinds.rtcSetOnMessageHandler(channel, buffer -> {
             assert dbg(() -> {
                 logger.finest("Received message");
             });
 
-            byte[] buffer = event.getData();
             ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
 
             for (RTCTransportListener listener : listeners) {

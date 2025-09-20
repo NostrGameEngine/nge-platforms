@@ -54,6 +54,7 @@ public interface RTCDataChannel extends JSObject {
     @JSProperty("onerror")
     void setOnErrorHandler(RTCErrorCallback callback);
 
-    @JSProperty("onmessage")
-    void setOnMessageHandler(RTCMessageCallback callback);
+
+    @JSProperty("binaryType")
+    void setBinaryType(String string);
 }

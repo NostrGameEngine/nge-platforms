@@ -35,5 +35,5 @@ import org.teavm.jso.JSObject;
 
 @JSFunctor
 public interface RTCMessageCallback extends JSObject {
-    void handleEvent(RTCMessageEvent event);
+    void handleEvent(byte buffer[]);
 }

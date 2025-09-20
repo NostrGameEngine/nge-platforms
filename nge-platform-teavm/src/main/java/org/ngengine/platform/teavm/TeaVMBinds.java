@@ -30,7 +30,9 @@
  */
 package org.ngengine.platform.teavm;
 
+import org.ngengine.platform.teavm.webrtc.RTCDataChannel;
 import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
+import org.ngengine.platform.teavm.webrtc.RTCMessageCallback;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
 import org.teavm.jso.JSByRef;
@@ -308,4 +310,9 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void freePromise(int id);
+
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcSetOnMessageHandler(RTCDataChannel channel, RTCMessageCallback callback);
 }
