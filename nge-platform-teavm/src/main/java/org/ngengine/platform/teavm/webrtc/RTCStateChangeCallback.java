@@ -30,7 +30,10 @@
  */
 package org.ngengine.platform.teavm.webrtc;
 
+import org.teavm.jso.JSFunctor;
 import org.teavm.jso.JSObject;
+
+@JSFunctor
 
 public interface RTCStateChangeCallback extends JSObject {
     void handleEvent();

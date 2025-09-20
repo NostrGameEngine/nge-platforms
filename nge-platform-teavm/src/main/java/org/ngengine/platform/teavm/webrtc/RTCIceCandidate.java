@@ -36,4 +36,7 @@ import org.teavm.jso.JSProperty;
 public interface RTCIceCandidate extends JSObject {
     @JSProperty
     String getCandidate();
+
+    @JSProperty
+    String getSdpMid();
 }

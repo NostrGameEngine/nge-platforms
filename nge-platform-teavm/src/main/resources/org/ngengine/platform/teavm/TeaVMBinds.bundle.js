@@ -10339,7 +10339,6 @@ var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
 var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   //str
   navigator.clipboard.readText().then(function (text) {
-    console.log('Clipboard content read:', text);
     res(text);
   })["catch"](function (err) {
     console.error('Failed to read clipboard contents: ', err);
@@ -11144,17 +11143,21 @@ var rtcCreateOfferAsync = function rtcCreateOfferAsync(conn /*RTCPeerConnection*
 var rtcCreatePeerConnection = function rtcCreatePeerConnection(urls /*str[]*/) {
   // RTCPeerConnection
   var conf = {
-    iceServers: {
-      urls: urls
-    }
+    iceServers: urls.map(function (url) {
+      return {
+        urls: url
+      };
+    })
   };
   var conn = new RTCPeerConnection(conf);
   return conn;
 };
-var rtcCreateIceCandidate = function rtcCreateIceCandidate(sdp /*str*/) {
+var rtcCreateIceCandidate = function rtcCreateIceCandidate(sdp /*str*/, spdMid /*str*/) {
   // RTCIceCandidate
   return new RTCIceCandidate({
-    candidate: sdp
+    candidate: sdp,
+    sdpMid: spdMid,
+    sdpMLineIndex: null
   });
 };
 var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {

@@ -46,6 +46,7 @@ import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.teavm.webrtc.*;
 import org.ngengine.platform.transport.RTCTransport;
+import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 
 public class TeaVMRTCTransport implements RTCTransport {
@@ -55,105 +56,97 @@ public class TeaVMRTCTransport implements RTCTransport {
     private List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private String connId;
     private volatile boolean isInitiator;
-    private List<String> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
+    private List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
 
     private volatile boolean connected = false;
     private RTCPeerConnection peerConnection;
     private RTCDataChannel dataChannel;
-    private final AsyncExecutor asyncExecutor;
+    private  AsyncExecutor asyncExecutor;
 
     public TeaVMRTCTransport() {
-        this.asyncExecutor = NGEPlatform.get().newAsyncExecutor();
-    }
+     }
 
-    @Override
-    public AsyncTask<Void> start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
-        this.connId = connId;
-        NGEPlatform platform = NGEUtils.getPlatform();
+     @Override
+     public void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
+         this.connId = connId;
+         this.asyncExecutor = executor;
 
-        return platform.promisify(
-            (res, rej) -> {
-                try {
-                    String[] iceUrls = stunServers.stream().map(server -> "stun:" + server).toArray(String[]::new);
+         String[] iceUrls = stunServers.stream().map(server -> "stun:" + server).toArray(String[]::new);
 
-                    logger.finer("Using STUN servers: " + stunServers);
+         logger.finer("Using STUN servers: " + stunServers);
 
-                    this.peerConnection = TeaVMBinds.rtcCreatePeerConnection(iceUrls);
-                    logger.finer("RTCPeerConnection created with ID: " + connId);
+         this.peerConnection = TeaVMBinds.rtcCreatePeerConnection(iceUrls);
+         logger.finer("RTCPeerConnection created with ID: " + connId);
 
-                    this.peerConnection.setOnIceCandidateHandler(event -> {
-                            RTCIceCandidate candidate = event.getCandidate();
-                            if (candidate != null) {
-                                logger.fine("Local ICE candidate: " + candidate.getCandidate());
-                                for (RTCTransportListener listener : listeners) {
-                                    try {
-                                        listener.onLocalRTCIceCandidate(candidate.getCandidate());
-                                    } catch (Exception e) {
-                                        logger.log(Level.WARNING, "Error sending local candidate", e);
-                                    }
-                                }
-                            }
-                        });
 
-                    this.peerConnection.setOnIceConnectionStateChangeHandler(() -> {
-                            String state = peerConnection.getIceConnectionState();
-                            logger.finer("ICE connection state changed: " + state);
+         this.peerConnection.setOnIceCandidateHandler(event -> {
+             RTCIceCandidate candidate = event.getCandidate();
+             if (candidate != null) {
+                 logger.fine("Local ICE candidate: " + candidate.getCandidate());
+                 for (RTCTransportListener listener : listeners) {
+                     try {
+                         listener.onLocalRTCIceCandidate(new RTCTransportIceCandidate(
+                                 candidate.getCandidate(), candidate.getSdpMid()));
+                     } catch (Exception e) {
+                         logger.log(Level.WARNING, "Error sending local candidate", e);
+                     }
+                 }
+             } else {
+                 logger.fine("ICE candidate gathering complete");
+             }
+         });
 
-                            if ("failed".equals(state)) {
-                                this.close();
-                            }
-                        });
+         this.peerConnection.setOnIceConnectionStateChangeHandler(() -> {
+             String state = peerConnection.getIceConnectionState();
+             logger.finer("ICE connection state changed: " + state);
 
-                    this.peerConnection.setOnConnectionStateChangeHandler(() -> {
-                            String state = peerConnection.getConnectionState();
-                            logger.fine("Connection state changed: " + state);
+             if ("failed".equals(state)) {
+                 this.close();
+             }
+         });
 
-                            if ("connected".equals(state)) {
-                                this.connected = true;
-                            } else if ("disconnected".equals(state) || "failed".equals(state) || "closed".equals(state)) {
-                                this.connected = false;
-                                for (RTCTransportListener listener : listeners) {
-                                    try {
-                                        listener.onRTCDisconnected(state);
-                                    } catch (Exception e) {
-                                        logger.log(Level.WARNING, "Error notifying disconnect", e);
-                                    }
-                                }
-                            }
-                        });
+         this.peerConnection.setOnConnectionStateChangeHandler(() -> {
+             String state = peerConnection.getConnectionState();
+             logger.fine("Connection state changed: " + state);
 
-                    this.peerConnection.setOnDataChannelHandler(event -> {
-                            this.dataChannel = event.getChannel();
-                            this.setupDataChannel(this.dataChannel);
-                        });
+             if ("connected".equals(state)) {
+                 this.connected = true;
+             } else if ("disconnected".equals(state) || "failed".equals(state) || "closed".equals(state)) {
+                 this.connected = false;
+                 for (RTCTransportListener listener : listeners) {
+                     try {
+                         listener.onRTCDisconnected(state);
+                     } catch (Exception e) {
+                         logger.log(Level.WARNING, "Error notifying disconnect", e);
+                     }
+                 }
+             }
+         });
 
-                    this.asyncExecutor.runLater(
-                            () -> {
-                                if (!connected) {
-                                    logger.warning("RTC Connection attempt timed out, closing connection");
-                                    for (RTCTransportListener listener : listeners) {
-                                        try {
-                                            listener.onRTCDisconnected("timeout");
-                                        } catch (Exception e) {
-                                            logger.log(Level.WARNING, "Error sending timeout notification", e);
-                                        }
-                                    }
-                                    this.close();
-                                }
-                                return null;
-                            },
-                            settings.getP2pAttemptTimeout().toMillis(),
-                            TimeUnit.MILLISECONDS
-                        );
+         this.peerConnection.setOnDataChannelHandler(event -> {
+             this.dataChannel = event.getChannel();
+             this.setupDataChannel(this.dataChannel);
+         });
 
-                    res.accept(null);
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            this.asyncExecutor
-        );
-    }
+         this.asyncExecutor.runLater(
+                 () -> {
+                     if (!connected) {
+                         logger.warning("RTC Connection attempt timed out, closing connection");
+                         for (RTCTransportListener listener : listeners) {
+                             try {
+                                 listener.onRTCDisconnected("timeout");
+                             } catch (Exception e) {
+                                 logger.log(Level.WARNING, "Error sending timeout notification", e);
+                             }
+                         }
+                         this.close();
+                     }
+                     return null;
+                 },
+                 settings.getP2pAttemptTimeout().toMillis(),
+                 TimeUnit.MILLISECONDS);
+
+     }
 
     private void setupDataChannel(RTCDataChannel channel) {
         channel.setOnOpenHandler(() -> {
@@ -219,11 +212,8 @@ public class TeaVMRTCTransport implements RTCTransport {
                 try {
                     this.dataChannel = this.peerConnection.createDataChannel("nostr4j-" + this.connId);
                     setupDataChannel(this.dataChannel);
-
-                    RTCSessionDescription offer = this.peerConnection.createOffer();
-
-                    this.peerConnection.setLocalDescription(offer.getSdp(), "offer");
-
+                    RTCSessionDescription offer = TeaVMBindsAsync.rtcCreateOffer(this.peerConnection);
+                    TeaVMBindsAsync.rtcSetLocalDescription(this.peerConnection,offer.getSdp(), "offer");
                     res.accept(offer.getSdp());
                 } catch (Exception e) {
                     rej.accept(e);
@@ -245,7 +235,7 @@ public class TeaVMRTCTransport implements RTCTransport {
             return platform.promisify(
                 (res, rej) -> {
                     try {
-                        this.peerConnection.setRemoteDescription(answer, "answer");
+                        TeaVMBindsAsync.rtcSetRemoteDescription(this.peerConnection, answer, "answer");
                         res.accept(null);
                     } catch (Exception e) {
                         rej.accept(e);
@@ -261,12 +251,12 @@ public class TeaVMRTCTransport implements RTCTransport {
             return platform.promisify(
                 (res, rej) -> {
                     try {
-                        this.peerConnection.setRemoteDescription(offer, "offer");
-                        RTCSessionDescription answer = this.peerConnection.createAnswer();
-                        this.peerConnection.setLocalDescription(answer.getSdp(), "answer");
+                        TeaVMBindsAsync.rtcSetRemoteDescription(this.peerConnection, offer, "offer");
+                        RTCSessionDescription answer = TeaVMBindsAsync.rtcCreateAnswer(this.peerConnection);
+                        TeaVMBindsAsync.rtcSetLocalDescription(this.peerConnection,answer.getSdp(), "answer");
                         res.accept(answer.getSdp());
                     } catch (Exception e) {
-                        rej.accept(e);
+                            rej.accept(e);
                     }
                 },
                 this.asyncExecutor
@@ -275,12 +265,12 @@ public class TeaVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public void addRemoteIceCandidates(Collection<String> candidates) {
-        for (String candidate : candidates) {
+    public void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates) {
+        for (RTCTransportIceCandidate candidate : candidates) {
             if (!trackedRemoteCandidates.contains(candidate)) {
                 logger.fine("Adding remote candidate: " + candidate);
                 try {
-                    RTCIceCandidate iceCandidate = TeaVMBinds.rtcCreateIceCandidate(candidate);
+                    RTCIceCandidate iceCandidate = TeaVMBinds.rtcCreateIceCandidate(candidate.getCandidate(), candidate.getSdpMid());
                     this.peerConnection.addIceCandidate(iceCandidate);
                     trackedRemoteCandidates.add(candidate);
                 } catch (Exception e) {

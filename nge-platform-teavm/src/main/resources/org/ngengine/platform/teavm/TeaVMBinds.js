@@ -730,17 +730,19 @@ export const rtcCreatePeerConnection = (
     urls /*str[]*/
 ) => { // RTCPeerConnection
     const conf = {
-        iceServers: {
-            urls: urls
-        }
+        iceServers: urls.map(url => ({ urls: url }))  
     };
     const conn = new RTCPeerConnection(conf);
     return conn;
 }
 
 
-export const rtcCreateIceCandidate = (sdp /*str*/) => { // RTCIceCandidate
-    return new RTCIceCandidate({ candidate: sdp });
+export const rtcCreateIceCandidate = (sdp /*str*/, spdMid /*str*/) => { // RTCIceCandidate
+    return new RTCIceCandidate({ 
+        candidate: sdp,
+        sdpMid: spdMid,
+        sdpMLineIndex: null
+    });
 }
 
 export const fetchAsync = (method, url, headers, body, res, rej) => {

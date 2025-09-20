@@ -276,7 +276,7 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native RTCIceCandidate rtcCreateIceCandidate(String candidateJson);
+    public static native RTCIceCandidate rtcCreateIceCandidate(String candidateJson, String mediaId);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
