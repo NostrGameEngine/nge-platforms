@@ -88,51 +88,48 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<Void> start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
+    public void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers)  {
         this.executor = executor;
-        NGEPlatform platform = NGEUtils.getPlatform();
-        return platform.wrapPromise((res, rej) -> {
+        Collection<URI> stunUris = new ArrayList<>();
+        for (String server : stunServers) {
             try {
-                Collection<URI> stunUris = new ArrayList<>();
-                for (String server : stunServers) {
-                    try {
-                        URI uri = new URI("stun:" + server);
-                        stunUris.add(uri);
-                    } catch (URISyntaxException e) {
-                        throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
-                    }
-                }
+                URI uri = new URI("stun:" + server);
+                stunUris.add(uri);
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
+            }
+        }
 
-                logger.finer("Using STUN servers: " + stunUris);
-                this.config = PeerConnectionConfiguration.DEFAULT.withIceServers(stunUris).withDisableAutoNegotiation(false);
-                this.connId = connId;
-                this.conn = PeerConnection.createPeer(this.config);
-                logger.finer("PeerConnection created with ID: " + connId);
-                this.conn.onIceStateChange.register((PeerConnection peer, IceState state) -> {
-                        logger.finer("ICE state changed: " + state);
+        logger.finer("Using STUN servers: " + stunUris);
+        this.config = PeerConnectionConfiguration.DEFAULT.withIceServers(stunUris).withDisableAutoNegotiation(false);
+        this.connId = connId;
+        this.conn = PeerConnection.createPeer(this.config);
+        logger.finer("PeerConnection created with ID: " + connId);
+        this.conn.onIceStateChange.register((PeerConnection peer, IceState state) -> {
+            logger.finer("ICE state changed: " + state);
 
-                        if (state == IceState.RTC_ICE_FAILED) {
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCIceFailed();
-                            // }
-                            this.close();
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCChannelClosed();
-                            // }
-                        } else if (state == IceState.RTC_ICE_CONNECTED) {
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCIceConnected();
-                            // }
-                        }
-                    });
+            if (state == IceState.RTC_ICE_FAILED) {
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCIceFailed();
+                // }
+                this.close();
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCChannelClosed();
+                // }
+            } else if (state == IceState.RTC_ICE_CONNECTED) {
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCIceConnected();
+                // }
+            }
+        });
 
-                // this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
-                //     if (state == PeerState.RTC_CLOSED) {
-                //         connected = false;
-                //     } else if (state == PeerState.RTC_CONNECTED) {
-                //         connected = true;
-                //     }
-                // });
+        // this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
+        // if (state == PeerState.RTC_CLOSED) {
+        // connected = false;
+        // } else if (state == PeerState.RTC_CONNECTED) {
+        // connected = true;
+        // }
+        // });
 
         this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
             logger.fine("Local ICE candidate: " + candidate);
@@ -145,29 +142,24 @@ public class JVMRTCTransport implements RTCTransport {
             }
         });
 
-                this.executor.runLater(
-                        () -> {
-                            if (connected) return null;
-                            logger.warning("RTC Connection attempt timed out, closing connection");
-                            for (RTCTransportListener listener : listeners) {
-                                try {
-                                    listener.onRTCDisconnected("timeout");
-                                } catch (Exception e) {
-                                    logger.log(Level.WARNING, "Error sending local candidate", e);
-                                }
-                            }
-                            this.close();
-                            return null;
-                        },
-                        settings.getP2pAttemptTimeout().toMillis(),
-                        TimeUnit.MILLISECONDS
-                    );
+        this.executor.runLater(
+                () -> {
+                    if (connected)
+                        return null;
+                    logger.warning("RTC Connection attempt timed out, closing connection");
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCDisconnected("timeout");
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error sending local candidate", e);
+                        }
+                    }
+                    this.close();
+                    return null;
+                },
+                settings.getP2pAttemptTimeout().toMillis(),
+                TimeUnit.MILLISECONDS);
 
-                res.accept(null);
-            } catch (Exception e) {
-                rej.accept(e);
-            }
-        });
     }
 
     @Override
