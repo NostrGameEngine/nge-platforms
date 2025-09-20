@@ -350,39 +350,6 @@ public class TeaVMPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
-    @Override
-    public <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises) {
-        return wrapPromise((res, rej) -> {
-            if (promises.isEmpty()) {
-                res.accept(new ArrayList<>());
-                return;
-            }
-
-            AtomicInteger count = new AtomicInteger(promises.size());
-            List<T> results = new ArrayList<>(count.get());
-
-            for (int i = 0; i < count.get(); i++) {
-                results.add(null);
-            }
-
-            for (int i = 0; i < promises.size(); i++) {
-                final int j = i;
-                AsyncTask<T> p = promises.get(i);
-                p
-                    .catchException(e -> {
-                        rej.accept(e);
-                    })
-                    .then(r -> {
-                        results.set(j, r);
-                        if (count.decrementAndGet() == 0) {
-                            res.accept(results);
-                        }
-                        return null;
-                    });
-            }
-        });
-    }
-
     private class ExecutorThread implements Executor {
 
         private boolean closed = false;
@@ -547,38 +514,6 @@ public class TeaVMPlatform extends NGEPlatform {
     public AsyncExecutor newAsyncExecutor(Object hint) {
         return newJsExecutor();
     }
-
-    @Override
-    public <T> AsyncTask<List<AsyncTask<T>>> awaitAllSettled(List<AsyncTask<T>> promises) {
-        return wrapPromise((res, rej) -> {
-            if (promises.size() == 0) {
-                res.accept(new ArrayList<>());
-                return;
-            }
-
-            AtomicInteger count = new AtomicInteger(promises.size());
-
-            for (int i = 0; i < promises.size(); i++) {
-                AsyncTask<T> promise = promises.get(i);
-
-                promise
-                    .catchException(e -> {
-                        int remaining = count.decrementAndGet();
-                        if (remaining == 0) {
-                            res.accept(promises);
-                        }
-                    })
-                    .then(result -> {
-                        int remaining = count.decrementAndGet();
-                        if (remaining == 0) {
-                            res.accept(promises);
-                        }
-                        return null;
-                    });
-            }
-        });
-    }
-
     @Override
     public void setClipboardContent(String data) {
         TeaVMBinds.setClipboardContent(data);

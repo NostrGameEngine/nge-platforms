@@ -181,6 +181,16 @@ public abstract class NGEPlatform {
 
     public abstract <T> AsyncTask<T> wrapPromise(BiConsumer<Consumer<T>, Consumer<Throwable>> func);
 
+    /**
+     * Waits for all promises to resolve.
+     * <p>
+     * If one of the promises fails, the returned promise is fails with the same error.
+     * </p>
+     * 
+     * @param <T> the type of the promises
+     * @param promises the list of promises
+     * @return a promise that resolves to a list of results
+     */
     public <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> promises) {
         return wrapPromise((res, rej) -> {
             if (promises.size() == 0) {
@@ -189,7 +199,7 @@ public abstract class NGEPlatform {
             }
 
             AtomicInteger count = new AtomicInteger(promises.size());
-            List<T> results = new ArrayList<>(count.get()); // FIXME: should be concurrent
+            List<T> results = new ArrayList<>(count.get()); 
             for (int i = 0; i < count.get(); i++) {
                 results.add(null);
             }
@@ -201,12 +211,13 @@ public abstract class NGEPlatform {
                 promise
                     .catchException(e -> {
                         logger.log(Level.WARNING, "Error in awaitAll", e);
-
                         rej.accept(e);
                     })
                     .then(result -> {
                         int remaining = count.decrementAndGet();
-                        results.set(index, result);
+                        synchronized (results) {
+                            results.set(index, result);
+                        }
                         if (remaining == 0) {
                             res.accept(results);
                         }
@@ -216,13 +227,23 @@ public abstract class NGEPlatform {
         });
     }
 
+    /**
+     * Waits for any promise to resolve.
+     * @param <T> the type of the promises
+     * @param promises the list of promises
+     * @return a promise that resolves to the result of the first resolved promise
+     * 
+     * <p>
+     * If all promises fail, the returned promise fails with an exception, otherwise it resolves
+     * with the result of the first resolved promise.
+     * </p>
+     */
     public <T> AsyncTask<T> awaitAny(List<AsyncTask<T>> promises) {
         return wrapPromise((res, rej) -> {
             if (promises.size() == 0) {
                 res.accept(null);
                 return;
             }
-
             AtomicInteger count = new AtomicInteger(promises.size());
             AtomicBoolean resolved = new AtomicBoolean(false);
             for (int i = 0; i < promises.size(); i++) {
@@ -231,7 +252,6 @@ public abstract class NGEPlatform {
                     .catchException(e -> {
                         logger.log(Level.WARNING, "Error in awaitAny " + e);
                         int remaining = count.decrementAndGet();
-
                         if (remaining == 0) {
                             rej.accept(new Exception("All promises failed"));
                         }
@@ -246,6 +266,23 @@ public abstract class NGEPlatform {
         });
     }
 
+
+    /**
+     * Waits for any promise to resolve and match the filter.
+     * Same as awaitAny but with a filter that the result must match.
+     * If the result does not match the filter, it is ignored and the next promise is
+     * waited for.
+     * 
+     * <p>
+     * If all promises fail or none match the filter, the returned promise fails with an exception,
+     * otherwise it resolves with the result of the first resolved promise that matches the filter.
+     * </p>
+     * 
+     * @param <T>  the type of the promises
+     * @param promises the list of promises
+     * @param filter the filter to match
+     * @return a promise that resolves to the result of the first resolved promise that matches the filter
+     */
     public <T> AsyncTask<T> awaitAny(List<AsyncTask<T>> promises, Predicate<T> filter) {
         return wrapPromise((res, rej) -> {
             if (promises.size() == 0) {
@@ -262,7 +299,6 @@ public abstract class NGEPlatform {
                     .catchException(e -> {
                         logger.log(Level.WARNING, "Error in awaitAny with filter", e);
                         int remaining = count.decrementAndGet();
-
                         if (remaining == 0) {
                             rej.accept(new Exception("All promises failed"));
                         }
@@ -284,7 +320,39 @@ public abstract class NGEPlatform {
         });
     }
 
-    public abstract <T> AsyncTask<List<AsyncTask<T>>> awaitAllSettled(List<AsyncTask<T>> promises);
+    /**
+     * Awaits for all promises to settle (either resolve or reject).
+     * The returned promise always resolves with the list of all promises.
+     * @param <T> the type of the promises
+     * @param promises the list of promises
+     * @return a promise that resolves to the list of all promises
+     */
+    public <T> AsyncTask<List<AsyncTask<T>>> awaitAllSettled(List<AsyncTask<T>> promises) {
+        return wrapPromise((res, rej) -> {
+            if (promises.size() == 0) {
+                res.accept(new ArrayList<>());
+                return;
+            }
+            AtomicInteger count = new AtomicInteger(promises.size());
+            for (int i = 0; i < promises.size(); i++) {
+                AsyncTask<T> promise = promises.get(i);
+                promise
+                    .catchException(e -> {
+                        int remaining = count.decrementAndGet();
+                        if (remaining == 0) {
+                            res.accept(promises);
+                        }
+                    })
+                    .then(result -> {
+                        int remaining = count.decrementAndGet();
+                        if (remaining == 0) {
+                            res.accept(promises);
+                        }
+                        return null;
+                    });
+            }
+        });
+    }
 
     public abstract long getTimestampSeconds();
 

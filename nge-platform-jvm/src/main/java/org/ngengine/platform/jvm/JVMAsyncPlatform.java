@@ -570,39 +570,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
-    @Override
-    public <T> AsyncTask<List<AsyncTask<T>>> awaitAllSettled(List<AsyncTask<T>> promises) {
-        return wrapPromise((res, rej) -> {
-            if (promises.size() == 0) {
-                res.accept(new ArrayList<>());
-                return;
-            }
-
-            AtomicInteger count = new AtomicInteger(promises.size());
-
-            for (int i = 0; i < promises.size(); i++) {
-                AsyncTask<T> promise = promises.get(i);
-
-                promise
-                    .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAll", e);
-                        int remaining = count.decrementAndGet();
-
-                        if (remaining == 0) {
-                            res.accept(promises);
-                        }
-                    })
-                    .then(result -> {
-                        int remaining = count.decrementAndGet();
-                        if (remaining == 0) {
-                            res.accept(promises);
-                        }
-                        return null;
-                    });
-            }
-        });
-    }
-
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     {
