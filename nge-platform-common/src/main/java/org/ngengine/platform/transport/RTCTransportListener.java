@@ -33,7 +33,7 @@ package org.ngengine.platform.transport;
 import java.nio.ByteBuffer;
 
 public interface RTCTransportListener {
-    void onLocalRTCIceCandidate(String candidate);
+    void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate);
 
     void onRTCBinaryMessage(ByteBuffer msg);
 

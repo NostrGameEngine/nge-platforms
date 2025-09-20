@@ -56,6 +56,7 @@ import tel.schich.libdatachannel.PeerConnection;
 import tel.schich.libdatachannel.PeerConnectionConfiguration;
 import tel.schich.libdatachannel.PeerState;
 import tel.schich.libdatachannel.SessionDescriptionType;
+import org.ngengine.platform.transport.RTCTransportIceCandidate;
 
 public class AndroidRTCTransport implements RTCTransport {
 
@@ -69,7 +70,7 @@ public class AndroidRTCTransport implements RTCTransport {
     private PeerConnection conn;
     private AsyncTask<DataChannel> openChannel;
     private DataChannel channel;
-    private volatile boolean isInitiator;
+    private List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private List<String> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private AsyncExecutor executor;
     private volatile boolean connected = false;
@@ -125,16 +126,16 @@ public class AndroidRTCTransport implements RTCTransport {
                 //     }
                 // });
 
-                this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
-                        logger.fine("Local ICE candidate: " + candidate);
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onLocalRTCIceCandidate(candidate);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error sending local candidate", e);
-                            }
-                        }
-                    });
+        this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
+            logger.fine("Local ICE candidate: " + candidate);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onLocalRTCIceCandidate(new RTCTransportIceCandidate(candidate, mediaId));
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error sending local candidate", e);
+                }
+            }
+        });
 
                 this.executor.runLater(
                         () -> {
@@ -317,10 +318,10 @@ public class AndroidRTCTransport implements RTCTransport {
     }
 
     @Override
-    public void addRemoteIceCandidates(Collection<String> candidates) {
-        for (String candidate : candidates) {
+    public void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates) {
+        for (RTCTransportIceCandidate candidate : candidates) {
             if (!trackedRemoteCandidates.contains(candidate)) {
-                this.conn.addRemoteCandidate(candidate);
+                this.conn.addRemoteCandidate(candidate.getCandidate(), candidate.getSdpMid());
                 logger.fine("Adding remote candidate: " + candidate);
                 trackedRemoteCandidates.add(candidate);
             }

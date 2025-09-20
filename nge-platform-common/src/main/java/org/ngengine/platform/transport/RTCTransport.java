@@ -45,7 +45,7 @@ public interface RTCTransport extends Closeable {
     AsyncTask<String> connectToChannel(String offerOrAnswer);
     AsyncTask<String> initiateChannel();
 
-    void addRemoteIceCandidates(Collection<String> candidates);
+    void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates);
 
     void addListener(RTCTransportListener listener);
 

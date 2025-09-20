@@ -48,6 +48,7 @@ import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.transport.RTCTransport;
+import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 import tel.schich.libdatachannel.DataChannel;
 import tel.schich.libdatachannel.DataChannelCallback.Message;
@@ -78,7 +79,7 @@ public class JVMRTCTransport implements RTCTransport {
     private AsyncTask<DataChannel> openChannel;
     private DataChannel channel;
     private volatile boolean isInitiator;
-    private List<String> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
+    private List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private AsyncExecutor executor;
     private volatile boolean connected = false;
 
@@ -133,16 +134,16 @@ public class JVMRTCTransport implements RTCTransport {
                 //     }
                 // });
 
-                this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
-                        logger.fine("Local ICE candidate: " + candidate);
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onLocalRTCIceCandidate(candidate);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error sending local candidate", e);
-                            }
-                        }
-                    });
+        this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
+            logger.fine("Local ICE candidate: " + candidate);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onLocalRTCIceCandidate(new RTCTransportIceCandidate(candidate, mediaId));
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error sending local candidate", e);
+                }
+            }
+        });
 
                 this.executor.runLater(
                         () -> {
@@ -325,10 +326,10 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public void addRemoteIceCandidates(Collection<String> candidates) {
-        for (String candidate : candidates) {
+    public void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates) {
+        for (RTCTransportIceCandidate candidate : candidates) {
             if (!trackedRemoteCandidates.contains(candidate)) {
-                this.conn.addRemoteCandidate(candidate);
+                this.conn.addRemoteCandidate(candidate.getCandidate(), candidate.getSdpMid());
                 logger.fine("Adding remote candidate: " + candidate);
                 trackedRemoteCandidates.add(candidate);
             }
