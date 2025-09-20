@@ -38,7 +38,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -47,7 +46,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -352,66 +350,22 @@ public class TeaVMPlatform extends NGEPlatform {
 
     private class ExecutorThread implements Executor {
 
-        private boolean closed = false;
-        private List<Runnable> tasks = new LinkedList<>();
-        private Thread threadPool[];
 
         public ExecutorThread(int n) {
-            threadPool = new Thread[n];
-            for (int i = 0; i < n; ++i) {
-                threadPool[i] = new Thread(this::run);
-                threadPool[i].setName("TeaVMPlatform-ExecutorThread-" + i);
-                threadPool[i].setDaemon(true);
-            }
+
         }
 
-        public void start() {
-            for (Thread t : threadPool) {
-                t.start();
-            }
-        }
-
-        public void run() {
-            while (!closed) {
-                Runnable task = null;
-                synchronized (tasks) {
-                    if (!tasks.isEmpty()) {
-                        task = tasks.remove(0);
-                    }
-                }
-                if (task != null) {
-                    try {
-                        task.run();
-                    } catch (Throwable e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    try {
-                        synchronized (tasks) {
-                            if (tasks.isEmpty() && !closed) {
-                                tasks.wait(1000);
-                            }
-                        }
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
+        public void start() { 
         }
 
         @Override
         public void execute(Runnable command) {
-            synchronized (tasks) {
-                tasks.add(command);
-                tasks.notifyAll();
-            }
+            Thread t = new Thread(command);
+            t.setName("Executor Thread");
+            t.start();
         }
 
         public void close() {
-            closed = true;
-            synchronized (tasks) {
-                tasks.notifyAll();
-            }
         }
     }
 
@@ -444,22 +398,17 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
 
                 return wrapPromise((res, rej) -> {
-                    new Thread(() -> { // ensure its on the teavm suspendable context
-                        try {
-                            Thread.sleep(delayMs);
-                        } catch (InterruptedException e) {
-                            rej.accept(e);
-                            return;
-                        }
+                    TeaVMBinds.setTimeout(() -> {
                         run(r)
-                            .then(result -> {
-                                res.accept(result);
-                                return null;
-                            })
-                            .catchException(exc -> {
-                                rej.accept(exc);
-                            });
-                    });
+                                .then(result -> {
+                                    res.accept(result);
+                                    return null;
+                                })
+                                .catchException(exc -> {
+                                    rej.accept(exc);
+                                });
+                    }, NGEUtils.safeInt(delayMs));
+
                 });
             }
 
@@ -579,7 +528,7 @@ public class TeaVMPlatform extends NGEPlatform {
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         TeaVMRTCTransport transport = new TeaVMRTCTransport();
-        transport.start(settings, null, connId, stunServers);
+        transport.start(settings, newAsyncExecutor(TeaVMRTCTransport.class), connId, stunServers);    
         return transport;
     }
 
