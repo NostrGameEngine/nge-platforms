@@ -70,61 +70,58 @@ public class AndroidRTCTransport implements RTCTransport {
     private PeerConnection conn;
     private AsyncTask<DataChannel> openChannel;
     private DataChannel channel;
+    private volatile boolean isInitiator;
     private List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
-    private List<String> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private AsyncExecutor executor;
     private volatile boolean connected = false;
 
     public AndroidRTCTransport() {
-        logger.fine("JVMRTCTransport initialized");
+        logger.fine("AndroidRTCTransport initialized");
     }
 
     @Override
-    public AsyncTask<Void> start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
+    public void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
         this.executor = executor;
-        NGEPlatform platform = NGEUtils.getPlatform();
-        return platform.wrapPromise((res, rej) -> {
+        Collection<URI> stunUris = new ArrayList<>();
+        for (String server : stunServers) {
             try {
-                Collection<URI> stunUris = new ArrayList<>();
-                for (String server : stunServers) {
-                    try {
-                        URI uri = new URI("stun:" + server);
-                        stunUris.add(uri);
-                    } catch (URISyntaxException e) {
-                        throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
-                    }
-                }
+                URI uri = new URI("stun:" + server);
+                stunUris.add(uri);
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
+            }
+        }
 
-                logger.finer("Using STUN servers: " + stunUris);
-                this.config = PeerConnectionConfiguration.DEFAULT.withIceServers(stunUris).withDisableAutoNegotiation(false);
-                this.connId = connId;
-                this.conn = PeerConnection.createPeer(this.config);
-                logger.finer("PeerConnection created with ID: " + connId);
-                this.conn.onIceStateChange.register((PeerConnection peer, IceState state) -> {
-                        logger.finer("ICE state changed: " + state);
+        logger.finer("Using STUN servers: " + stunUris);
+        this.config = PeerConnectionConfiguration.DEFAULT.withIceServers(stunUris).withDisableAutoNegotiation(false);
+        this.connId = connId;
+        this.conn = PeerConnection.createPeer(this.config);
+        logger.finer("PeerConnection created with ID: " + connId);
+        this.conn.onIceStateChange.register((PeerConnection peer, IceState state) -> {
+            logger.finer("ICE state changed: " + state);
 
-                        if (state == IceState.RTC_ICE_FAILED) {
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCIceFailed();
-                            // }
-                            this.close();
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCChannelClosed();
-                            // }
-                        } else if (state == IceState.RTC_ICE_CONNECTED) {
-                            // for (RTCTransportListener listener : listeners) {
-                            //     listener.onRTCIceConnected();
-                            // }
-                        }
-                    });
+            if (state == IceState.RTC_ICE_FAILED) {
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCIceFailed();
+                // }
+                this.close();
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCChannelClosed();
+                // }
+            } else if (state == IceState.RTC_ICE_CONNECTED) {
+                // for (RTCTransportListener listener : listeners) {
+                // listener.onRTCIceConnected();
+                // }
+            }
+        });
 
-                // this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
-                //     if (state == PeerState.RTC_CLOSED) {
-                //         connected = false;
-                //     } else if (state == PeerState.RTC_CONNECTED) {
-                //         connected = true;
-                //     }
-                // });
+        // this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
+        // if (state == PeerState.RTC_CLOSED) {
+        // connected = false;
+        // } else if (state == PeerState.RTC_CONNECTED) {
+        // connected = true;
+        // }
+        // });
 
         this.conn.onLocalCandidate.register((PeerConnection peer, String candidate, String mediaId) -> {
             logger.fine("Local ICE candidate: " + candidate);
@@ -137,29 +134,24 @@ public class AndroidRTCTransport implements RTCTransport {
             }
         });
 
-                this.executor.runLater(
-                        () -> {
-                            if (connected) return null;
-                            logger.warning("RTC Connection attempt timed out, closing connection");
-                            for (RTCTransportListener listener : listeners) {
-                                try {
-                                    listener.onRTCDisconnected("timeout");
-                                } catch (Exception e) {
-                                    logger.log(Level.WARNING, "Error sending local candidate", e);
-                                }
-                            }
-                            this.close();
-                            return null;
-                        },
-                        settings.getP2pAttemptTimeout().toMillis(),
-                        TimeUnit.MILLISECONDS
-                    );
+        this.executor.runLater(
+                () -> {
+                    if (connected)
+                        return null;
+                    logger.warning("RTC Connection attempt timed out, closing connection");
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCDisconnected("timeout");
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error sending local candidate", e);
+                        }
+                    }
+                    this.close();
+                    return null;
+                },
+                settings.getP2pAttemptTimeout().toMillis(),
+                TimeUnit.MILLISECONDS);
 
-                res.accept(null);
-            } catch (Exception e) {
-                rej.accept(e);
-            }
-        });
     }
 
     @Override
@@ -168,25 +160,25 @@ public class AndroidRTCTransport implements RTCTransport {
         return platform.wrapPromise((res, rej) -> {
             try {
                 this.openChannel.then(channel -> {
-                        try {
-                            boolean isDirectBuffer = message.isDirect();
-                            if (!isDirectBuffer) {
-                                ByteBuffer directBuffer = ByteBuffer.allocateDirect(message.remaining());
-                                directBuffer.put(message);
-                                directBuffer.flip();
-                                channel.sendMessage(directBuffer);
-                            } else {
-                                channel.sendMessage(message);
-                            }
-                            res.accept(null);
-                            return null;
-                        } catch (Exception e) {
-                            // e.printStackTrace();
-                            logger.log(Level.WARNING, "Error sending message", e);
-                            rej.accept(e);
-                            return null;
+                    try {
+                        boolean isDirectBuffer = message.isDirect();
+                        if (!isDirectBuffer) {
+                            ByteBuffer directBuffer = ByteBuffer.allocateDirect(message.remaining());
+                            directBuffer.put(message);
+                            directBuffer.flip();
+                            channel.sendMessage(directBuffer);
+                        } else {
+                            channel.sendMessage(message);
                         }
-                    });
+                        res.accept(null);
+                        return null;
+                    } catch (Exception e) {
+                        // e.printStackTrace();
+                        logger.log(Level.WARNING, "Error sending message", e);
+                        rej.accept(e);
+                        return null;
+                    }
+                });
             } catch (Exception e) {
                 // e.printStackTrace();
                 logger.log(Level.WARNING, "Error sending message", e);
@@ -199,9 +191,9 @@ public class AndroidRTCTransport implements RTCTransport {
         NGEPlatform platform = NGEUtils.getPlatform();
         return platform.wrapPromise((res1, rej1) -> {
             // channel.onClosed.register((DataChannel c) -> {
-            //     for (RTCTransportListener listener : listeners) {
-            //         listener.onRTCDisconnected();
-            //     }
+            // for (RTCTransportListener listener : listeners) {
+            // listener.onRTCDisconnected();
+            // }
             // });
             channel.onError.register((c, error) -> {
                 logger.log(Level.WARNING, "Channel error: " + error);
@@ -216,46 +208,45 @@ public class AndroidRTCTransport implements RTCTransport {
             });
 
             this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
-                    logger.fine("Peer connection state changed: " + state);
-                    if (state == PeerState.RTC_CLOSED) {
-                        this.connected = false;
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCDisconnected("closed");
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error sending local candidate", e);
-                            }
+                logger.fine("Peer connection state changed: " + state);
+                if (state == PeerState.RTC_CLOSED) {
+                    this.connected = false;
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCDisconnected("closed");
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error sending local candidate", e);
                         }
-                        rej1.accept(new Exception("Peer connection closed"));
-                    } else if (state == PeerState.RTC_FAILED) {
-                        this.connected = false;
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCDisconnected("failed");
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error sending local candidate", e);
-                            }
-                        }
-                        rej1.accept(new Exception("Peer connection failed"));
                     }
-                });
+                    rej1.accept(new Exception("Peer connection closed"));
+                } else if (state == PeerState.RTC_FAILED) {
+                    this.connected = false;
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCDisconnected("failed");
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error sending local candidate", e);
+                        }
+                    }
+                    rej1.accept(new Exception("Peer connection failed"));
+                }
+            });
 
             if (channel.isOpen()) {
                 logger.fine("Channel already opened");
                 channel.onMessage.register(
-                    Message.handleBinary((c, buffer) -> {
-                        assert dbg(() -> {
-                            logger.finest("Received Message");
-                        });
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCBinaryMessage(buffer);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error sending local candidate", e);
+                        Message.handleBinary((c, buffer) -> {
+                            assert dbg(() -> {
+                                logger.finest("Received Message");
+                            });
+                            for (RTCTransportListener listener : listeners) {
+                                try {
+                                    listener.onRTCBinaryMessage(buffer);
+                                } catch (Exception e) {
+                                    logger.log(Level.WARNING, "Error sending local candidate", e);
+                                }
                             }
-                        }
-                    })
-                );
+                        }));
                 this.connected = true;
                 logger.fine("Channel is open, notifying listeners");
                 for (RTCTransportListener listener : listeners) {
@@ -270,19 +261,18 @@ public class AndroidRTCTransport implements RTCTransport {
                 channel.onOpen.register((DataChannel cc) -> {
                     logger.fine("Channel opened");
                     channel.onMessage.register(
-                        Message.handleBinary((c, buffer) -> {
-                            assert dbg(() -> {
-                                logger.finest("Received Message");
-                            });
-                            for (RTCTransportListener listener : listeners) {
-                                try {
-                                    listener.onRTCBinaryMessage(buffer);
-                                } catch (Exception e) {
-                                    logger.log(Level.WARNING, "Error sending local candidate", e);
+                            Message.handleBinary((c, buffer) -> {
+                                assert dbg(() -> {
+                                    logger.finest("Received Message");
+                                });
+                                for (RTCTransportListener listener : listeners) {
+                                    try {
+                                        listener.onRTCBinaryMessage(buffer);
+                                    } catch (Exception e) {
+                                        logger.log(Level.WARNING, "Error sending local candidate", e);
+                                    }
                                 }
-                            }
-                        })
-                    );
+                            }));
                     this.connected = true;
                     for (RTCTransportListener listener : listeners) {
                         try {
@@ -303,11 +293,12 @@ public class AndroidRTCTransport implements RTCTransport {
         NGEPlatform platform = NGEUtils.getPlatform();
         return platform.wrapPromise((res, rej) -> {
             try {
-                this.conn.onLocalDescription.register((PeerConnection peer, String sdp, SessionDescriptionType type) -> {
-                        if (type == SessionDescriptionType.OFFER) {
-                            res.accept(sdp);
-                        }
-                    });
+                this.conn.onLocalDescription
+                        .register((PeerConnection peer, String sdp, SessionDescriptionType type) -> {
+                            if (type == SessionDescriptionType.OFFER) {
+                                res.accept(sdp);
+                            }
+                        });
                 this.channel = this.conn.createDataChannel("nostr4j-" + connId);
                 this.openChannel = confChannel(this.channel);
                 // this.conn.setLocalDescription("offer");
@@ -338,49 +329,49 @@ public class AndroidRTCTransport implements RTCTransport {
             return platform.wrapPromise((res1, rej1) -> {
                 this.conn.setRemoteDescription(answer, SessionDescriptionType.ANSWER);
                 this.conn.onStateChange.register((PeerConnection p, PeerState state) -> {
-                        if (state == PeerState.RTC_CLOSED) {
-                            rej1.accept(new Exception("Peer connection closed"));
-                        } else if (state == PeerState.RTC_FAILED) {
-                            rej1.accept(new Exception("Peer connection failed"));
-                        }
-                    });
+                    if (state == PeerState.RTC_CLOSED) {
+                        rej1.accept(new Exception("Peer connection closed"));
+                    } else if (state == PeerState.RTC_FAILED) {
+                        rej1.accept(new Exception("Peer connection failed"));
+                    }
+                });
                 res1.accept(null);
             });
         } else {
             logger.fine("Connect using offer");
 
             String offer = offerOrAnswer;
-            this.openChannel =
-                platform.wrapPromise((res, rej) -> {
-                    this.conn.onDataChannel.register((PeerConnection peer, DataChannel channel) -> {
-                            this.channel = channel;
-                            confChannel(channel)
-                                .catchException(exc -> {
-                                    rej.accept(exc);
-                                })
-                                .then(channel1 -> {
-                                    res.accept(channel1);
-                                    return null;
-                                });
-                        });
+            this.openChannel = platform.wrapPromise((res, rej) -> {
+                this.conn.onDataChannel.register((PeerConnection peer, DataChannel channel) -> {
+                    this.channel = channel;
+                    confChannel(channel)
+                            .catchException(exc -> {
+                                rej.accept(exc);
+                            })
+                            .then(channel1 -> {
+                                res.accept(channel1);
+                                return null;
+                            });
                 });
+            });
 
             AsyncTask<String> answerSdpPromise = platform.wrapPromise((res2, rej2) -> {
-                this.conn.onLocalDescription.register((PeerConnection peer, String sdp, SessionDescriptionType type) -> {
-                        if (type == SessionDescriptionType.ANSWER) {
-                            logger.fine("answer is ready: " + sdp);
-                            res2.accept(sdp);
-                        }
-                    });
+                this.conn.onLocalDescription
+                        .register((PeerConnection peer, String sdp, SessionDescriptionType type) -> {
+                            if (type == SessionDescriptionType.ANSWER) {
+                                logger.fine("answer is ready: " + sdp);
+                                res2.accept(sdp);
+                            }
+                        });
 
                 this.conn.onStateChange.register((PeerConnection peer, PeerState state) -> {
-                        logger.fine("Peer connection state changed: " + state);
-                        if (state == PeerState.RTC_CLOSED) {
-                            rej2.accept(new Exception("Peer connection closed"));
-                        } else if (state == PeerState.RTC_FAILED) {
-                            rej2.accept(new Exception("Peer connection failed"));
-                        }
-                    });
+                    logger.fine("Peer connection state changed: " + state);
+                    if (state == PeerState.RTC_CLOSED) {
+                        rej2.accept(new Exception("Peer connection closed"));
+                    } else if (state == PeerState.RTC_FAILED) {
+                        rej2.accept(new Exception("Peer connection failed"));
+                    }
+                });
             });
             this.conn.setRemoteDescription(offer, SessionDescriptionType.OFFER);
             return answerSdpPromise;
@@ -407,14 +398,16 @@ public class AndroidRTCTransport implements RTCTransport {
 
     @Override
     public void close() {
-        if (this.channel != null) this.channel.close();
+        if (this.channel != null)
+            this.channel.close();
         // .catchException(exc->{
-        if (this.conn != null) this.conn.close();
+        if (this.conn != null)
+            this.conn.close();
         // })
         // .then(channel->{
 
-        //     this.conn.close();
-        //     return null;
+        // this.conn.close();
+        // return null;
         // });
     }
 }
