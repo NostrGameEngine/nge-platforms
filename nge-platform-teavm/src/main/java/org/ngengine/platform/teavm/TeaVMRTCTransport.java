@@ -184,21 +184,24 @@ public class TeaVMRTCTransport implements RTCTransport {
             }
         });
 
-        TeaVMBinds.rtcSetOnMessageHandler(channel, buffer -> {
-            assert dbg(() -> {
-                logger.finest("Received message");
-            });
+        TeaVMBinds.rtcSetOnMessageHandler(
+            channel,
+            buffer -> {
+                assert dbg(() -> {
+                    logger.finest("Received message");
+                });
 
-            ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
+                ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
 
-            for (RTCTransportListener listener : listeners) {
-                try {
-                    listener.onRTCBinaryMessage(byteBuffer);
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error handling message", e);
+                for (RTCTransportListener listener : listeners) {
+                    try {
+                        listener.onRTCBinaryMessage(byteBuffer);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error handling message", e);
+                    }
                 }
             }
-        });
+        );
     }
 
     @Override

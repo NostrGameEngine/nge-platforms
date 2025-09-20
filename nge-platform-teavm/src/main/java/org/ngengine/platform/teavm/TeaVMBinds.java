@@ -311,7 +311,6 @@ public class TeaVMBinds implements JSObject {
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void freePromise(int id);
 
-
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void rtcSetOnMessageHandler(RTCDataChannel channel, RTCMessageCallback callback);
