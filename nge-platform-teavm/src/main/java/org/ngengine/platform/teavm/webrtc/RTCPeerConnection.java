@@ -30,33 +30,31 @@
  */
 package org.ngengine.platform.teavm.webrtc;
 
-import org.ngengine.platform.teavm.TeaVMBindsAsync;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
 
 public interface RTCPeerConnection extends JSObject {
+    RTCDataChannel createDataChannel(String label);
 
-    public  RTCDataChannel createDataChannel(String label);
+    void addIceCandidate(RTCIceCandidate candidate);
 
-    public  void addIceCandidate(RTCIceCandidate candidate);
-
-    public  void close();
-
-    @JSProperty
-    public  String getConnectionState();
+    void close();
 
     @JSProperty
-    public  String getIceConnectionState();
+    String getConnectionState();
+
+    @JSProperty
+    String getIceConnectionState();
 
     @JSProperty("onicecandidate")
-    public  void setOnIceCandidateHandler(RTCIceCandidateCallback callback);
+    void setOnIceCandidateHandler(RTCIceCandidateCallback callback);
 
     @JSProperty("oniceconnectionstatechange")
-    public  void setOnIceConnectionStateChangeHandler(RTCStateChangeCallback callback);
+    void setOnIceConnectionStateChangeHandler(RTCStateChangeCallback callback);
 
     @JSProperty("onconnectionstatechange")
-    public  void setOnConnectionStateChangeHandler(RTCStateChangeCallback callback);
-    
+    void setOnConnectionStateChangeHandler(RTCStateChangeCallback callback);
+
     @JSProperty("ondatachannel")
-    public  void setOnDataChannelHandler(RTCDataChannelCallback callback);
+    void setOnDataChannelHandler(RTCDataChannelCallback callback);
 }

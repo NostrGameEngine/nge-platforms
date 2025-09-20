@@ -350,13 +350,9 @@ public class TeaVMPlatform extends NGEPlatform {
 
     private class ExecutorThread implements Executor {
 
+        public ExecutorThread(int n) {}
 
-        public ExecutorThread(int n) {
-
-        }
-
-        public void start() { 
-        }
+        public void start() {}
 
         @Override
         public void execute(Runnable command) {
@@ -365,8 +361,7 @@ public class TeaVMPlatform extends NGEPlatform {
             t.start();
         }
 
-        public void close() {
-        }
+        public void close() {}
     }
 
     private AsyncExecutor newJsExecutor() {
@@ -398,8 +393,9 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
 
                 return wrapPromise((res, rej) -> {
-                    TeaVMBinds.setTimeout(() -> {
-                        run(r)
+                    TeaVMBinds.setTimeout(
+                        () -> {
+                            run(r)
                                 .then(result -> {
                                     res.accept(result);
                                     return null;
@@ -407,8 +403,9 @@ public class TeaVMPlatform extends NGEPlatform {
                                 .catchException(exc -> {
                                     rej.accept(exc);
                                 });
-                    }, NGEUtils.safeInt(delayMs));
-
+                        },
+                        NGEUtils.safeInt(delayMs)
+                    );
                 });
             }
 
@@ -463,6 +460,7 @@ public class TeaVMPlatform extends NGEPlatform {
     public AsyncExecutor newAsyncExecutor(Object hint) {
         return newJsExecutor();
     }
+
     @Override
     public void setClipboardContent(String data) {
         TeaVMBinds.setClipboardContent(data);
@@ -528,7 +526,7 @@ public class TeaVMPlatform extends NGEPlatform {
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
         TeaVMRTCTransport transport = new TeaVMRTCTransport();
-        transport.start(settings, newAsyncExecutor(TeaVMRTCTransport.class), connId, stunServers);    
+        transport.start(settings, newAsyncExecutor(TeaVMRTCTransport.class), connId, stunServers);
         return transport;
     }
 

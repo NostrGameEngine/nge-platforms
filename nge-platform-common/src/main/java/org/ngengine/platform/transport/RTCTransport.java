@@ -41,7 +41,7 @@ public interface RTCTransport extends Closeable {
     void close();
     boolean isConnected();
 
-    void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers)  ;
+    void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers);
     AsyncTask<String> connectToChannel(String offerOrAnswer);
     AsyncTask<String> initiateChannel();
 

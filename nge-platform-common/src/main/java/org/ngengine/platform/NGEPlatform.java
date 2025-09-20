@@ -186,7 +186,7 @@ public abstract class NGEPlatform {
      * <p>
      * If one of the promises fails, the returned promise is fails with the same error.
      * </p>
-     * 
+     *
      * @param <T> the type of the promises
      * @param promises the list of promises
      * @return a promise that resolves to a list of results
@@ -199,7 +199,7 @@ public abstract class NGEPlatform {
             }
 
             AtomicInteger count = new AtomicInteger(promises.size());
-            List<T> results = new ArrayList<>(count.get()); 
+            List<T> results = new ArrayList<>(count.get());
             for (int i = 0; i < count.get(); i++) {
                 results.add(null);
             }
@@ -232,7 +232,7 @@ public abstract class NGEPlatform {
      * @param <T> the type of the promises
      * @param promises the list of promises
      * @return a promise that resolves to the result of the first resolved promise
-     * 
+     *
      * <p>
      * If all promises fail, the returned promise fails with an exception, otherwise it resolves
      * with the result of the first resolved promise.
@@ -266,18 +266,17 @@ public abstract class NGEPlatform {
         });
     }
 
-
     /**
      * Waits for any promise to resolve and match the filter.
      * Same as awaitAny but with a filter that the result must match.
      * If the result does not match the filter, it is ignored and the next promise is
      * waited for.
-     * 
+     *
      * <p>
      * If all promises fail or none match the filter, the returned promise fails with an exception,
      * otherwise it resolves with the result of the first resolved promise that matches the filter.
      * </p>
-     * 
+     *
      * @param <T>  the type of the promises
      * @param promises the list of promises
      * @param filter the filter to match
