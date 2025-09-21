@@ -287,6 +287,7 @@ public class TeaVMBinds implements JSObject {
         String url,
         String headersJson,
         @JSByRef byte[] body,
+        int timeoutMs,
         JSConsumer<TeaVMHttpResponse> res,
         JSConsumer<String> rej
     );

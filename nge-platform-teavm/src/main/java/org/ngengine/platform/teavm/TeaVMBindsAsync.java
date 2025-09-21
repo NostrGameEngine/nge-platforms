@@ -191,6 +191,7 @@ public class TeaVMBindsAsync {
         String url,
         String headersJson,
         byte[] body,
+        int timeoutMs,
         AsyncCallback<NGEHttpResponse> callback
     ) {
         TeaVMBinds.fetchAsync(
@@ -198,6 +199,7 @@ public class TeaVMBindsAsync {
             url,
             headersJson,
             body,
+            timeoutMs,
             response -> {
                 try {
                     int status = response.getStatus();

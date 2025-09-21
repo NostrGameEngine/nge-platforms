@@ -11161,10 +11161,15 @@ var rtcCreateIceCandidate = function rtcCreateIceCandidate(sdp /*str*/, spdMid /
     sdpMLineIndex: null
   });
 };
-var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
+var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res, rej) {
+  var controller = new AbortController();
+  var timeoutId = TeaVMBinds_setTimeout(function () {
+    return controller.abort();
+  }, timeoutMs);
   var options = {
     method: method,
-    headers: headers ? JSON.parse(headers) : {}
+    headers: headers ? JSON.parse(headers) : {},
+    signal: controller.signal
   };
   if (body && method !== 'GET' && method !== 'HEAD') {
     options.body = _u(body);
@@ -11175,6 +11180,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
           case 0:
+            clearTimeout(timeoutId);
             respHeaders = {};
             response.headers.forEach(function (value, key) {
               respHeaders[key] = value;
@@ -11201,6 +11207,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, res, rej) {
       return _ref0.apply(this, arguments);
     };
   }())["catch"](function (error) {
+    clearTimeout(timeoutId);
     rej(String(error));
   });
 };

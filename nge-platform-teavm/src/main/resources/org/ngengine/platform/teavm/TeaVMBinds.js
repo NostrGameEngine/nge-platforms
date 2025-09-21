@@ -745,10 +745,16 @@ export const rtcCreateIceCandidate = (sdp /*str*/, spdMid /*str*/) => { // RTCIc
     });
 }
 
-export const fetchAsync = (method, url, headers, body, res, rej) => {
+export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+
     const options = {
         method: method,
         headers: headers ? JSON.parse(headers) : {},
+        signal: controller.signal,
+
     };
 
      if (body && method !== 'GET' && method !== 'HEAD') {
@@ -756,6 +762,8 @@ export const fetchAsync = (method, url, headers, body, res, rej) => {
     }
 
     fetch(url, options).then(async (response) => {
+        clearTimeout(timeoutId);
+
         const respHeaders = {};
         response.headers.forEach((value, key) => {
             respHeaders[key] = value;
@@ -769,6 +777,8 @@ export const fetchAsync = (method, url, headers, body, res, rej) => {
         };
         res(out);
     }).catch(error => {
+        clearTimeout(timeoutId);
+
         rej(String(error));
     });
 }
