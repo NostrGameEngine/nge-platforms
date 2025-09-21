@@ -46,8 +46,103 @@ public interface AsyncTask<T> {
     <R> AsyncTask<R> compose(ThrowableFunction<T, AsyncTask<R>> func2);
     AsyncTask<T> catchException(Consumer<Throwable> func2);
 
-    static <T> AsyncTask<List<T>> awaitAll(List<AsyncTask<T>> tasks) {
-        NGEPlatform platform = NGEUtils.getPlatform();
+    /**
+     * Blocks the current thread and awaits all the provided AsyncTask instances to complete and returns a list of their results.
+     * If any of the AsyncTask instances fails, an exception is thrown.
+     * 
+     * @param <T> the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return a list of results
+     * @throws Exception if any of the AsyncTask instances fails
+     */
+    public static <T> List<T> awaitAll(List<AsyncTask<T>> tasks) throws Exception {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.awaitAll(tasks).await();
+    }
+
+    /**
+     * Blocks the current thread and awaits any of the provided AsyncTask instances to complete and returns its result.
+     * If all the AsyncTask instances fail, an exception is thrown.
+     * @param <T> the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return the result of one of the provided AsyncTask instances
+     * @throws Exception if all the AsyncTask instances fail
+     */
+    public static <T> T awaitAny(List<AsyncTask<T>> tasks) throws Exception {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.awaitAny(tasks).await();
+    }
+
+    /**
+     * Blocks the current thread and awaits all the provided AsyncTask instances to complete (either resolved or failed) and returns a list of their results.
+     * @param <T> the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return a list of AsyncTask instances that are either resolved or failed
+     * @throws Exception if the waiting is interrupted
+     */
+    public static <T> List<AsyncTask<T>> awaitAllSettled(List<AsyncTask<T>> tasks) throws Exception {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.awaitAllSettled(tasks).await();
+    }
+
+    /**
+     * Returns an AsyncTask that resolved when all of the provided AsyncTask instances resolve, or fails if any of the provided AsyncTask instances fails.
+     * @param <T> the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return an AsyncTask that resolves to a list of results
+     */
+    public static <T> AsyncTask<List<T>> all(List<AsyncTask<T>> tasks)  {
+        NGEPlatform platform = NGEPlatform.get();
         return platform.awaitAll(tasks);
     }
+
+
+    /**
+     * Returns an AsyncTask that resolves as soon as any of the provided AsyncTask instances resolves, or fails if all of the provided AsyncTask instances fail.
+     * @param <T> the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return an AsyncTask that resolves to the result of one of the provided AsyncTask instances
+     */
+    public static <T> AsyncTask<T> any(List<AsyncTask<T>> tasks)  {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.awaitAny(tasks);
+    }
+
+    /**
+     * Returns an AsyncTask that resolves when all of the provided AsyncTask
+     * instances have settled (either resolved or failed).
+     * 
+     * @param <T>   the type of the result
+     * @param tasks the list of AsyncTask instances
+     * @return an AsyncTask that resolves to a list of AsyncTask instances that are
+     *         either resolved or failed
+     */
+    public static <T> AsyncTask<List<AsyncTask<T>>> allSettled(List<AsyncTask<T>> tasks)  {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.awaitAllSettled(tasks);
+    }
+
+    /**
+     * Returns an already completed AsyncTask with the given value.
+     * @param <T> the type of the result
+     * @param value the value to complete the AsyncTask with
+     * @return  an already completed AsyncTask
+     */
+    public  static <T> AsyncTask<T> completed(T value) {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.wrapPromise((res,rej)->res.accept(value));
+    }   
+
+
+    /**
+     * Returns an already failed AsyncTask with the given error.
+     * @param <T> the type of the result 
+     * @param error the error to fail the AsyncTask with
+     * @return an already failed AsyncTask
+     */
+    public static <T> AsyncTask<T> failed(Throwable error) {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.wrapPromise((res,rej)->rej.accept(error));
+    }
+    
 }
