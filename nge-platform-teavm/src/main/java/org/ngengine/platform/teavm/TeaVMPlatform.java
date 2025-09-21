@@ -63,6 +63,7 @@ import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
+
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
 
     @Override
@@ -502,7 +503,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 url,
                 reqHeaders,
                 reqBody,
-                (int)((timeout !=null?timeout:HTTP_TIMEOUT).toMillis()),
+                (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
                 r -> {
                     try {
                         String jsonHeaders = r.getHeaders();

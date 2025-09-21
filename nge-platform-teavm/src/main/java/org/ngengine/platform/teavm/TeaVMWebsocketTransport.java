@@ -104,87 +104,83 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     @Override
     public AsyncTask<Void> connect(String url) {
         return this.platform.wrapPromise((res, rej) -> {
-            try {
-                if (this.ws == null) {
-                    this.ws = createWebSocket(url);
+                try {
+                    if (this.ws == null) {
+                        this.ws = createWebSocket(url);
 
-                    AtomicBoolean done = new AtomicBoolean(false);
+                        AtomicBoolean done = new AtomicBoolean(false);
 
-                    // timeout
-                    TeaVMBinds.setTimeout(() -> {
-                        if (!done.getAndSet(true)) {
-                            this.asyncExecutor.run(() -> {
-                                rej.accept(new IOException("WebSocket connection timeout"));
-                                return null;
+                        // timeout
+                        TeaVMBinds.setTimeout(
+                            () -> {
+                                if (!done.getAndSet(true)) {
+                                    this.asyncExecutor.run(() -> {
+                                            rej.accept(new IOException("WebSocket connection timeout"));
+                                            return null;
+                                        });
+                                }
+                            },
+                            (int) CONNECT_TIMEOUT.toMillis()
+                        );
+
+                        this.ws.setOnOpen(evt -> {
+                                if (!done.getAndSet(true)) {
+                                    this.asyncExecutor.run(() -> {
+                                            for (WebsocketTransportListener listener : listeners) {
+                                                try {
+                                                    listener.onConnectionOpen();
+                                                } catch (Exception e) {
+                                                    logger.log(Level.WARNING, "Error in onConnectionOpen listener", e);
+                                                }
+                                            }
+                                            res.accept(null);
+                                            return null;
+                                        });
+                                }
                             });
-                        }
-                    }, (int) CONNECT_TIMEOUT.toMillis());
 
-                    this.ws.setOnOpen(evt -> {
-                        if (!done.getAndSet(true)) {
-                            this.asyncExecutor.run(() -> {
-                                for (WebsocketTransportListener listener : listeners) {
-                                    try {
-                                        listener.onConnectionOpen();
-                                    } catch (Exception e) {
-                                        logger.log(Level.WARNING, "Error in onConnectionOpen listener", e);
-                                    }
-                                }
-                                res.accept(null);
-                                return null;
+                        this.ws.setOnMessage(evt -> {
+                                this.asyncExecutor.run(() -> {
+                                        String message = ((MessageEvent) evt).getData();
+                                        for (WebsocketTransportListener listener : listeners) {
+                                            try {
+                                                listener.onConnectionMessage(message);
+                                            } catch (Exception e) {
+                                                logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
+                                            }
+                                        }
+                                        return null;
+                                    });
                             });
-                        }
-                    });
 
-                    this.ws.setOnMessage(evt -> {
+                        this.ws.setOnClose(evt -> {
+                                this.asyncExecutor.run(() -> {
+                                        CloseEvent closeEvent = (CloseEvent) evt;
+                                        String reason = closeEvent.getReason();
+                                        if (ws != null) {
+                                            ws = null;
+                                            for (WebsocketTransportListener listener : listeners) {
+                                                listener.onConnectionClosedByServer(reason);
+                                            }
+                                        }
 
-                        this.asyncExecutor.run(() -> {
-                            String message = ((MessageEvent) evt).getData();
-                            for (WebsocketTransportListener listener : listeners) {
-                                try {
-                                    listener.onConnectionMessage(message);
-                                } catch (Exception e) {
-                                    logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
-                                }
+                                        return null;
+                                    });
+                            });
 
-                            }
-                            return null;
-                        });
+                        this.ws.setOnError(evt -> {
+                                this.asyncExecutor.run(() -> {
+                                        rej.accept(new IOException("WebSocket error"));
 
-                    });
-
-                    this.ws.setOnClose(evt -> {
-
-                        this.asyncExecutor.run(() -> {
-                            CloseEvent closeEvent = (CloseEvent) evt;
-                            String reason = closeEvent.getReason();
-                            if (ws != null) {
-                                ws = null;
-                                for (WebsocketTransportListener listener : listeners) {
-                                    listener.onConnectionClosedByServer(reason);
-                                }
-                            }
-
-                            return null;
-                        });
-
-                    });
-
-                    this.ws.setOnError(evt -> {
-
-                        this.asyncExecutor.run(() -> {
-                            rej.accept(new IOException("WebSocket error"));
-
-                            return null;
-                        });
-
-                    });
-                } else {
-                    res.accept(null);
+                                        return null;
+                                    });
+                            });
+                    } else {
+                        res.accept(null);
+                    }
+                } catch (Exception e) {
+                    rej.accept(e);
                 }
-            } catch (Exception e) {
-                rej.accept(e);
-            }
             });
     }
 
