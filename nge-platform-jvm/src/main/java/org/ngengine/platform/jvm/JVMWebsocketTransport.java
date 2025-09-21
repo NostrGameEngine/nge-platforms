@@ -55,7 +55,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
 
     private static final Logger logger = Logger.getLogger(JVMWebsocketTransport.class.getName());
     private static final int DEFAULT_MAX_MESSAGE_SIZE = 65_536;
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
     private static final int BUFFER_INITIAL_SIZE = 8192;
 
     private volatile WebSocket openWebSocket;

@@ -683,7 +683,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
         Map<String, String> headers
     ) {
         String url = NGEUtils.safeURI(inurl).toString();
-        Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(60 * 2);
+        Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
         HttpClient.Builder b = HttpClient
             .newBuilder()
