@@ -31,6 +31,7 @@
 package org.ngengine.platform;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public interface AsyncTask<T> {
@@ -141,5 +142,29 @@ public interface AsyncTask<T> {
     static <T> AsyncTask<T> failed(Throwable error) {
         NGEPlatform platform = NGEPlatform.get();
         return platform.wrapPromise((res, rej) -> rej.accept(error));
+    }
+
+
+    /**
+     * Create an AsyncTask wrapper around some asynchronous code.
+     * @param <T> the type of the result
+     * @param func the function that receives two parameters: a resolve function and a reject function. The resolve function must be called when the asynchronous operation completes successfully, and the reject function must be called when the asynchronous operation fails.
+     * @return an AsyncTask that represents the asynchronous operation
+     */
+    public static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func) {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.wrapPromise(func);
+    }
+
+    /**
+     * Same as {@link #create(BiConsumer)} but the function is executed in the provided executor.
+     * @param <T> the type of the result
+     * @param func the function that receives two parameters: a resolve function and a reject function. The resolve function must be called when the asynchronous operation completes successfully, and the reject function must be called when the asynchronous operation fails.
+     * @param executor the executor to run the function in
+     * @return an AsyncTask that represents the asynchronous operation  
+     */
+    public static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
+        NGEPlatform platform = NGEPlatform.get();
+        return platform.promisify(func, executor);
     }
 }
