@@ -144,14 +144,13 @@ public interface AsyncTask<T> {
         return platform.wrapPromise((res, rej) -> rej.accept(error));
     }
 
-
     /**
      * Create an AsyncTask wrapper around some asynchronous code.
      * @param <T> the type of the result
      * @param func the function that receives two parameters: a resolve function and a reject function. The resolve function must be called when the asynchronous operation completes successfully, and the reject function must be called when the asynchronous operation fails.
      * @return an AsyncTask that represents the asynchronous operation
      */
-    public static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func) {
+    static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func) {
         NGEPlatform platform = NGEPlatform.get();
         return platform.wrapPromise(func);
     }
@@ -161,9 +160,9 @@ public interface AsyncTask<T> {
      * @param <T> the type of the result
      * @param func the function that receives two parameters: a resolve function and a reject function. The resolve function must be called when the asynchronous operation completes successfully, and the reject function must be called when the asynchronous operation fails.
      * @param executor the executor to run the function in
-     * @return an AsyncTask that represents the asynchronous operation  
+     * @return an AsyncTask that represents the asynchronous operation
      */
-    public static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
+    static <T> AsyncTask<T> create(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
         NGEPlatform platform = NGEPlatform.get();
         return platform.promisify(func, executor);
     }
