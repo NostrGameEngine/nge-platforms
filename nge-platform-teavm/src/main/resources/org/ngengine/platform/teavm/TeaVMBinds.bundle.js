@@ -10899,6 +10899,12 @@ var vfileListAllAsync = function vfileListAllAsync(name, res, rej) {
 };
 var getPlatformName = function getPlatformName() {
   // str
+  var runtime = "runtime";
+  if ( true && Capacitor && Capacitor.getPlatform) {
+    runtime = "capacitor " + Capacitor.getPlatform();
+  } else if (typeof window !== 'undefined') {
+    runtime = "browser";
+  }
   var pl = 'JavaScript (' + (typeof window !== 'undefined' ? 'browser' : 'runtime') + ')';
   return pl;
 };

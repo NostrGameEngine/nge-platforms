@@ -489,7 +489,13 @@ export const vfileListAllAsync = (name, res, rej) => { // str[]
 }
 
 export const getPlatformName = () => { // str
-    const pl =  'JavaScript (' + (typeof window !== 'undefined' ? 'browser' : 'runtime') + ')';
+    let runtime = "runtime";
+    if(typeof "Capacitor" !== 'undefined' && Capacitor && Capacitor.getPlatform) {
+        runtime="capacitor "+Capacitor.getPlatform();
+    }else if (typeof window !== 'undefined') {
+        runtime = "browser";
+    }
+    const pl =  'JavaScript (' + runtime + ')';
     return pl;
 }
 

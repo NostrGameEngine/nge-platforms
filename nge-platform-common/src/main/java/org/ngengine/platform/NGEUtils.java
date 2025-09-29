@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
+import java.util.Arrays;
 
 public class NGEUtils {
 
@@ -353,10 +354,12 @@ public class NGEUtils {
         return Instant.ofEpochSecond(seconds);
     }
 
-    private static final List<String> VALID_SCHEMES = List.of("http", "https");
+    private static final List<String> VALID_SCHEMES = Arrays.asList(System
+        .getProperty("nge-platforms.validURISchemes", NGEPlatform.get().getPlatformName().contains("capacitor ") ? "https,http,capacitor" : "https,http")
+        .split(","));
 
     private static final boolean ALLOW_LOCALHOST_IN_URIS = System
-        .getProperty("nge-platforms.allowLoopbackInURIs", "false")
+        .getProperty("nge-platforms.allowLoopbackInURIs", NGEPlatform.get().getPlatformName().contains("browser") ? "true" : "false")
         .equalsIgnoreCase("true");
 
     public static URI safeURI(Object object) {
