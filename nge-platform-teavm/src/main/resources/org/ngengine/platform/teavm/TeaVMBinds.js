@@ -142,14 +142,12 @@ export const chacha20 = (key/*byte[]*/, nonce/*byte[]*/, data/*byte[]*/) => { //
 };
 
 export const setTimeout = (callback, delay) => { //void
-    return ((typeof window !== 'undefined' && window) ||
-        (typeof globalThis !== 'undefined' && globalThis) ||
-        (typeof global !== 'undefined' && global) ||
-        (typeof self !== 'undefined' && self)).setTimeout(callback, delay);
+    return _s().setTimeout(callback, delay);
 }
 
 export const getClipboardContentAsync = (res,rej) => { //str
-    navigator.clipboard.readText()
+    const clipboard = _s().ngeClipboard || navigator.clipboard;
+    clipboard.readText()
         .then(text => {
             res(text);
         })
@@ -161,7 +159,8 @@ export const getClipboardContentAsync = (res,rej) => { //str
 
 export const setClipboardContent = (text) => { //void
     try {
-        navigator.clipboard.writeText(text).catch((err) => {
+        const clipboard = _s().ngeClipboard || navigator.clipboard;
+        clipboard.writeText(text).catch((err) => {
             console.error('Failed to write to clipboard: ', err);
         });
     } catch (err) {
@@ -173,10 +172,7 @@ export const hasBundledResource = (path) => { // boolean
     if (path.startsWith('/')) {
         path = path.substring(1);
     }
-    const bundle = ((typeof window !== 'undefined' && window) ||
-        (typeof globalThis !== 'undefined' && globalThis) ||
-        (typeof global !== 'undefined' && global) ||
-        (typeof self !== 'undefined' && self))?.NGEBundledResources;
+    const bundle = _s()?.NGEBundledResources;
     if (!bundle) {
         console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
         return false;
@@ -194,10 +190,7 @@ export const getBundledResource = (path) => { // byte[]
         path = path.substring(1);
     }
 
-    const bundle = ((typeof window !== 'undefined' && window) ||
-        (typeof globalThis !== 'undefined' && globalThis) ||
-        (typeof global !== 'undefined' && global) ||
-        (typeof self !== 'undefined' && self))?.NGEBundledResources;
+    const bundle = _s()?.NGEBundledResources;
 
     if (!bundle) {
         console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
@@ -238,14 +231,9 @@ export const aes256cbc = (key/*byte[]*/, iv/*byte[]*/, data/*byte[]*/, forEncryp
 };
 
 
-// use indexed db as a vfile store
 
 async function getVFileStore(name) {
-    // Get the global object (works in browser, workers, and other JS environments)
-    const globalObj = (typeof window !== 'undefined' && window) ||
-        (typeof self !== 'undefined' && self) ||
-        (typeof globalThis !== 'undefined' && globalThis) ||
-        (typeof global !== 'undefined' && global);
+    const globalObj = _s();
 
     // Check if IndexedDB is available in the current environment
     if (!globalObj.indexedDB) {
@@ -283,7 +271,6 @@ async function getVFileStore(name) {
         request.onsuccess = (event) => {
             const db = event.target.result;
 
-            // Create API object
             const vfileStore = {
                 close() {
                     db.close();
@@ -334,7 +321,7 @@ async function getVFileStore(name) {
 
                         request.onerror = (event) => {
                             console.error('Error writing file:', event.target.error);
-                            resolve();  // Still resolve to avoid breaking the app
+                            resolve();
                         };
                     });
                 },
@@ -351,7 +338,7 @@ async function getVFileStore(name) {
 
                         request.onerror = (event) => {
                             console.error('Error deleting file:', event.target.error);
-                            resolve();  // Still resolve to avoid breaking the app
+                            resolve();  
                         };
                     });
                 },
@@ -507,13 +494,9 @@ function toFunction(f) { // Function
 
     // Get the root object
     if (namespace[0] === 'window' || namespace[0] === 'globalThis' || namespace[0] === 'self') {
-        obj = (typeof window !== 'undefined' && window) ||
-            (typeof globalThis !== 'undefined' && globalThis) ||
-            (typeof self !== 'undefined' && self);
+        obj = _s();
     } else {
-        const globalObj = (typeof window !== 'undefined' && window) ||
-            (typeof globalThis !== 'undefined' && globalThis) ||
-            (typeof self !== 'undefined' && self);
+        const globalObj = _s();
         obj = globalObj[namespace[0]];
     }
 
@@ -574,10 +557,7 @@ export const canCallFunction = async (functionName, res) => { // void
 
 export const openURL = (url) => { // void
     try {
-        const globalObj = (typeof window !== 'undefined' && window) ||
-            (typeof self !== 'undefined' && self) ||
-            (typeof globalThis !== 'undefined' && globalThis) ||
-            (typeof global !== 'undefined' && global);
+        const globalObj = _s();
 
         if (globalObj && globalObj.open) {
             globalObj.open(url, '_blank');

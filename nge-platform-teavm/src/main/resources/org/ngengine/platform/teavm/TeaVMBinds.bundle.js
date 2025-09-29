@@ -10335,11 +10335,12 @@ var chacha20 = function chacha20(key /*byte[]*/, nonce /*byte[]*/, data /*byte[]
 };
 var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
   //void
-  return (typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g || typeof self !== 'undefined' && self).setTimeout(callback, delay);
+  return _s().setTimeout(callback, delay);
 };
 var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   //str
-  navigator.clipboard.readText().then(function (text) {
+  var clipboard = _s().ngeClipboard || navigator.clipboard;
+  clipboard.readText().then(function (text) {
     res(text);
   })["catch"](function (err) {
     console.error('Failed to read clipboard contents: ', err);
@@ -10349,7 +10350,8 @@ var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
 var setClipboardContent = function setClipboardContent(text) {
   //void
   try {
-    navigator.clipboard.writeText(text)["catch"](function (err) {
+    var clipboard = _s().ngeClipboard || navigator.clipboard;
+    clipboard.writeText(text)["catch"](function (err) {
       console.error('Failed to write to clipboard: ', err);
     });
   } catch (err) {
@@ -10357,12 +10359,12 @@ var setClipboardContent = function setClipboardContent(text) {
   }
 };
 var hasBundledResource = function hasBundledResource(path) {
-  var _ref;
+  var _s2;
   // boolean
   if (path.startsWith('/')) {
     path = path.substring(1);
   }
-  var bundle = (_ref = typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g || typeof self !== 'undefined' && self) === null || _ref === void 0 ? void 0 : _ref.NGEBundledResources;
+  var bundle = (_s2 = _s()) === null || _s2 === void 0 ? void 0 : _s2.NGEBundledResources;
   if (!bundle) {
     console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
     return false;
@@ -10374,13 +10376,13 @@ var hasBundledResource = function hasBundledResource(path) {
   return true;
 };
 var getBundledResource = function getBundledResource(path) {
-  var _ref2;
+  var _s3;
   // byte[]
 
   if (path.startsWith('/')) {
     path = path.substring(1);
   }
-  var bundle = (_ref2 = typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g || typeof self !== 'undefined' && self) === null || _ref2 === void 0 ? void 0 : _ref2.NGEBundledResources;
+  var bundle = (_s3 = _s()) === null || _s3 === void 0 ? void 0 : _s3.NGEBundledResources;
   if (!bundle) {
     console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
     return null;
@@ -10410,8 +10412,6 @@ var aes256cbc = function aes256cbc(key /*byte[]*/, iv /*byte[]*/, data /*byte[]*
     throw error;
   }
 };
-
-// use indexed db as a vfile store
 function getVFileStore(_x) {
   return _getVFileStore.apply(this, arguments);
 }
@@ -10421,8 +10421,7 @@ function _getVFileStore() {
     return _regenerator().w(function (_context22) {
       while (1) switch (_context22.n) {
         case 0:
-          // Get the global object (works in browser, workers, and other JS environments)
-          globalObj = typeof window !== 'undefined' && window || typeof self !== 'undefined' && self || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g; // Check if IndexedDB is available in the current environment
+          globalObj = _s(); // Check if IndexedDB is available in the current environment
           if (globalObj.indexedDB) {
             _context22.n = 1;
             break;
@@ -10587,8 +10586,6 @@ function _getVFileStore() {
             };
             request.onsuccess = function (event) {
               var db = event.target.result;
-
-              // Create API object
               var vfileStore = {
                 close: function close() {
                   db.close();
@@ -10649,7 +10646,7 @@ function _getVFileStore() {
                             };
                             request.onerror = function (event) {
                               console.error('Error writing file:', event.target.error);
-                              resolve(); // Still resolve to avoid breaking the app
+                              resolve();
                             };
                           }));
                       }
@@ -10670,7 +10667,7 @@ function _getVFileStore() {
                             };
                             request.onerror = function (event) {
                               console.error('Error deleting file:', event.target.error);
-                              resolve(); // Still resolve to avoid breaking the app
+                              resolve();
                             };
                           }));
                       }
@@ -10713,7 +10710,7 @@ function _getVFileStore() {
   return _getVFileStore.apply(this, arguments);
 }
 var vfileExists = /*#__PURE__*/function () {
-  var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name, path) {
+  var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name, path) {
     var vstore, v;
     return _regenerator().w(function (_context) {
       while (1) switch (_context.n) {
@@ -10732,11 +10729,11 @@ var vfileExists = /*#__PURE__*/function () {
     }, _callee);
   }));
   return function vfileExists(_x2, _x3) {
-    return _ref3.apply(this, arguments);
+    return _ref.apply(this, arguments);
   };
 }();
 var vfileRead = /*#__PURE__*/function () {
-  var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(name, path) {
+  var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(name, path) {
     var vstore, v;
     return _regenerator().w(function (_context2) {
       while (1) switch (_context2.n) {
@@ -10763,11 +10760,11 @@ var vfileRead = /*#__PURE__*/function () {
     }, _callee2);
   }));
   return function vfileRead(_x4, _x5) {
-    return _ref4.apply(this, arguments);
+    return _ref2.apply(this, arguments);
   };
 }();
 var vfileWrite = /*#__PURE__*/function () {
-  var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(name, path, data) {
+  var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(name, path, data) {
     var vstore;
     return _regenerator().w(function (_context3) {
       while (1) switch (_context3.n) {
@@ -10786,11 +10783,11 @@ var vfileWrite = /*#__PURE__*/function () {
     }, _callee3);
   }));
   return function vfileWrite(_x6, _x7, _x8) {
-    return _ref5.apply(this, arguments);
+    return _ref3.apply(this, arguments);
   };
 }();
 var vfileDelete = /*#__PURE__*/function () {
-  var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(name, path) {
+  var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(name, path) {
     var vstore;
     return _regenerator().w(function (_context4) {
       while (1) switch (_context4.n) {
@@ -10809,11 +10806,11 @@ var vfileDelete = /*#__PURE__*/function () {
     }, _callee4);
   }));
   return function vfileDelete(_x9, _x0) {
-    return _ref6.apply(this, arguments);
+    return _ref4.apply(this, arguments);
   };
 }();
 var vfileListAll = /*#__PURE__*/function () {
-  var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(name) {
+  var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(name) {
     var vstore, files, v, _t;
     return _regenerator().w(function (_context5) {
       while (1) switch (_context5.p = _context5.n) {
@@ -10849,7 +10846,7 @@ var vfileListAll = /*#__PURE__*/function () {
     }, _callee5, null, [[0, 4]]);
   }));
   return function vfileListAll(_x1) {
-    return _ref7.apply(this, arguments);
+    return _ref5.apply(this, arguments);
   };
 }();
 var vfileExistsAsync = function vfileExistsAsync(name, path, res, rej) {
@@ -10916,9 +10913,9 @@ function toFunction(f) {
 
   // Get the root object
   if (namespace[0] === 'window' || namespace[0] === 'globalThis' || namespace[0] === 'self') {
-    obj = typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof self !== 'undefined' && self;
+    obj = _s();
   } else {
-    var globalObj = typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof self !== 'undefined' && self;
+    var globalObj = _s();
     obj = globalObj[namespace[0]];
   }
   if (!obj) {
@@ -10947,7 +10944,7 @@ function toFunction(f) {
   return fun.bind(obj);
 }
 var callFunction = /*#__PURE__*/function () {
-  var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(functionName, data, res, rej) {
+  var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(functionName, data, res, rej) {
     var result, _t2;
     return _regenerator().w(function (_context6) {
       while (1) switch (_context6.p = _context6.n) {
@@ -10973,11 +10970,11 @@ var callFunction = /*#__PURE__*/function () {
     }, _callee6, null, [[0, 2]]);
   }));
   return function callFunction(_x10, _x11, _x12, _x13) {
-    return _ref8.apply(this, arguments);
+    return _ref6.apply(this, arguments);
   };
 }();
 var canCallFunction = /*#__PURE__*/function () {
-  var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(functionName, res) {
+  var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(functionName, res) {
     var canCall;
     return _regenerator().w(function (_context7) {
       while (1) switch (_context7.n) {
@@ -11002,13 +10999,13 @@ var canCallFunction = /*#__PURE__*/function () {
     }, _callee7);
   }));
   return function canCallFunction(_x14, _x15) {
-    return _ref9.apply(this, arguments);
+    return _ref7.apply(this, arguments);
   };
 }();
 var openURL = function openURL(url) {
   // void
   try {
-    var globalObj = typeof window !== 'undefined' && window || typeof self !== 'undefined' && self || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g;
+    var globalObj = _s();
     if (globalObj && globalObj.open) {
       globalObj.open(url, '_blank');
     } else {
@@ -11181,7 +11178,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
     options.body = _u(body);
   }
   fetch(url, options).then(/*#__PURE__*/function () {
-    var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(response) {
+    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(response) {
       var respHeaders, respBody, out, _t3, _t4;
       return _regenerator().w(function (_context8) {
         while (1) switch (_context8.n) {
@@ -11210,7 +11207,7 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
       }, _callee8);
     }));
     return function (_x16) {
-      return _ref0.apply(this, arguments);
+      return _ref8.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
