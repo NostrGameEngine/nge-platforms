@@ -6,7 +6,25 @@ pluginManagement {
         maven { url = uri("https://teavm.org/maven/repository") }
         mavenLocal()
     }
+    plugins {
+        id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    }
 }
+
+plugins {
+    id("org.gradle.toolchains.foojay-resolver") version "1.0.0"
+}
+
+toolchainManagement {
+    jvm {
+        javaRepositories {
+            repository("foojay") {
+                resolverClass = org.gradle.toolchains.foojay.FoojayToolchainResolver
+            }
+        }
+    }
+}
+
 
 rootProject.name = "nge-platforms"
 
