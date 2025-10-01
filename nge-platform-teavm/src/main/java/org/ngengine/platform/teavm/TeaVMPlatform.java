@@ -38,6 +38,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -65,6 +66,7 @@ import org.teavm.jso.JSObject;
 public class TeaVMPlatform extends NGEPlatform {
 
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
+    private AsyncExecutor defaultExecutor = newAsyncExecutor();
 
     @Override
     public byte[] generatePrivateKey() {
@@ -351,21 +353,75 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     private class ExecutorThread implements Executor {
+        private String name = "Executor";
+        private final LinkedList<Runnable> tasks = new LinkedList<>();
+        private volatile boolean running = true;
 
-        public ExecutorThread(int n) {}
+        public ExecutorThread(int n) {
 
-        public void start() {}
+        }
+
+        public void start() {
+            Thread t = new Thread(() -> {
+                while (running) {
+                    Runnable task = null;
+                    synchronized (tasks) {
+                        if (tasks.isEmpty()) {
+                            try {
+                                tasks.wait(100);
+                            } catch (InterruptedException e) {
+                                e.printStackTrace();
+                            }
+                            continue;
+                        }
+                        if (!tasks.isEmpty()) {
+                            task = tasks.removeFirst();
+                        }
+                    }
+                    try {
+                        if (task != null)
+                            task.run();
+                    } catch (Throwable e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+            t.setName(name + " Worker");
+            t.start();
+
+        }
+
+        public void setName(String name) {
+            this.name = name;
+
+        }
 
         @Override
         public void execute(Runnable command) {
-            Thread t = new Thread(command);
-            t.setName("Executor Thread");
+            if (!running)
+                throw new IllegalStateException("Executor already shutdown");
+            Thread t = new Thread(() -> {
+                synchronized (tasks) {
+                    tasks.add(command);
+                    tasks.notifyAll();
+                }
+            });
+            t.setName(name + " Scheduler");
             t.start();
         }
 
-        public void close() {}
+        public void close() {
+            running = false;
+            Thread t = new Thread(() -> {
+                synchronized (tasks) {
+                    tasks.notifyAll();
+                }
+            });
+            t.setName(name + " Closer");
+            t.start();
+            tasks.clear();
+        }
     }
-
     private AsyncExecutor newJsExecutor() {
         ExecutorThread executorThread = new ExecutorThread(3);
         executorThread.start();
@@ -440,7 +496,7 @@ public class TeaVMPlatform extends NGEPlatform {
                     rej.accept(e);
                 }
             },
-            null
+                defaultExecutor
         );
     }
 
@@ -454,7 +510,7 @@ public class TeaVMPlatform extends NGEPlatform {
                     rej.accept(e);
                 }
             },
-            null
+                defaultExecutor
         );
     }
 
@@ -470,7 +526,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> getClipboardContent() {
-        return wrapPromise((res, rej) -> {
+        return promisify((res, rej) -> {
             TeaVMBinds.getClipboardContentAsync(
                 result -> {
                     res.accept(result);
@@ -479,7 +535,7 @@ public class TeaVMPlatform extends NGEPlatform {
                     rej.accept(new Exception(error));
                 }
             );
-        });
+        }, defaultExecutor);
     }
 
     @SuppressWarnings("unchecked")
@@ -497,7 +553,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
         byte[] reqBody = body != null ? body : new byte[0];
 
-        return wrapPromise((res, rej) -> {
+        return promisify((res, rej) -> {
             TeaVMBinds.fetchAsync(
                 method,
                 url,
@@ -523,7 +579,7 @@ public class TeaVMPlatform extends NGEPlatform {
                     rej.accept(new RuntimeException("Fetch error: " + e));
                 }
             );
-        });
+        }, defaultExecutor);
     }
 
     @Override
@@ -632,5 +688,10 @@ public class TeaVMPlatform extends NGEPlatform {
                 }
             }
         );
+    }
+
+    @Override
+    public void runInThread(Thread thread, Consumer<Runnable> enqueue, Runnable action) {
+        enqueue.accept(action);
     }
 }
