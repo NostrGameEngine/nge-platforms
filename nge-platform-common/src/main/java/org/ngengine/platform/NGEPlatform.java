@@ -499,9 +499,9 @@ public abstract class NGEPlatform {
 
     public abstract String getPlatformName();
 
-    public void runInThread(Thread thread, Consumer<Runnable> enqueue, Runnable action){
+    public void runInThread(Thread thread, Consumer<Runnable> enqueue, Runnable action) {
         Thread current = Thread.currentThread();
-        if(thread.equals(current) && thread.getName().equals(current.getName())){
+        if (thread.equals(current) && thread.getName().equals(current.getName())) {
             action.run();
         } else {
             enqueue.accept(action);
