@@ -26,7 +26,7 @@ const _u = (data) => {
     } else if (data instanceof Buffer) {
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } else {
-        throw new TypeError('Unsupported data type for conversion to Uint8Array');
+        throw new TypeError('Unsupported data type for conversion to Uint8Array '+typeof data);
     }
 };
 
