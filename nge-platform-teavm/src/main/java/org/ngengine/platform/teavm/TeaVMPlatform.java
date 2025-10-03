@@ -588,19 +588,21 @@ public class TeaVMPlatform extends NGEPlatform {
     @SuppressWarnings("unchecked")
     @Override
     public AsyncTask<NGEHttpResponseStream> httpRequestStream(
-            String method,
-            String inurl,
-            byte[] body,
-            Duration timeout,
-            Map<String, String> headers) {
+        String method,
+        String inurl,
+        byte[] body,
+        Duration timeout,
+        Map<String, String> headers
+    ) {
         String url = NGEUtils.safeURI(inurl).toString();
 
         String reqHeaders = headers != null ? toJSON(headers) : null;
 
         byte[] reqBody = body != null ? body : new byte[0];
 
-        return promisify((res, rej) -> {
-            TeaVMBinds.fetchStreamAsync(
+        return promisify(
+            (res, rej) -> {
+                TeaVMBinds.fetchStreamAsync(
                     method,
                     url,
                     reqHeaders,
@@ -622,8 +624,11 @@ public class TeaVMPlatform extends NGEPlatform {
                     },
                     e -> {
                         rej.accept(new RuntimeException("Fetch error: " + e));
-                    });
-        }, defaultExecutor);
+                    }
+                );
+            },
+            defaultExecutor
+        );
     }
 
     @Override

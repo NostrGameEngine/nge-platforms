@@ -295,13 +295,14 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void fetchStreamAsync(
-            String method,
-            String url,
-            String headersJson,
-            @JSByRef byte[] body,
-            int timeoutMs,
-            JSConsumer<TeaVMHttpStreamResponse> res,
-            JSConsumer<String> rej);
+        String method,
+        String url,
+        String headersJson,
+        @JSByRef byte[] body,
+        int timeoutMs,
+        JSConsumer<TeaVMHttpStreamResponse> res,
+        JSConsumer<String> rej
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

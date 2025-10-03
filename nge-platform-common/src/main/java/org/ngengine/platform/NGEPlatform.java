@@ -406,13 +406,13 @@ public abstract class NGEPlatform {
         Map<String, String> headers
     );
 
-
     public abstract AsyncTask<NGEHttpResponseStream> httpRequestStream(
-            String method,
-            String inurl,
-            byte[] body,
-            Duration timeout,
-            Map<String, String> headers);
+        String method,
+        String inurl,
+        byte[] body,
+        Duration timeout,
+        Map<String, String> headers
+    );
 
     public abstract void setClipboardContent(String data);
 

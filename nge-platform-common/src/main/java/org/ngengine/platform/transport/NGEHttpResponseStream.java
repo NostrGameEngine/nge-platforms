@@ -31,7 +31,6 @@
 package org.ngengine.platform.transport;
 
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -68,19 +67,8 @@ public class NGEHttpResponseStream {
 
     @Override
     public String toString() {
-        return (
-            "NGEHttpResponse [statusCode=" +
-            statusCode +
-            ", headers=" +
-            headers +
-   
-            ", status=" +
-            status +
-            "]"
-        );
+        return ("NGEHttpResponse [statusCode=" + statusCode + ", headers=" + headers + ", status=" + status + "]");
     }
-
- 
 
     @Override
     public int hashCode() {

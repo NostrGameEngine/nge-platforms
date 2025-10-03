@@ -676,37 +676,44 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<NGEHttpResponseStream> httpRequestStream(String method, String inurl, byte[] body,
-            Duration itimeout, Map<String, String> headers) {
+    public AsyncTask<NGEHttpResponseStream> httpRequestStream(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
         String url = NGEUtils.safeURI(inurl).toString();
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
         HttpClient.Builder b = HttpClient
-                .newBuilder()
-                .connectTimeout(timeout)
-                .followRedirects(HttpClient.Redirect.NORMAL)
-                .executor(executor);
+            .newBuilder()
+            .connectTimeout(timeout)
+            .followRedirects(HttpClient.Redirect.NORMAL)
+            .executor(executor);
 
         HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
                 HttpRequest.Builder requestBuilder = HttpRequest
-                        .newBuilder()
-                        .uri(URI.create(url))
-                        .header(
-                                "User-Agent",
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
+                    .newBuilder()
+                    .uri(URI.create(url))
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+                    );
                 requestBuilder.method(
-                        method.toUpperCase(),
-                        body == null ? HttpRequest.BodyPublishers.noBody()
-                                : HttpRequest.BodyPublishers.ofByteArray(body));
+                    method.toUpperCase(),
+                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
+                );
 
                 applyHeaders(headers, requestBuilder);
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                httpClient.sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-                        .handleAsync(
+                httpClient
+                    .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
+                    .handleAsync(
                         (response, e) -> {
                             if (e != null) {
                                 rej.accept(e);
@@ -716,10 +723,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
                             try {
                                 NGEHttpResponseStream streamResponse = new NGEHttpResponseStream(
-                                        statusCode,
-                                        response.headers().map(),
-                                        response.body(),
-                                        statusCode >= 200 && statusCode < 300);
+                                    statusCode,
+                                    response.headers().map(),
+                                    response.body(),
+                                    statusCode >= 200 && statusCode < 300
+                                );
                                 res.accept(streamResponse);
                             } catch (Exception ex) {
                                 logger.log(Level.WARNING, "Error creating stream response", ex);
@@ -728,13 +736,14 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
                             return null;
                         },
-                        executor);
+                        executor
+                    );
             } catch (Exception e) {
                 rej.accept(e);
             }
         });
     }
-    
+
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
@@ -1182,6 +1191,4 @@ public class JVMAsyncPlatform extends NGEPlatform {
     public String getPlatformName() {
         return "JVM";
     }
-
- 
 }
