@@ -76,6 +76,7 @@ import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.NGEHttpResponse;
+import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 public class AndroidThreadedPlatform extends NGEPlatform {
@@ -704,6 +705,76 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         });
     }
 
+    @Override
+    public AsyncTask<NGEHttpResponseStream> httpRequestStream(
+            String method,
+            String inurl,
+            byte[] body,
+            Duration itimeout,
+            Map<String, String> headers) {
+
+        String url = NGEUtils.safeURI(inurl).toString();
+        int timeoutMs = (int) (itimeout != null ? itimeout.toMillis() : Duration.ofSeconds(60 * 2).toMillis());
+
+        return wrapPromise((res, rej) -> {
+            httpExecutor.run(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    connection = (HttpURLConnection) new URL(url).openConnection();
+                    connection.setRequestMethod(method.toUpperCase());
+                    connection.setConnectTimeout(timeoutMs);
+                    connection.setReadTimeout(timeoutMs);
+                    connection.setInstanceFollowRedirects(true);
+
+                    // Set default User-Agent
+                    connection.setRequestProperty("User-Agent",
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
+
+                    // Add custom headers
+                    applyHeaders(headers, connection);
+
+                    // Handle request body for POST, PUT, etc.
+                    if (body != null && body.length > 0) {
+                        connection.setDoOutput(true);
+                        try (OutputStream os = connection.getOutputStream()) {
+                            os.write(body);
+                            os.flush();
+                        }
+                    }
+
+                    // Get response
+                    int statusCode = connection.getResponseCode();
+
+                    // Read response body
+                    InputStream data = statusCode >= 400
+                                ? connection.getErrorStream()
+                                : connection.getInputStream();
+
+                    // Get response headers
+                    Map<String, List<String>> responseHeaders = new HashMap<>();
+                    for (Map.Entry<String, List<String>> entry : connection.getHeaderFields().entrySet()) {
+                        if (entry.getKey() != null) {
+                            responseHeaders.put(entry.getKey(), entry.getValue());
+                        }
+                    }
+
+                    // Create response object based on status code
+                    boolean success = statusCode >= 200 && statusCode < 300;
+                    NGEHttpResponseStream response = new NGEHttpResponseStream(statusCode, responseHeaders, data, success);
+                    res.accept(response);
+
+                } catch (Exception e) {
+                    rej.accept(e);
+                } finally {
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+                return null;
+            });
+        });
+    }
+    
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
             String method,

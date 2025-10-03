@@ -769,6 +769,45 @@ export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
     });
 }
 
+
+export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+
+    const options = {
+        method: method,
+        headers: headers ? JSON.parse(headers) : {},
+        signal: controller.signal,
+
+    };
+
+    if (body && method !== 'GET' && method !== 'HEAD') {
+        options.body = _u(body);
+    }
+
+    fetch(url, options).then(async (response) => {
+        clearTimeout(timeoutId);
+
+        const respHeaders = {};
+        response.headers.forEach((value, key) => {
+            respHeaders[key] = value;
+        });
+        const stream = response.body;
+        const out = {
+            status: response.status,
+            statusText: response.statusText,
+            headers: JSON.stringify(respHeaders),
+            body: stream
+        };
+        res(out);
+    }).catch(error => {
+        clearTimeout(timeoutId);
+
+        rej(String(error));
+    });
+}
+
 const pendingPromises = {};
 let promiseCounter = 1;
 

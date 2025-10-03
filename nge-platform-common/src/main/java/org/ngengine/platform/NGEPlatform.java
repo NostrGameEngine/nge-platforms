@@ -49,6 +49,7 @@ import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.transport.NGEHttpResponse;
+import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
@@ -404,6 +405,14 @@ public abstract class NGEPlatform {
         Duration timeout,
         Map<String, String> headers
     );
+
+
+    public abstract AsyncTask<NGEHttpResponseStream> httpRequestStream(
+            String method,
+            String inurl,
+            byte[] body,
+            Duration timeout,
+            Map<String, String> headers);
 
     public abstract void setClipboardContent(String data);
 

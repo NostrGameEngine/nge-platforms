@@ -10133,6 +10133,7 @@ var __webpack_exports__ = {};
 /* harmony export */   canCallFunction: () => (/* binding */ canCallFunction),
 /* harmony export */   chacha20: () => (/* binding */ chacha20),
 /* harmony export */   fetchAsync: () => (/* binding */ fetchAsync),
+/* harmony export */   fetchStreamAsync: () => (/* binding */ fetchStreamAsync),
 /* harmony export */   freePromise: () => (/* binding */ freePromise),
 /* harmony export */   fromJSON: () => (/* binding */ fromJSON),
 /* harmony export */   genPubKey: () => (/* binding */ genPubKey),
@@ -10416,62 +10417,48 @@ function getVFileStore(_x) {
   return _getVFileStore.apply(this, arguments);
 }
 function _getVFileStore() {
-  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(name) {
+  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(name) {
     var globalObj;
-    return _regenerator().w(function (_context22) {
-      while (1) switch (_context22.n) {
+    return _regenerator().w(function (_context23) {
+      while (1) switch (_context23.n) {
         case 0:
           globalObj = _s(); // Check if IndexedDB is available in the current environment
           if (globalObj.indexedDB) {
-            _context22.n = 1;
+            _context23.n = 1;
             break;
           }
           console.warn('IndexedDB is not supported in this environment.');
-          return _context22.a(2, {
+          return _context23.a(2, {
             exists: function () {
-              var _exists = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(path) {
-                return _regenerator().w(function (_context9) {
-                  while (1) switch (_context9.n) {
+              var _exists = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(path) {
+                return _regenerator().w(function (_context0) {
+                  while (1) switch (_context0.n) {
                     case 0:
-                      return _context9.a(2, false);
+                      return _context0.a(2, false);
                   }
-                }, _callee9);
+                }, _callee0);
               }));
-              function exists(_x17) {
+              function exists(_x18) {
                 return _exists.apply(this, arguments);
               }
               return exists;
             }(),
             read: function () {
-              var _read = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(path) {
-                return _regenerator().w(function (_context0) {
-                  while (1) switch (_context0.n) {
+              var _read = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(path) {
+                return _regenerator().w(function (_context1) {
+                  while (1) switch (_context1.n) {
                     case 0:
-                      return _context0.a(2, null);
+                      return _context1.a(2, null);
                   }
-                }, _callee0);
+                }, _callee1);
               }));
-              function read(_x18) {
+              function read(_x19) {
                 return _read.apply(this, arguments);
               }
               return read;
             }(),
             write: function () {
-              var _write = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(path, data) {
-                return _regenerator().w(function (_context1) {
-                  while (1) switch (_context1.n) {
-                    case 0:
-                      return _context1.a(2);
-                  }
-                }, _callee1);
-              }));
-              function write(_x19, _x20) {
-                return _write.apply(this, arguments);
-              }
-              return write;
-            }(),
-            "delete": function () {
-              var _delete2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(path) {
+              var _write = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(path, data) {
                 return _regenerator().w(function (_context10) {
                   while (1) switch (_context10.n) {
                     case 0:
@@ -10479,19 +10466,33 @@ function _getVFileStore() {
                   }
                 }, _callee10);
               }));
-              function _delete(_x21) {
+              function write(_x20, _x21) {
+                return _write.apply(this, arguments);
+              }
+              return write;
+            }(),
+            "delete": function () {
+              var _delete2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(path) {
+                return _regenerator().w(function (_context11) {
+                  while (1) switch (_context11.n) {
+                    case 0:
+                      return _context11.a(2);
+                  }
+                }, _callee11);
+              }));
+              function _delete(_x22) {
                 return _delete2.apply(this, arguments);
               }
               return _delete;
             }(),
             listAll: function () {
-              var _listAll = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
-                return _regenerator().w(function (_context11) {
-                  while (1) switch (_context11.n) {
+              var _listAll = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+                return _regenerator().w(function (_context12) {
+                  while (1) switch (_context12.n) {
                     case 0:
-                      return _context11.a(2, []);
+                      return _context12.a(2, []);
                   }
-                }, _callee11);
+                }, _callee12);
               }));
               function listAll() {
                 return _listAll.apply(this, arguments);
@@ -10500,7 +10501,7 @@ function _getVFileStore() {
             }()
           });
         case 1:
-          return _context22.a(2, new Promise(function (resolve, reject) {
+          return _context23.a(2, new Promise(function (resolve, reject) {
             var request = globalObj.indexedDB.open('nge-vstore-' + name, 1);
             request.onupgradeneeded = function (event) {
               var db = event.target.result;
@@ -10513,49 +10514,35 @@ function _getVFileStore() {
               // Provide fallback implementation when DB can't be opened
               resolve({
                 exists: function () {
-                  var _exists2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(path) {
-                    return _regenerator().w(function (_context12) {
-                      while (1) switch (_context12.n) {
+                  var _exists2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(path) {
+                    return _regenerator().w(function (_context13) {
+                      while (1) switch (_context13.n) {
                         case 0:
-                          return _context12.a(2, false);
+                          return _context13.a(2, false);
                       }
-                    }, _callee12);
+                    }, _callee13);
                   }));
-                  function exists(_x22) {
+                  function exists(_x23) {
                     return _exists2.apply(this, arguments);
                   }
                   return exists;
                 }(),
                 read: function () {
-                  var _read2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(path) {
-                    return _regenerator().w(function (_context13) {
-                      while (1) switch (_context13.n) {
+                  var _read2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(path) {
+                    return _regenerator().w(function (_context14) {
+                      while (1) switch (_context14.n) {
                         case 0:
-                          return _context13.a(2, null);
+                          return _context14.a(2, null);
                       }
-                    }, _callee13);
+                    }, _callee14);
                   }));
-                  function read(_x23) {
+                  function read(_x24) {
                     return _read2.apply(this, arguments);
                   }
                   return read;
                 }(),
                 write: function () {
-                  var _write2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(path, data) {
-                    return _regenerator().w(function (_context14) {
-                      while (1) switch (_context14.n) {
-                        case 0:
-                          return _context14.a(2);
-                      }
-                    }, _callee14);
-                  }));
-                  function write(_x24, _x25) {
-                    return _write2.apply(this, arguments);
-                  }
-                  return write;
-                }(),
-                "delete": function () {
-                  var _delete3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(path) {
+                  var _write2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(path, data) {
                     return _regenerator().w(function (_context15) {
                       while (1) switch (_context15.n) {
                         case 0:
@@ -10563,19 +10550,33 @@ function _getVFileStore() {
                       }
                     }, _callee15);
                   }));
-                  function _delete(_x26) {
+                  function write(_x25, _x26) {
+                    return _write2.apply(this, arguments);
+                  }
+                  return write;
+                }(),
+                "delete": function () {
+                  var _delete3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(path) {
+                    return _regenerator().w(function (_context16) {
+                      while (1) switch (_context16.n) {
+                        case 0:
+                          return _context16.a(2);
+                      }
+                    }, _callee16);
+                  }));
+                  function _delete(_x27) {
                     return _delete3.apply(this, arguments);
                   }
                   return _delete;
                 }(),
                 listAll: function () {
-                  var _listAll2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16() {
-                    return _regenerator().w(function (_context16) {
-                      while (1) switch (_context16.n) {
+                  var _listAll2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
+                    return _regenerator().w(function (_context17) {
+                      while (1) switch (_context17.n) {
                         case 0:
-                          return _context16.a(2, []);
+                          return _context17.a(2, []);
                       }
-                    }, _callee16);
+                    }, _callee17);
                   }));
                   function listAll() {
                     return _listAll2.apply(this, arguments);
@@ -10591,11 +10592,11 @@ function _getVFileStore() {
                   db.close();
                 },
                 exists: function exists(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-                    return _regenerator().w(function (_context17) {
-                      while (1) switch (_context17.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
+                    return _regenerator().w(function (_context18) {
+                      while (1) switch (_context18.n) {
                         case 0:
-                          return _context17.a(2, new Promise(function (resolve, reject) {
+                          return _context18.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.count(path);
@@ -10608,15 +10609,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee17);
+                    }, _callee18);
                   }))();
                 },
                 read: function read(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-                    return _regenerator().w(function (_context18) {
-                      while (1) switch (_context18.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+                    return _regenerator().w(function (_context19) {
+                      while (1) switch (_context19.n) {
                         case 0:
-                          return _context18.a(2, new Promise(function (resolve, reject) {
+                          return _context19.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.get(path);
@@ -10629,15 +10630,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee18);
+                    }, _callee19);
                   }))();
                 },
                 write: function write(path, data) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-                    return _regenerator().w(function (_context19) {
-                      while (1) switch (_context19.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+                    return _regenerator().w(function (_context20) {
+                      while (1) switch (_context20.n) {
                         case 0:
-                          return _context19.a(2, new Promise(function (resolve, reject) {
+                          return _context20.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store.put(data, path);
@@ -10650,15 +10651,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee19);
+                    }, _callee20);
                   }))();
                 },
                 "delete": function _delete(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
-                    return _regenerator().w(function (_context20) {
-                      while (1) switch (_context20.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
+                    return _regenerator().w(function (_context21) {
+                      while (1) switch (_context21.n) {
                         case 0:
-                          return _context20.a(2, new Promise(function (resolve, reject) {
+                          return _context21.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store["delete"](path);
@@ -10671,15 +10672,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee20);
+                    }, _callee21);
                   }))();
                 },
                 listAll: function listAll() {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
-                    return _regenerator().w(function (_context21) {
-                      while (1) switch (_context21.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+                    return _regenerator().w(function (_context22) {
+                      while (1) switch (_context22.n) {
                         case 0:
-                          return _context21.a(2, new Promise(function (resolve, reject) {
+                          return _context22.a(2, new Promise(function (resolve, reject) {
                             try {
                               var transaction = db.transaction(["files"], 'readonly');
                               var store = transaction.objectStore("files");
@@ -10697,7 +10698,7 @@ function _getVFileStore() {
                             }
                           }));
                       }
-                    }, _callee21);
+                    }, _callee22);
                   }))();
                 }
               };
@@ -10705,7 +10706,7 @@ function _getVFileStore() {
             };
           }));
       }
-    }, _callee22);
+    }, _callee23);
   }));
   return _getVFileStore.apply(this, arguments);
 }
@@ -11214,6 +11215,51 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
     rej(String(error));
   });
 };
+var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, timeoutMs, res, rej) {
+  var controller = new AbortController();
+  var timeoutId = TeaVMBinds_setTimeout(function () {
+    return controller.abort();
+  }, timeoutMs);
+  var options = {
+    method: method,
+    headers: headers ? JSON.parse(headers) : {},
+    signal: controller.signal
+  };
+  if (body && method !== 'GET' && method !== 'HEAD') {
+    options.body = _u(body);
+  }
+  fetch(url, options).then(/*#__PURE__*/function () {
+    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(response) {
+      var respHeaders, stream, out;
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.n) {
+          case 0:
+            clearTimeout(timeoutId);
+            respHeaders = {};
+            response.headers.forEach(function (value, key) {
+              respHeaders[key] = value;
+            });
+            stream = response.body;
+            out = {
+              status: response.status,
+              statusText: response.statusText,
+              headers: JSON.stringify(respHeaders),
+              body: stream
+            };
+            res(out);
+          case 1:
+            return _context9.a(2);
+        }
+      }, _callee9);
+    }));
+    return function (_x17) {
+      return _ref9.apply(this, arguments);
+    };
+  }())["catch"](function (error) {
+    clearTimeout(timeoutId);
+    rej(String(error));
+  });
+};
 var pendingPromises = {};
 var promiseCounter = 1;
 
@@ -11294,6 +11340,7 @@ const __webpack_exports__callFunction = __webpack_exports__.callFunction;
 const __webpack_exports__canCallFunction = __webpack_exports__.canCallFunction;
 const __webpack_exports__chacha20 = __webpack_exports__.chacha20;
 const __webpack_exports__fetchAsync = __webpack_exports__.fetchAsync;
+const __webpack_exports__fetchStreamAsync = __webpack_exports__.fetchStreamAsync;
 const __webpack_exports__freePromise = __webpack_exports__.freePromise;
 const __webpack_exports__fromJSON = __webpack_exports__.fromJSON;
 const __webpack_exports__genPubKey = __webpack_exports__.genPubKey;
@@ -11334,4 +11381,4 @@ const __webpack_exports__vfileReadAsync = __webpack_exports__.vfileReadAsync;
 const __webpack_exports__vfileWriteAsync = __webpack_exports__.vfileWriteAsync;
 const __webpack_exports__waitPromiseAsync = __webpack_exports__.waitPromiseAsync;
 const __webpack_exports__xchacha20poly1305 = __webpack_exports__.xchacha20poly1305;
-export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };
+export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };

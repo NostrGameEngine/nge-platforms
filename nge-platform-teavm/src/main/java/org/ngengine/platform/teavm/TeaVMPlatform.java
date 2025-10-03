@@ -59,6 +59,7 @@ import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
 import org.ngengine.platform.transport.NGEHttpResponse;
+import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSObject;
@@ -582,6 +583,47 @@ public class TeaVMPlatform extends NGEPlatform {
             },
             defaultExecutor
         );
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public AsyncTask<NGEHttpResponseStream> httpRequestStream(
+            String method,
+            String inurl,
+            byte[] body,
+            Duration timeout,
+            Map<String, String> headers) {
+        String url = NGEUtils.safeURI(inurl).toString();
+
+        String reqHeaders = headers != null ? toJSON(headers) : null;
+
+        byte[] reqBody = body != null ? body : new byte[0];
+
+        return promisify((res, rej) -> {
+            TeaVMBinds.fetchStreamAsync(
+                    method,
+                    url,
+                    reqHeaders,
+                    reqBody,
+                    (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
+                    r -> {
+                        try {
+                            String jsonHeaders = r.getHeaders();
+                            int statusCode = r.getStatus();
+
+                            Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+                            boolean status = statusCode >= 200 && statusCode < 300;
+                            TeaVMReadableStreamWrapperInputStream is = new TeaVMReadableStreamWrapperInputStream(r.getBody());
+                            NGEHttpResponseStream ngeResp = new NGEHttpResponseStream(statusCode, respHeaders, is, status);
+                            res.accept(ngeResp);
+                        } catch (Throwable e) {
+                            rej.accept(e);
+                        }
+                    },
+                    e -> {
+                        rej.accept(new RuntimeException("Fetch error: " + e));
+                    });
+        }, defaultExecutor);
     }
 
     @Override
