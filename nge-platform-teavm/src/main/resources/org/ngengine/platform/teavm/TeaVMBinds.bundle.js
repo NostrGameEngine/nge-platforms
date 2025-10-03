@@ -10900,6 +10900,8 @@ var getPlatformName = function getPlatformName() {
   var runtime = "runtime";
   if (typeof Capacitor !== 'undefined' && Capacitor && Capacitor.getPlatform) {
     runtime = "capacitor " + Capacitor.getPlatform();
+  } else if (typeof self !== "undefined" && self.origin && self.origin.startsWith("capacitor:")) {
+    runtime = "capacitor worker";
   } else if (typeof window !== 'undefined') {
     runtime = "browser";
   }
