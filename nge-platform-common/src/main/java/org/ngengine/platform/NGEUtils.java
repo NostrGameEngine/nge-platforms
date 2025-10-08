@@ -123,6 +123,20 @@ public class NGEUtils {
         }
     }
 
+    public static double safeDouble(Object input) {
+        if (input == null) return 0.0;
+        if (input instanceof Number) {
+            return ((Number) input).doubleValue();
+        } else {
+            try {
+                Double d = Double.parseDouble(String.valueOf(input));
+                return d.doubleValue();
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Input is not a number: " + input);
+            }
+        }
+    }
+
     public static int safeInt(Object input) {
         long l = safeLong(input);
         if (l < Integer.MIN_VALUE || l > Integer.MAX_VALUE) {
