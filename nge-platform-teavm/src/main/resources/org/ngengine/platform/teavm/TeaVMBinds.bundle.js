@@ -10224,6 +10224,7 @@ var _u = function _u(data) {
   } else if (data instanceof Buffer) {
     return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   } else {
+    console.trace();
     throw new TypeError('Unsupported data type for conversion to Uint8Array ' + _typeof(data));
   }
 };
@@ -10271,19 +10272,19 @@ var _sanitizeBigInts = function sanitizeBigInts(obj) {
 };
 var randomBytes = function randomBytes(length /*int*/) {
   // Uint8Array (byte[])
-  return (0,_noble_hashes_utils_js__WEBPACK_IMPORTED_MODULE_7__.randomBytes)(length);
+  return _u((0,_noble_hashes_utils_js__WEBPACK_IMPORTED_MODULE_7__.randomBytes)(length));
 };
 var generatePrivateKey = function generatePrivateKey() {
   // Uint8Array (byte[])
-  return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.utils.randomPrivateKey();
+  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.utils.randomPrivateKey());
 };
 var genPubKey = function genPubKey(secKey) {
   // Uint8Array (byte[])
-  return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.getPublicKey(_u(secKey));
+  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.getPublicKey(_u(secKey)));
 };
 var TeaVMBinds_sha256 = function sha256(data /*byte[]*/) {
   // Uint8Array (byte[])
-  return (0,_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256)(_u(data));
+  return _u((0,_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256)(_u(data)));
 };
 var toJSON = function toJSON(obj /*obj*/) {
   // str
@@ -10299,28 +10300,28 @@ var fromJSON = function fromJSON(json /*str*/) {
 };
 var sign = function sign(data /*byte[]*/, privKeyBytes /*byte[]*/) {
   // Uint8Array (byte[])
-  return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.sign(_u(data), _u(privKeyBytes));
+  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.sign(_u(data), _u(privKeyBytes)));
 };
 var verify = function verify(data /*byte[]*/, pub /*byte[]*/, sig /*byte[]*/) {
-  // Uint8Array (byte[])
+  // bool
   return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.schnorr.verify(_u(sig), _u(data), _u(pub));
 };
 var secp256k1SharedSecret = function secp256k1SharedSecret(privKey /*byte[]*/, pubKey /*byte[]*/) {
   // Uint8Array (byte[])
-  return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey));
+  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
 };
 var hmac = function hmac(key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) {
   // Uint8Array (byte[])
   var msg = new Uint8Array([].concat(_toConsumableArray(_u(data1)), _toConsumableArray(_u(data2))));
-  return (0,_noble_hashes_hmac_js__WEBPACK_IMPORTED_MODULE_2__.hmac)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(key), msg);
+  return _u((0,_noble_hashes_hmac_js__WEBPACK_IMPORTED_MODULE_2__.hmac)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(key), msg));
 };
 var hkdf_extract = function hkdf_extract(salt /*byte[]*/, ikm /*byte[]*/) {
   // Uint8Array (byte[])
-  return (0,_noble_hashes_hkdf__WEBPACK_IMPORTED_MODULE_4__.extract)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(ikm), _u(salt));
+  return _u((0,_noble_hashes_hkdf__WEBPACK_IMPORTED_MODULE_4__.extract)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(ikm), _u(salt)));
 };
 var hkdf_expand = function hkdf_expand(prk /*byte[]*/, info /*byte[]*/, length /*int*/) {
   // Uint8Array (byte[])
-  return (0,_noble_hashes_hkdf__WEBPACK_IMPORTED_MODULE_4__.expand)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(prk), _u(info), length);
+  return _u((0,_noble_hashes_hkdf__WEBPACK_IMPORTED_MODULE_4__.expand)(_noble_hashes_sha2_js__WEBPACK_IMPORTED_MODULE_3__.sha256, _u(prk), _u(info), length));
 };
 var base64encode = function base64encode(data /*byte[]*/) {
   //str
@@ -10328,11 +10329,11 @@ var base64encode = function base64encode(data /*byte[]*/) {
 };
 var base64decode = function base64decode(data /*str*/) {
   // Uint8Array (byte[])
-  return _scure_base__WEBPACK_IMPORTED_MODULE_5__.base64.decode(data);
+  return _u(_scure_base__WEBPACK_IMPORTED_MODULE_5__.base64.decode(data));
 };
 var chacha20 = function chacha20(key /*byte[]*/, nonce /*byte[]*/, data /*byte[]*/) {
   // Uint8Array (byte[])
-  return (0,_noble_ciphers_chacha_js__WEBPACK_IMPORTED_MODULE_0__.chacha20)(_u(key), _u(nonce), _u(data));
+  return _u((0,_noble_ciphers_chacha_js__WEBPACK_IMPORTED_MODULE_0__.chacha20)(_u(key), _u(nonce), _u(data)));
 };
 var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
   //void
@@ -10392,7 +10393,7 @@ var getBundledResource = function getBundledResource(path) {
     console.warn('Resource not found in bundle:', path);
     return null;
   }
-  return base64decode(bundle[path]);
+  return _u(base64decode(bundle[path]));
 };
 var aes256cbc = function aes256cbc(key /*byte[]*/, iv /*byte[]*/, data /*byte[]*/, forEncryption /*bool*/) {
   // Uint8Array (byte[])
@@ -10407,7 +10408,7 @@ var aes256cbc = function aes256cbc(key /*byte[]*/, iv /*byte[]*/, data /*byte[]*
   }
   try {
     var cipher = (0,_noble_ciphers_aes__WEBPACK_IMPORTED_MODULE_6__.cbc)(key, iv);
-    return forEncryption ? cipher.seal(data) : cipher.open(data);
+    return _u(forEncryption ? cipher.seal(data) : cipher.open(data));
   } catch (error) {
     console.error('AES-256-CBC operation failed:', error);
     throw error;
@@ -10622,7 +10623,7 @@ function _getVFileStore() {
                             var store = transaction.objectStore("files");
                             var request = store.get(path);
                             request.onsuccess = function () {
-                              resolve(request.result);
+                              resolve(_u(request.result));
                             };
                             request.onerror = function (event) {
                               console.error('Error reading file:', event.target.error);
@@ -11060,9 +11061,9 @@ forEncryption /*bool*/) {
   associatedData = _u(associatedData);
   var cipher = (0,_noble_ciphers_chacha_js__WEBPACK_IMPORTED_MODULE_0__.xchacha20poly1305)(key, nonce, associatedData);
   if (forEncryption) {
-    return cipher.encrypt(data);
+    return _u(cipher.encrypt(data));
   } else {
-    return cipher.decrypt(data);
+    return _u(cipher.decrypt(data));
   }
 };
 var registerFinalizer = function registerFinalizer(obj, callback) {

@@ -26,6 +26,7 @@ const _u = (data) => {
     } else if (data instanceof Buffer) {
         return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
     } else {
+        console.trace();
         throw new TypeError('Unsupported data type for conversion to Uint8Array '+typeof data);
     }
 };
@@ -75,19 +76,19 @@ const sanitizeBigInts = (obj) => {
   };
 
 export const randomBytes = (length /*int*/) => { // Uint8Array (byte[])
-    return _randomBytes(length);
+    return _u(_randomBytes(length));
 };
 
 export const generatePrivateKey = () => { // Uint8Array (byte[])
-    return _schnorr.utils.randomPrivateKey();
+    return _u(_schnorr.utils.randomPrivateKey());
 };
 
 export const genPubKey = (secKey) => {// Uint8Array (byte[])
-    return _schnorr.getPublicKey(_u(secKey));
+    return _u(_schnorr.getPublicKey(_u(secKey)));
 };
 
 export const sha256 = (data /*byte[]*/) => { // Uint8Array (byte[])
-    return _sha256(_u(data));
+    return _u(_sha256(_u(data)));
 };
 
 export const toJSON = (obj /*obj*/) => { // str
@@ -104,29 +105,29 @@ export const fromJSON = (json/*str*/) => {
 };
 
 export const sign = (data /*byte[]*/, privKeyBytes  /*byte[]*/) => {  // Uint8Array (byte[])
-    return _schnorr.sign(_u(data), _u(privKeyBytes));
+    return _u(_schnorr.sign(_u(data), _u(privKeyBytes)));
 };
 
-export const verify = (data /*byte[]*/, pub /*byte[]*/, sig/*byte[]*/) => { // Uint8Array (byte[])
+export const verify = (data /*byte[]*/, pub /*byte[]*/, sig/*byte[]*/) => { // bool
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
 };
 
 
 export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => { // Uint8Array (byte[])
-    return _secp256k1.getSharedSecret(_u(privKey), _u(pubKey));
+    return _u(_secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
 };
 
 export const hmac = (key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) => { // Uint8Array (byte[])
     const msg = new Uint8Array([..._u(data1), ..._u(data2)]);
-    return _hmac(_sha256, _u(key), msg);
+    return _u(_hmac(_sha256, _u(key), msg));
 };
 
 export const hkdf_extract = (salt /*byte[]*/, ikm /*byte[]*/) => { // Uint8Array (byte[])
-    return _hkdf_extract(_sha256, _u(ikm), _u(salt));
+    return _u(_hkdf_extract(_sha256, _u(ikm), _u(salt)));
 };
 
 export const hkdf_expand = (prk/*byte[]*/, info/*byte[]*/, length/*int*/) => { // Uint8Array (byte[])
-    return _hkdf_expand(_sha256, _u(prk), _u(info), length);
+    return _u(_hkdf_expand(_sha256, _u(prk), _u(info), length));
 };
 
 export const base64encode = (data /*byte[]*/) => { //str
@@ -134,11 +135,11 @@ export const base64encode = (data /*byte[]*/) => { //str
 };
 
 export const base64decode = (data /*str*/) => { // Uint8Array (byte[])
-    return _base64.decode(data);
+    return _u(_base64.decode(data));
 };
 
 export const chacha20 = (key/*byte[]*/, nonce/*byte[]*/, data/*byte[]*/) => { // Uint8Array (byte[])
-    return _chacha20(_u(key), _u(nonce), _u(data));
+    return _u(_chacha20(_u(key), _u(nonce), _u(data)));
 };
 
 export const setTimeout = (callback, delay) => { //void
@@ -202,7 +203,7 @@ export const getBundledResource = (path) => { // byte[]
         return null;
     }
 
-    return base64decode(bundle[path]);
+    return _u(base64decode(bundle[path]));
 
 }
 
@@ -223,7 +224,7 @@ export const aes256cbc = (key/*byte[]*/, iv/*byte[]*/, data/*byte[]*/, forEncryp
 
     try {
         const cipher = cbc(key, iv);
-        return forEncryption ? cipher.seal(data) : cipher.open(data);
+        return _u(forEncryption ? cipher.seal(data) : cipher.open(data));
     } catch (error) {
         console.error('AES-256-CBC operation failed:', error);
         throw error;
@@ -299,7 +300,7 @@ async function getVFileStore(name) {
                         const request = store.get(path);
 
                         request.onsuccess = () => {
-                            resolve(request.result);
+                            resolve(_u(request.result));
                         };
 
                         request.onerror = (event) => {
@@ -621,9 +622,9 @@ export const xchacha20poly1305 = (
     const cipher = _xchacha20poly1305(key, nonce, associatedData);
 
     if (forEncryption) {
-        return cipher.encrypt(data);
+        return _u(cipher.encrypt(data));
     } else {
-        return cipher.decrypt(data);
+        return _u(cipher.decrypt(data));
     }
 }
 
