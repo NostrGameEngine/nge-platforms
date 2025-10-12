@@ -562,7 +562,7 @@ public class TeaVMPlatform extends NGEPlatform {
                     reqBody,
                     (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
                     r -> {
-                        new Thread(()->{
+                        new Thread(() -> {
                             try {
                                 String jsonHeaders = r.getHeaders();
                                 int statusCode = r.getStatus();
@@ -576,7 +576,8 @@ public class TeaVMPlatform extends NGEPlatform {
                             } catch (Throwable e) {
                                 rej.accept(e);
                             }
-                        }).start();
+                        })
+                            .start();
                     },
                     e -> {
                         rej.accept(new RuntimeException("Fetch error: " + e));
