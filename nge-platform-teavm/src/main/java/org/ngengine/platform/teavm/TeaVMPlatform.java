@@ -562,19 +562,21 @@ public class TeaVMPlatform extends NGEPlatform {
                     reqBody,
                     (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
                     r -> {
-                        try {
-                            String jsonHeaders = r.getHeaders();
-                            int statusCode = r.getStatus();
+                        new Thread(()->{
+                            try {
+                                String jsonHeaders = r.getHeaders();
+                                int statusCode = r.getStatus();
 
-                            Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
-                            boolean status = statusCode >= 200 && statusCode < 300;
-                            byte[] data = status ? r.getBody() : new byte[0];
+                                Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+                                boolean status = statusCode >= 200 && statusCode < 300;
+                                byte[] data = status ? r.getBody() : new byte[0];
 
-                            NGEHttpResponse ngeResp = new NGEHttpResponse(statusCode, respHeaders, data, status);
-                            res.accept(ngeResp);
-                        } catch (Throwable e) {
-                            rej.accept(e);
-                        }
+                                NGEHttpResponse ngeResp = new NGEHttpResponse(statusCode, respHeaders, data, status);
+                                res.accept(ngeResp);
+                            } catch (Throwable e) {
+                                rej.accept(e);
+                            }
+                        }).start();
                     },
                     e -> {
                         rej.accept(new RuntimeException("Fetch error: " + e));
