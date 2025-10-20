@@ -3,8 +3,8 @@ pluginManagement {
     repositories {
         mavenCentral()
         gradlePluginPortal()
-        maven { url = uri("https://teavm.org/maven/repository") }
         mavenLocal()
+        maven { url = uri("https://teavm.org/maven/repository") }
     }
     plugins {
         id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
