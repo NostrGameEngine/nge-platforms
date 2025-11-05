@@ -100,6 +100,20 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     private final AsyncExecutor rtcExecutor = newAsyncExecutor();
     private final ScheduledExecutorService websocketExecutor = Executors.newScheduledThreadPool(4);
 
+    static {
+        secureRandom = newSecureRandom();
+    }
+
+    public static SecureRandom newSecureRandom() {
+        try {
+            return SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e) {
+            panicImpl("No strong secure random available: " + e.getMessage());
+            throw new RuntimeException(e); 
+        }
+    }
+    
+
     public AndroidThreadedPlatform(Context context) {
         super();
         this.androidContext = context;
@@ -165,9 +179,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         return new VStore(new FileSystemVStore(dataDir.toPath().resolve(storeName)));
     }
 
-    static {
-        secureRandom = new SecureRandom();
-    }
+ 
 
     // used for unit tests
     public static boolean _NO_AUX_RANDOM = false;
@@ -1053,4 +1065,13 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         return "ART";
     }
 
+    public void panic(String err) {
+        panicImpl(err);
+    }
+
+    private static void panicImpl(String err) {
+        System.err.println(err);
+        System.exit(1);
+        throw new RuntimeException("PANIC: " + err);
+    }
 }

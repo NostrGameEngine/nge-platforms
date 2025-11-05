@@ -39,6 +39,7 @@ import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECGenParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.ngengine.platform.FailedToSignException;
+import org.ngengine.platform.NGEPlatform;
 
 // based on https://github.com/tcheeric/nostr-java/blob/main/nostr-java-crypto/src/main/java/nostr/crypto/schnorr/Schnorr.java#L19
 // thread-safe
@@ -202,11 +203,12 @@ class Schnorr {
             Security.addProvider(new BouncyCastleProvider());
             KeyPairGenerator kpg = KeyPairGenerator.getInstance("ECDSA", 
                     org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME);
-            SecureRandom random = new SecureRandom();
+            SecureRandom random = SecureRandom.getInstanceStrong();
             kpg.initialize(new ECGenParameterSpec("secp256k1"), random);
             KeyPair processorKeyPair = kpg.genKeyPair();
             return Util.bytesFromBigInteger(((ECPrivateKey) processorKeyPair.getPrivate()).getS());
         } catch (Exception e) {
+            NGEPlatform.get().panic("Failed to generate private key: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }

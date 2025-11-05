@@ -516,4 +516,9 @@ public abstract class NGEPlatform {
             enqueue.accept(action);
         }
     }
+
+    public void panic(String err) {
+        System.err.println(err);
+        throw new RuntimeException("PANIC: "+err);
+    }
 }

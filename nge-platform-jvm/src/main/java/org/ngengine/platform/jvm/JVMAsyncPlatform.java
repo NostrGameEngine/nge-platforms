@@ -112,7 +112,16 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private static final byte EMPTY0[] = new byte[0];
 
     static {
-        secureRandom = new SecureRandom();
+        secureRandom = newSecureRandom();
+    }
+
+    public static SecureRandom newSecureRandom() {
+        try {
+            return SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e) {
+            panicImpl("No strong secure random available: " + e.getMessage());
+            throw new RuntimeException(e); 
+        }
     }
 
     // used for unit tests
@@ -1190,5 +1199,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public String getPlatformName() {
         return "JVM";
+    }
+
+    public void panic(String err) {
+        panicImpl(err);
+    }
+
+    private static void panicImpl(String err) {
+        System.err.println(err);
+        System.exit(1);
+        throw new RuntimeException("PANIC: " + err);
     }
 }

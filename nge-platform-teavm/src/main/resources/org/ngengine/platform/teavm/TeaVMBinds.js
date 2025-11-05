@@ -881,3 +881,16 @@ export const rtcSetOnMessageHandler = (channel, callback) => { // void
         callback(_u(data));
     };
 }
+
+export const panic = (err) => { // void
+    console.error('PANIC:', err);
+    alert('PANIC: ' + err);
+    // try to forcefully kill the script
+    if (typeof window !== 'undefined' && window.location) {
+        window.location.reload();
+    } else if (typeof self !== 'undefined' && self.close) {
+        self.close();
+    } else {
+        throw new Error('PANIC: ' + err);
+    }
+}
