@@ -521,4 +521,8 @@ public abstract class NGEPlatform {
         System.err.println(err);
         throw new RuntimeException("PANIC: "+err);
     }
+
+    public MemoryLimits getMemoryLimits() {
+        return new MemoryLimits();
+    }
 }
