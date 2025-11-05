@@ -10148,6 +10148,7 @@ var __webpack_exports__ = {};
 /* harmony export */   newPromise: () => (/* binding */ newPromise),
 /* harmony export */   nfkc: () => (/* binding */ nfkc),
 /* harmony export */   openURL: () => (/* binding */ openURL),
+/* harmony export */   panic: () => (/* binding */ panic),
 /* harmony export */   randomBytes: () => (/* binding */ randomBytes),
 /* harmony export */   registerFinalizer: () => (/* binding */ registerFinalizer),
 /* harmony export */   rejectPromise: () => (/* binding */ rejectPromise),
@@ -11335,6 +11336,19 @@ var rtcSetOnMessageHandler = function rtcSetOnMessageHandler(channel, callback) 
     callback(_u(data));
   };
 };
+var panic = function panic(err) {
+  // void
+  console.error('PANIC:', err);
+  alert('PANIC: ' + err);
+  // try to forcefully kill the script
+  if (typeof window !== 'undefined' && window.location) {
+    window.location.reload();
+  } else if (typeof self !== 'undefined' && self.close) {
+    self.close();
+  } else {
+    throw new Error('PANIC: ' + err);
+  }
+};
 const __webpack_exports___bw = __webpack_exports__._bw;
 const __webpack_exports__aes256cbc = __webpack_exports__.aes256cbc;
 const __webpack_exports__base64decode = __webpack_exports__.base64decode;
@@ -11358,6 +11372,7 @@ const __webpack_exports__hmac = __webpack_exports__.hmac;
 const __webpack_exports__newPromise = __webpack_exports__.newPromise;
 const __webpack_exports__nfkc = __webpack_exports__.nfkc;
 const __webpack_exports__openURL = __webpack_exports__.openURL;
+const __webpack_exports__panic = __webpack_exports__.panic;
 const __webpack_exports__randomBytes = __webpack_exports__.randomBytes;
 const __webpack_exports__registerFinalizer = __webpack_exports__.registerFinalizer;
 const __webpack_exports__rejectPromise = __webpack_exports__.rejectPromise;
@@ -11384,4 +11399,4 @@ const __webpack_exports__vfileReadAsync = __webpack_exports__.vfileReadAsync;
 const __webpack_exports__vfileWriteAsync = __webpack_exports__.vfileWriteAsync;
 const __webpack_exports__waitPromiseAsync = __webpack_exports__.waitPromiseAsync;
 const __webpack_exports__xchacha20poly1305 = __webpack_exports__.xchacha20poly1305;
-export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };
+export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__panic as panic, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };
