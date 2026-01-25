@@ -169,9 +169,12 @@ public class NGEUtils {
         if (tags == null) {
             return EMPTY_STRING_ARRAY;
         }
-        if (tags instanceof Collection) {
-            Collection<String> c = (Collection<String>) tags;
-            return c.toArray(new String[c.size()]);
+        if (tags instanceof Iterable) {
+            ArrayList<String> list = new ArrayList<>();
+            for (Object o : (Iterable<?>) tags) {
+                list.add(safeString(o));
+            }
+            return list.toArray(new String[0]);
         } else if (tags instanceof String[]) {
             return (String[]) tags;
         } else {
