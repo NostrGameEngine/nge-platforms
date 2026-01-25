@@ -120,7 +120,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             return SecureRandom.getInstanceStrong();
         } catch (NoSuchAlgorithmException e) {
             panicImpl("No strong secure random available: " + e.getMessage());
-            throw new RuntimeException(e); 
+            throw new RuntimeException(e);
         }
     }
 
@@ -154,17 +154,16 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] randomBytes(int n) {
-        try{
-            if (!getMemoryLimits().checkForRandomData(n))
-                throw new IllegalArgumentException("Input exceeds buffer limits");
+        try {
+            if (!getMemoryLimits().checkForRandomData(n)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
             synchronized (secureRandom) {
                 byte[] bytes = new byte[n];
                 secureRandom.nextBytes(bytes);
                 return bytes;
             }
-        } catch(Exception e){
-            panic("Failed to generate random bytes: "+e.getMessage());
+        } catch (Exception e) {
+            panic("Failed to generate random bytes: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
@@ -176,16 +175,16 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] genPubKey(byte[] secKey) {
-        if (!getMemoryLimits().checkForData(secKey.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(secKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         return Schnorr.genPubKey(secKey);
     }
 
     @Override
     public String sha256(String data) {
-        if (!getMemoryLimits().checkForData(data.length()*2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
         return NGEUtils.bytesToHex(sha256(bytes));
@@ -193,8 +192,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] sha256(byte data[]) {
-        if (!getMemoryLimits().checkForData(data.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         Context ctx = context.get();
         MessageDigest digest = ctx.sha256;
@@ -216,7 +214,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
-        if(!getMemoryLimits().checkForJSON(json.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForJSON(json.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         Context ctx = context.get();
         return ctx.json.fromJson(json, claz);
@@ -224,10 +222,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String sign(String data, byte priv[]) throws FailedToSignException {
-        if (!getMemoryLimits().checkForData(data.length()*2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(priv.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM ? null : randomBytes(32));
@@ -237,12 +235,13 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public boolean verify(String data, String sign, byte pub[]) {
-        if (!getMemoryLimits().checkForData(data.length()*2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(sign.length()*2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(pub.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(sign.length() * 2)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(pub.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = NGEUtils.hexToByteArray(sign);
@@ -251,28 +250,27 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
-        if (!getMemoryLimits().checkForKeys(pubKey.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(privKey.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(pubKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(privKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         Context ctx = context.get();
         ECParameterSpec ecSpec = ctx.secp256k1;
         ECPoint point = ecSpec.getCurve().decodePoint(pubKey).normalize();
         BigInteger d = new BigInteger(1, privKey);
         ECPoint sharedPoint = point.multiply(d).normalize();
-        return sharedPoint.getEncoded(false);   
+        return sharedPoint.getEncoded(false);
     }
 
     @Override
     public byte[] hmac(byte[] key, byte[] data1, byte[] data2) {
         try {
-            if (!getMemoryLimits().checkForKeys(key.length))
-                throw new IllegalArgumentException("Input exceeds buffer limits");
-            if (!getMemoryLimits().checkForData(data1.length))
-                throw new IllegalArgumentException("Input exceeds buffer limits");
-            if (!getMemoryLimits().checkForData(data2.length))
-                throw new IllegalArgumentException("Input exceeds buffer limits");
+            if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+            if (!getMemoryLimits().checkForData(data1.length)) throw new IllegalArgumentException(
+                "Input exceeds buffer limits"
+            );
+            if (!getMemoryLimits().checkForData(data2.length)) throw new IllegalArgumentException(
+                "Input exceeds buffer limits"
+            );
 
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(key, "HmacSHA256"));
@@ -288,10 +286,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] hkdf_extract(byte[] salt, byte[] ikm) {
-        if (!getMemoryLimits().checkForData(ikm.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (salt != null && !getMemoryLimits().checkForData(salt.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(ikm.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (salt != null && !getMemoryLimits().checkForData(salt.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         assert NGEUtils.allZeroes(EMPTY32);
         if (salt == null || salt.length == 0) salt = EMPTY32;
@@ -300,12 +298,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] hkdf_expand(byte[] prk, byte[] info, int length) {
-        if (!getMemoryLimits().checkForData(prk.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (info != null && !getMemoryLimits().checkForData(info.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForData(length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(prk.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (info != null && !getMemoryLimits().checkForData(info.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForData(length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         try {
             int hashLen = 32; // SHA-256 output length
@@ -352,15 +349,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String base64encode(byte[] data) {
-        if (!getMemoryLimits().checkForBase64(data.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForBase64(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         return Base64.getEncoder().encodeToString(data);
     }
 
     @Override
     public byte[] base64decode(String data) {
-        if (!getMemoryLimits().checkForBase64(data.length() * 2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForBase64(data.length() * 2)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
         try {
             return Base64.getDecoder().decode(data);
         } catch (Exception e) {
@@ -370,13 +367,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] chacha20(byte[] key, byte[] nonce, byte[] padded, boolean forEncryption) {
-        if (!getMemoryLimits().checkForKeys(key.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(nonce.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForData(padded.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        
+        if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(nonce.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(padded.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
         try {
             if (key == null || key.length != 32) {
                 throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
@@ -401,14 +395,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] xchacha20poly1305(byte[] key, byte[] nonce24, byte[] data, byte[] associatedData, boolean forEncryption) {
-        if (!getMemoryLimits().checkForKeys(key.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(nonce24.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForData(data.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (associatedData != null && !getMemoryLimits().checkForData(associatedData.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(nonce24.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (
+            associatedData != null && !getMemoryLimits().checkForData(associatedData.length)
+        ) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         try {
             if (key.length != 32) {
@@ -767,8 +759,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         Duration itimeout,
         Map<String, String> headers
     ) {
-        if(body!=null&&!getMemoryLimits().checkForData(body.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         String url = NGEUtils.safeURI(inurl).toString();
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
@@ -839,8 +832,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         Duration itimeout,
         Map<String, String> headers
     ) {
-        if(body!=null&&!getMemoryLimits().checkForData(body.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
         String url = NGEUtils.safeURI(inurl).toString();
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
@@ -908,10 +902,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private void applyHeaders(Map<String, String> headers, HttpRequest.Builder requestBuilder) {
         if (headers != null) {
             for (Map.Entry<String, String> entry : headers.entrySet()) {
-                if (!getMemoryLimits().checkForString(entry.getKey().length()))
-                    throw new IllegalArgumentException("Input exceeds buffer limits");
-                if (!getMemoryLimits().checkForString(entry.getValue().length()))
-                    throw new IllegalArgumentException("Input exceeds buffer limits");
+                if (!getMemoryLimits().checkForString(entry.getKey().length())) throw new IllegalArgumentException(
+                    "Input exceeds buffer limits"
+                );
+                if (!getMemoryLimits().checkForString(entry.getValue().length())) throw new IllegalArgumentException(
+                    "Input exceeds buffer limits"
+                );
 
                 String key = entry.getKey().toLowerCase();
                 if (protectedHttpHeaders.contains(key)) {
@@ -925,15 +921,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
-        if(connId!=null&&!getMemoryLimits().checkForString(connId.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (connId != null && !getMemoryLimits().checkForString(connId.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
         JVMRTCTransport transport = new JVMRTCTransport();
         transport.start(settings, newAsyncExecutor(RTCTransport.class), connId, stunServers);
         return transport;
     }
 
     private boolean setGlfwClipboard(String text) {
-      
         try {
             Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
             java.lang.reflect.Method glfwSetClipboardString = glfwClass.getMethod(
@@ -965,7 +961,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             if (window != 0L) {
                 String result = (String) glfwGetClipboardString.invoke(null, window);
                 logger.log(Level.FINE, "Retrieved clipboard content via GLFW");
-                return result != null ? result : "";               
+                return result != null ? result : "";
             }
         } catch (Exception e) {
             logger.log(Level.WARNING, "Failed to get GLFW clipboard content", e);
@@ -1033,9 +1029,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public void setClipboardContent(String data) {
-        if( data==null) data="";
-        if (!getMemoryLimits().checkForString(data.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (data == null) data = "";
+        if (!getMemoryLimits().checkForString(data.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
         try {
             if (isGlfwAvailable()) {
                 setGlfwClipboard(data);
@@ -1063,7 +1058,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
             }
             content = content != null ? content : "";
-            if(!getMemoryLimits().checkForString(content.length())){
+            if (!getMemoryLimits().checkForString(content.length())) {
                 rej.accept(new IllegalArgumentException("Clipboard content exceeds buffer limits"));
                 return;
             }
@@ -1162,20 +1157,13 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
-        if(!getMemoryLimits().checkForData(P.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(S.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(dkLen))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(N))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(r))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(p2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData((long)r * p2))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(P.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(S.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(dkLen)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(N)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(r)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(p2)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData((long) r * p2)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         try {
             if (dkLen <= 0) {
@@ -1202,8 +1190,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String nfkc(String str) {
-        if(!getMemoryLimits().checkForString(str.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForString(str.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         String normalized = Normalizer.normalize(str, Normalizer.Form.NFKC);
         return normalized;
@@ -1211,10 +1198,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public VStore getDataStore(String appName, String storeName) {
-        if(!getMemoryLimits().checkForString(appName.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForString(storeName.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForString(appName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForString(storeName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         appName = NGEUtils.censorSpecial(appName);
         storeName = NGEUtils.censorSpecial(storeName);
@@ -1224,10 +1213,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public VStore getCacheStore(String appName, String cacheName) {
-        if(!getMemoryLimits().checkForString(appName.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForString(cacheName.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForString(appName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForString(cacheName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         appName = NGEUtils.censorSpecial(appName);
         cacheName = NGEUtils.censorSpecial(cacheName);
@@ -1276,8 +1267,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public InputStream openResource(String resourceName) throws IOException {
-        if(!getMemoryLimits().checkForString(resourceName.length()))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForString(resourceName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         String fullpath = resourceName;
         if (fullpath.startsWith("/")) {
@@ -1296,13 +1288,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption) {
-        if(!getMemoryLimits().checkForData(key.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(iv.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        if(!getMemoryLimits().checkForData(data.length))
-            throw new IllegalArgumentException("Input exceeds buffer limits");
-        
+        if (!getMemoryLimits().checkForData(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(iv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
         try {
             BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(
                 CBCBlockCipher.newInstance(AESEngine.newInstance()),

@@ -330,5 +330,5 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void panic(String err) ;
+    public static native void panic(String err);
 }

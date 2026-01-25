@@ -519,7 +519,7 @@ public abstract class NGEPlatform {
 
     public void panic(String err) {
         System.err.println(err);
-        throw new RuntimeException("PANIC: "+err);
+        throw new RuntimeException("PANIC: " + err);
     }
 
     public MemoryLimits getMemoryLimits() {
