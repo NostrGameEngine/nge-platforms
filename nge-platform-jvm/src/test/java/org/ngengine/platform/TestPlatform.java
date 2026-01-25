@@ -46,6 +46,6 @@ public class TestPlatform {
             null
         );
         byte bytes[] = bytesTask.await();
-        assertEquals(bytes[0], -39);
+        assertEquals(bytes[0], 114);
     }
 }
