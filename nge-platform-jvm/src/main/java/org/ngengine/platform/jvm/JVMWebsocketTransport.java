@@ -184,15 +184,17 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
 
     @Override
     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-        messageBuffer.append(data);
-        if (last) {
-            String message = messageBuffer.toString();
-            messageBuffer.setLength(0);
-            for (WebsocketTransportListener listener : listeners) {
-                try {
-                    listener.onConnectionMessage(message);
-                } catch (Exception e) {
-                    logger.warning("Error in message listener: " + e);
+        synchronized (messageBuffer) {
+            messageBuffer.append(data);
+            if (last) {
+                String message = messageBuffer.toString();
+                messageBuffer.setLength(0);
+                for (WebsocketTransportListener listener : listeners) {
+                    try {
+                        listener.onConnectionMessage(message);
+                    } catch (Exception e) {
+                        logger.warning("Error in message listener: " + e);
+                    }
                 }
             }
         }
