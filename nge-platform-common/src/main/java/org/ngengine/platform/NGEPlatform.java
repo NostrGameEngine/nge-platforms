@@ -55,12 +55,13 @@ import org.ngengine.platform.transport.WebsocketTransport;
 
 public abstract class NGEPlatform {
 
-    private static volatile BrowserInterceptor browserInterceptor;
-    private static volatile VStoreInterceptor storeInterceptor;
-    private static volatile NGEPlatform platform;
+    private static BrowserInterceptor browserInterceptor;
+    private static VStoreInterceptor storeInterceptor;
+    private static NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
 
     public static void set(NGEPlatform platform) {
+        if(NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
         NGEPlatform.platform = platform;
     }
 
@@ -68,7 +69,7 @@ public abstract class NGEPlatform {
         if (NGEPlatform.platform == null) { // DCL
             synchronized (NGEPlatform.class) {
                 if (NGEPlatform.platform == null) {
-                    logger.warning("Platform not set, using default JVM platform.");
+                    logger.info("Platform not set, using default JVM platform.");
                     String defaultPlatformClass = "org.ngengine.platform.jvm.JVMAsyncPlatform";
                     try {
                         Class<?> clazz = Class.forName(defaultPlatformClass);
@@ -83,6 +84,7 @@ public abstract class NGEPlatform {
     }
 
     public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
+        if (NGEPlatform.browserInterceptor != null) throw new IllegalStateException("Browser interceptor already set");
         NGEPlatform.browserInterceptor = interceptor;
     }
 
@@ -91,6 +93,7 @@ public abstract class NGEPlatform {
     }
 
     public static void setStoreInterceptor(VStoreInterceptor interceptor) {
+        if (NGEPlatform.storeInterceptor != null) throw new IllegalStateException("Store interceptor already set");
         NGEPlatform.storeInterceptor = interceptor;
     }
 
