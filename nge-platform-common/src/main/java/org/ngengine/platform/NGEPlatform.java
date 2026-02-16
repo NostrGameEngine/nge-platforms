@@ -61,7 +61,7 @@ public abstract class NGEPlatform {
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
 
     public static void set(NGEPlatform platform) {
-        if(NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
+        if (NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
         NGEPlatform.platform = platform;
     }
 
