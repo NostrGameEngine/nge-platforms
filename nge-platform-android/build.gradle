@@ -25,7 +25,7 @@ android {
 dependencies {
     api project(':nge-platform-common')
     
-    implementation 'com.google.code.gson:gson:2.13.1'
+    implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
     testImplementation 'junit:junit:4.13.2'
     implementation 'tel.schich:libdatachannel-java-android:0.23.1.2'
