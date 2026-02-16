@@ -227,7 +227,7 @@ public class TeaVMBinds implements JSObject {
     );
 
     @JSFunctor
-    public static interface FinalizerCallback extends JSObject {
+    public interface FinalizerCallback extends JSObject {
         void call();
     }
 
