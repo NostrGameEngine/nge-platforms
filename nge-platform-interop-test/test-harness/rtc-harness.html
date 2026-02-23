@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TeaVM RTC Harness</title>
+  <style>
+    body { font-family: monospace; padding: 16px; }
+    pre { white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <h1>TeaVM RTC Harness</h1>
+  <pre id="result">RUNNING</pre>
+  <script>
+    (function () {
+      const el = document.getElementById('result');
+      function set(obj) {
+        try {
+          el.textContent = JSON.stringify(obj, null, 2);
+        } catch (e) {
+          el.textContent = JSON.stringify({ ok: false, error: String(e) });
+        }
+      }
+      window.addEventListener('error', function (e) {
+        set({ ok: false, error: e.message || 'window error' });
+      });
+      window.addEventListener('unhandledrejection', function (e) {
+        const reason = e && e.reason ? (e.reason.stack || String(e.reason)) : 'unhandled rejection';
+        set({ ok: false, error: reason });
+      });
+      setTimeout(function () {
+        if (el.textContent === 'RUNNING') {
+          set({ ok: false, error: 'Harness timeout (page did not complete)' });
+        }
+      }, 15000);
+    })();
+  </script>
+  <script type="module" src="/test-harness/rtc-harness.js"></script>
+</body>
+</html>

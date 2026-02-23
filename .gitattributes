@@ -11,3 +11,4 @@
 *.jar           binary
 
 nge-platform-teavm/src/main/resources/** linguist-vendored
+nge-platform-interop-test/** linguist-vendored

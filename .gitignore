@@ -18,3 +18,5 @@ build.date
 local.properties
 !nge-platform-teavm/package.json
 !nge-platform-teavm/package-lock.json
+!nge-platform-interop-test/package.json
+!nge-platform-interop-test/package-lock.json

@@ -52,3 +52,34 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-jvm | desktop | java 21+ |
 | nge-platform-android | android | android api 33+ |
 | nge-platform-teavm | browser webgl2 | java 21+ / teavm 0.11.0+ |
+
+## Testing
+
+This repo has some unit and integration tests for each platform, and for platform interoperability.
+
+
+### Prerequisites
+
+- Android SDK + emulator installed (with exported `ANDROID_SDK_ROOT`, `ANDROID_HOME`)
+- At least one Android AVD available (defaults to `Generic_AOSP` if present)
+- Chrome/Chromium installed for Puppeteer (`CHROME_BIN` can be used to override the path)
+
+
+### Running tests
+
+Unit tests:
+
+```bash
+./gradlew test
+```
+
+
+Interoperability tests:
+
+```bash
+./gradlew interopMatrix
+```
+
+
+
+

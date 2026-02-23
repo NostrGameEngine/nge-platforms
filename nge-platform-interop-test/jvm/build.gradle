@@ -1,0 +1,95 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation project(':nge-platform-jvm')
+    implementation 'com.google.code.gson:gson:2.13.2'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.named('compileJava') {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+tasks.register('jvmTeaVMInteropJvmSide', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JVM side of the TeaVM browser RTC interoperability harness'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.ngengine.platform.jvm.JVMTeaVMRtcInteropMain'
+    if (project.hasProperty('interopSignalBase')) {
+        args project.property('interopSignalBase').toString()
+    }
+}
+
+tasks.register('jvmAndroidInteropJvmSide', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JVM side of the Android emulator RTC interoperability harness'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.ngengine.platform.jvm.JVMAndroidRtcInteropMain'
+    if (project.hasProperty('interopSignalBase')) {
+        args project.property('interopSignalBase').toString()
+    }
+}
+
+tasks.register('jvmPlatformParityJvmSide', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JVM side of the cross-platform NGEPlatform parity harness'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.ngengine.platform.jvm.JVMPlatformParityMain'
+    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true'
+    doFirst {
+        args = []
+        if (project.hasProperty('interopSignalBase')) {
+            args project.property('interopSignalBase').toString()
+        }
+        if (project.hasProperty('interopHttpParityUrl')) {
+            args project.property('interopHttpParityUrl').toString()
+        }
+    }
+}
+
+tasks.register('jvmAsyncParityJvmSide', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JVM side of the async/executor parity harness'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.ngengine.platform.jvm.JVMAsyncParityMain'
+    if (project.hasProperty('interopSignalBase')) {
+        args project.property('interopSignalBase').toString()
+    }
+}
+
+tasks.register('jvmWebsocketParityJvmSide', JavaExec) {
+    group = 'verification'
+    description = 'Runs the JVM side of the cross-platform WebSocket interop/parity harness'
+    dependsOn classes
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.ngengine.platform.jvm.JVMWebsocketParityMain'
+    doFirst {
+        args = []
+        if (project.hasProperty('interopSignalBase')) {
+            args project.property('interopSignalBase').toString()
+        }
+        if (project.hasProperty('interopWsUrl')) {
+            args project.property('interopWsUrl').toString()
+        }
+    }
+}
+
+tasks.configureEach { t ->
+    if (t.name.startsWith('publish') || t.name == 'sign' || t.name.startsWith('sign')) {
+        t.enabled = false
+    }
+}

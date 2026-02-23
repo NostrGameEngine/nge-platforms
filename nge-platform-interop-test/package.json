@@ -1,0 +1,10 @@
+{
+  "name": "nge-platform-interop-test",
+  "version": "1.0.0",
+  "private": true,
+  "license": "BSD-3-Clause",
+  "devDependencies": {
+    "puppeteer-core": "^24.22.3",
+    "ws": "^8.18.3"
+  }
+}

@@ -1,0 +1,116 @@
+plugins {
+    id "base"
+    id "com.github.node-gradle.node" version "3.5.1"
+}
+
+node {
+    version = "22.18.0"
+    download = true
+    nodeProjectDir = file("${project.projectDir}")
+}
+
+task npmInstallHarness(type: com.github.gradle.node.npm.task.NpmTask) {
+    args = ['install', '--no-fund', '--no-audit']
+}
+
+task rtcBrowserHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:copyWebpackOutput"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-rtc-harness.mjs"
+
+    doFirst {
+        println "Running TeaVM RTC browser harness (headless Chrome)"
+    }
+}
+
+task jvmTeaVMInteropHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:copyWebpackOutput"
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-jvm-teavm-interop-harness.mjs"
+
+    doFirst {
+        println "Running JVM<->TeaVM browser RTC interoperability harness"
+    }
+}
+
+task jvmAndroidInteropHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-jvm-android-interop-harness.mjs"
+
+    doFirst {
+        println "Running JVM<->Android emulator RTC interoperability harness"
+    }
+}
+
+task androidTeaVMInteropHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:copyWebpackOutput"
+    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-android-teavm-interop-harness.mjs"
+
+    doFirst {
+        println "Running Android emulator<->TeaVM browser RTC interoperability harness"
+    }
+}
+
+task platformParityHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:copyWebpackOutput"
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-platform-parity-harness.mjs"
+
+    doFirst {
+        println "Running cross-platform NGEPlatform parity harness (JVM/Android/TeaVM-browser)"
+    }
+}
+
+task asyncParityHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-async-parity-harness.mjs"
+
+    doFirst {
+        println "Running async/executor parity harness (JVM/Android/TeaVM-browser baseline)"
+    }
+}
+
+task websocketInteropParityHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-websocket-interop-parity-harness.mjs"
+
+    doFirst {
+        println "Running cross-platform WebSocket interop/parity harness (JVM/Android/browser)"
+    }
+}
+
+task interopMatrix {
+    group = "verification"
+    description = "Runs all interoperability harnesses across backends"
+    dependsOn rtcBrowserHarness
+    dependsOn jvmTeaVMInteropHarness
+    dependsOn jvmAndroidInteropHarness
+    dependsOn androidTeaVMInteropHarness
+    dependsOn platformParityHarness
+    dependsOn asyncParityHarness
+    dependsOn websocketInteropParityHarness
+}
+
+tasks.configureEach { t ->
+    if (t.name.startsWith("publish") || t.name == "sign") {
+        t.enabled = false
+    }
+}

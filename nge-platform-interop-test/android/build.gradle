@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    compileSdk 36
+    namespace 'org.ngengine.platform.test.android'
+
+    defaultConfig {
+        minSdk 33
+        targetSdk 33
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    testOptions {
+        animationsDisabled true
+    }
+
+    publishing {
+        singleVariant('release')
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation project(':nge-platform-android')
+    androidTestImplementation 'androidx.test:runner:1.6.2'
+    androidTestImplementation 'androidx.test:core:1.6.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'com.google.code.gson:gson:2.13.2'
+    androidTestImplementation 'com.squareup.okhttp3:okhttp:5.3.2'
+    androidTestImplementation 'tel.schich:libdatachannel-java-android:0.23.1.2'
+    androidTestImplementation 'tel.schich:libdatachannel-java:0.23.1.2'
+}
+
+tasks.register('androidRtcEmulatorHarness', Exec) {
+    workingDir project.projectDir
+    commandLine 'bash', 'scripts/run-rtc-emulator-harness.sh'
+}
+
+def sdk = System.getenv('ANDROID_SDK_ROOT') ?: System.getenv('ANDROID_HOME')
+if (!sdk) {
+    throw new GradleException('Android SDK not found. Set ANDROID_SDK_ROOT or ANDROID_HOME.')
+}
+println "Using Android SDK at: ${sdk}"
+
+tasks.configureEach { t ->
+    if (t.name.startsWith('publish') || t.name == 'sign' || t.name.startsWith('sign')) {
+        t.enabled = false
+    }
+}
