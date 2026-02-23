@@ -32,18 +32,20 @@ package org.ngengine.platform.transport;
 
 import java.io.Closeable;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.util.Collection;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.RTCSettings;
 
 public interface RTCTransport extends Closeable {
+    public static final String DEFAULT_CHANNEL = null;
     void close();
     boolean isConnected();
 
     void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers);
-    AsyncTask<String> connectToChannel(String offerOrAnswer);
-    AsyncTask<String> initiateChannel();
+    AsyncTask<RTCDataChannel> connect(String offerOrAnswer);
+    AsyncTask<String> createChannel(String name, String protocol, boolean ordered, boolean reliable, int maxRetransmits, Duration maxPacketLifeTime);
 
     void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates);
 
@@ -51,5 +53,84 @@ public interface RTCTransport extends Closeable {
 
     void removeListener(RTCTransportListener listener);
 
-    AsyncTask<Void> write(ByteBuffer message);
+    RTCDataChannel getDataChannel(String name);
+
+    /**
+     * @deprecated use createDefaultChannel() instead 
+     * @return
+     */
+    @Deprecated
+    default AsyncTask<String> initiateChannel() {
+        return createDefaultChannel();
+    }
+
+    /** initialize default channel */
+    default AsyncTask<String> createDefaultChannel() {
+        return createChannel(DEFAULT_CHANNEL, null, true, true, 0, null);
+    }
+  
+    /**
+     * Writes to the default channel
+     * @param message
+     * @return
+     */
+    default AsyncTask<Void> write(ByteBuffer message) {
+        RTCDataChannel channel = getDataChannel(RTCTransport.DEFAULT_CHANNEL);
+        if (channel == null) {
+            return AsyncTask.failed(new IllegalStateException("Default RTC data channel not found"));
+        }
+        return channel.ready().compose(ch -> ch.write(message));
+    }
+
+    public static abstract class RTCDataChannel {
+        private final String name;
+        private final String protocol;
+        private final boolean ordered;
+        private final boolean reliable;
+        private final int maxRetransmits;
+        private final Duration maxPacketLifeTime;
+
+        public RTCDataChannel(String name, String protocol, boolean ordered, boolean reliable, int maxRetransmits, Duration maxPacketLifeTime) {
+            this.name = name;
+            this.protocol = protocol;
+            this.ordered = ordered;
+            this.reliable = reliable;
+            this.maxRetransmits = maxRetransmits;
+            this.maxPacketLifeTime = maxPacketLifeTime;
+        }
+
+        public abstract AsyncTask<RTCDataChannel> ready();
+
+        public String getProtocol() {
+            return protocol;
+        }
+
+        public boolean isOrdered() {
+            return ordered;
+        }
+
+        public boolean isReliable() {
+            return reliable;
+        }
+
+        public int getMaxRetransmits() {
+            return maxRetransmits;
+        }
+        public Duration getMaxPacketLifeTime() {
+            return maxPacketLifeTime;
+        }
+
+
+
+        public String getName() {
+            return name;
+        }
+        public abstract AsyncTask<Void> write(ByteBuffer message);
+ 
+        public abstract AsyncTask<Number> getMaxMessageSize();
+        public abstract AsyncTask<Number> getAvailableAmount();
+        public abstract AsyncTask<Number> getBufferedAmount();
+        public abstract AsyncTask<Void> setBufferedAmountLowThreshold(int threshold);
+        public abstract AsyncTask<Void> close();
+    }
 }

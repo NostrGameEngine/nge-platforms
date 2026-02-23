@@ -32,14 +32,20 @@ package org.ngengine.platform.transport;
 
 import java.nio.ByteBuffer;
 
+import org.ngengine.platform.transport.RTCTransport.RTCDataChannel;
+
 public interface RTCTransportListener {
     void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate);
 
-    void onRTCBinaryMessage(ByteBuffer msg);
+    void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg);
+
+    void onRTCChannelError(RTCDataChannel channel, Throwable e);
+
+    void onRTCChannelReady(RTCDataChannel channel);
+
+    void onRTCChannelClosed(RTCDataChannel channel);
 
     void onRTCDisconnected(String reason);
-
-    void onRTCChannelError(Throwable e);
 
     void onRTCConnected();
 }

@@ -278,7 +278,55 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native RTCDataChannel rtcCreateDataChannel(
+        RTCPeerConnection conn,
+        String label,
+        String protocol,
+        boolean ordered,
+        boolean reliable,
+        int maxRetransmits,
+        int maxPacketLifeTimeMs
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native RTCIceCandidate rtcCreateIceCandidate(String candidateJson, String mediaId);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String rtcDataChannelGetProtocol(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean rtcDataChannelIsOrdered(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean rtcDataChannelIsReliable(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcDataChannelGetMaxRetransmits(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcDataChannelGetMaxPacketLifeTime(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native double rtcGetMaxMessageSize(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native double rtcDataChannelGetBufferedAmount(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native double rtcDataChannelGetAvailableAmount(RTCPeerConnection conn, RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcDataChannelSetBufferedAmountLowThreshold(RTCDataChannel channel, double threshold);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

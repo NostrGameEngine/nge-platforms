@@ -725,6 +725,40 @@ export const rtcCreatePeerConnection = (
     return conn;
 }
 
+export const rtcCreateDataChannel = (
+    conn /*RTCPeerConnection*/,
+    label /*str*/,
+    protocol /*str*/,
+    ordered /*bool*/,
+    reliable /*bool*/,
+    maxRetransmits /*int*/,
+    maxPacketLifeTimeMs /*int*/
+) => { // RTCDataChannel
+    const options = {
+        ordered: !!ordered
+    };
+
+    if (protocol !== null && protocol !== undefined) {
+        options.protocol = String(protocol);
+    }
+
+    const hasMaxRetransmits = Number(maxRetransmits) >= 0;
+    const hasMaxPacketLifeTime = Number(maxPacketLifeTimeMs) >= 0;
+
+    if (hasMaxRetransmits) {
+        options.maxRetransmits = Number(maxRetransmits);
+    }
+    if (hasMaxPacketLifeTime) {
+        options.maxPacketLifeTime = Number(maxPacketLifeTimeMs);
+    }
+
+    // Browser WebRTC has no standalone "reliable=false" switch.
+    if (!reliable && !hasMaxRetransmits && !hasMaxPacketLifeTime) {
+        options.maxRetransmits = 0;
+    }
+
+    return conn.createDataChannel(label, options);
+}
 
 export const rtcCreateIceCandidate = (sdp /*str*/, spdMid /*str*/) => { // RTCIceCandidate
     return new RTCIceCandidate({ 
@@ -732,6 +766,48 @@ export const rtcCreateIceCandidate = (sdp /*str*/, spdMid /*str*/) => { // RTCIc
         sdpMid: spdMid,
         sdpMLineIndex: null
     });
+}
+
+export const rtcDataChannelGetProtocol = (channel) => {
+    return channel?.protocol ?? '';
+}
+
+export const rtcDataChannelIsOrdered = (channel) => {
+    return channel?.ordered !== false;
+}
+
+export const rtcDataChannelIsReliable = (channel) => {
+    return channel?.maxRetransmits == null && channel?.maxPacketLifeTime == null;
+}
+
+export const rtcDataChannelGetMaxRetransmits = (channel) => {
+    return channel?.maxRetransmits == null ? -1 : Number(channel.maxRetransmits);
+}
+
+export const rtcDataChannelGetMaxPacketLifeTime = (channel) => {
+    return channel?.maxPacketLifeTime == null ? -1 : Number(channel.maxPacketLifeTime);
+}
+
+export const rtcGetMaxMessageSize = (conn) => {
+    const v = conn?.sctp?.maxMessageSize;
+    return Number.isFinite(v) ? Number(v) : -1;
+}
+
+export const rtcDataChannelGetBufferedAmount = (channel) => {
+    const v = channel?.bufferedAmount;
+    return Number.isFinite(v) ? Number(v) : 0;
+}
+
+export const rtcDataChannelGetAvailableAmount = (conn, channel) => {
+    const max = rtcGetMaxMessageSize(conn);
+    if (!Number.isFinite(max) || max < 0) {
+        return -1;
+    }
+    return Math.max(0, Number(max) - rtcDataChannelGetBufferedAmount(channel));
+}
+
+export const rtcDataChannelSetBufferedAmountLowThreshold = (channel, threshold) => {
+    channel.bufferedAmountLowThreshold = Number(threshold);
 }
 
 export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
