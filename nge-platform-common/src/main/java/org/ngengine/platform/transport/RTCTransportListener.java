@@ -31,7 +31,6 @@
 package org.ngengine.platform.transport;
 
 import java.nio.ByteBuffer;
-
 import org.ngengine.platform.transport.RTCTransport.RTCDataChannel;
 
 public interface RTCTransportListener {

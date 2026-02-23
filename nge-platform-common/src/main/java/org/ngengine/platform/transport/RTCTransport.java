@@ -39,13 +39,20 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.RTCSettings;
 
 public interface RTCTransport extends Closeable {
-    public static final String DEFAULT_CHANNEL = null;
+    String DEFAULT_CHANNEL = null;
     void close();
     boolean isConnected();
 
     void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers);
     AsyncTask<RTCDataChannel> connect(String offerOrAnswer);
-    AsyncTask<String> createChannel(String name, String protocol, boolean ordered, boolean reliable, int maxRetransmits, Duration maxPacketLifeTime);
+    AsyncTask<String> createChannel(
+        String name,
+        String protocol,
+        boolean ordered,
+        boolean reliable,
+        int maxRetransmits,
+        Duration maxPacketLifeTime
+    );
 
     void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates);
 
@@ -56,7 +63,7 @@ public interface RTCTransport extends Closeable {
     RTCDataChannel getDataChannel(String name);
 
     /**
-     * @deprecated use createDefaultChannel() instead 
+     * @deprecated use createDefaultChannel() instead
      * @return
      */
     @Deprecated
@@ -68,7 +75,7 @@ public interface RTCTransport extends Closeable {
     default AsyncTask<String> createDefaultChannel() {
         return createChannel(DEFAULT_CHANNEL, null, true, true, 0, null);
     }
-  
+
     /**
      * Writes to the default channel
      * @param message
@@ -82,7 +89,8 @@ public interface RTCTransport extends Closeable {
         return channel.ready().compose(ch -> ch.write(message));
     }
 
-    public static abstract class RTCDataChannel {
+    abstract class RTCDataChannel {
+
         private final String name;
         private final String protocol;
         private final boolean ordered;
@@ -90,7 +98,14 @@ public interface RTCTransport extends Closeable {
         private final int maxRetransmits;
         private final Duration maxPacketLifeTime;
 
-        public RTCDataChannel(String name, String protocol, boolean ordered, boolean reliable, int maxRetransmits, Duration maxPacketLifeTime) {
+        public RTCDataChannel(
+            String name,
+            String protocol,
+            boolean ordered,
+            boolean reliable,
+            int maxRetransmits,
+            Duration maxPacketLifeTime
+        ) {
             this.name = name;
             this.protocol = protocol;
             this.ordered = ordered;
@@ -116,21 +131,25 @@ public interface RTCTransport extends Closeable {
         public int getMaxRetransmits() {
             return maxRetransmits;
         }
+
         public Duration getMaxPacketLifeTime() {
             return maxPacketLifeTime;
         }
 
-
-
         public String getName() {
             return name;
         }
+
         public abstract AsyncTask<Void> write(ByteBuffer message);
- 
+
         public abstract AsyncTask<Number> getMaxMessageSize();
+
         public abstract AsyncTask<Number> getAvailableAmount();
+
         public abstract AsyncTask<Number> getBufferedAmount();
+
         public abstract AsyncTask<Void> setBufferedAmountLowThreshold(int threshold);
+
         public abstract AsyncTask<Void> close();
     }
 }

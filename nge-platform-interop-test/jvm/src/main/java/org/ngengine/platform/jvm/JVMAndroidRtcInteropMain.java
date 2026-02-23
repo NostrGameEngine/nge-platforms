@@ -1,3 +1,33 @@
+/**
+ * BSD 3-Clause License
+ * 
+ * Copyright (c) 2025, Riccardo Balbo
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
@@ -30,6 +60,7 @@ import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 
 public class JVMAndroidRtcInteropMain {
+
     private static final Gson GSON = new Gson();
     private static final Logger LOG = Logger.getLogger(JVMAndroidRtcInteropMain.class.getName());
     private static final List<String> STUN_SERVERS = List.of("stun.l.google.com:19302");
@@ -65,95 +96,110 @@ public class JVMAndroidRtcInteropMain {
 
         Thread poller = null;
         try {
-            transport.addListener(new RTCTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    JsonObject msg = new JsonObject();
-                    msg.addProperty("to", "android");
-                    msg.addProperty("type", "ice");
-                    msg.addProperty("candidate", candidate.getCandidate());
-                    msg.addProperty("sdpMid", candidate.getSdpMid());
-                    try {
-                        postJson(http, signalBase + "/send", msg);
-                    } catch (Exception e) {
+            transport.addListener(
+                new RTCTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        JsonObject msg = new JsonObject();
+                        msg.addProperty("to", "android");
+                        msg.addProperty("type", "ice");
+                        msg.addProperty("candidate", candidate.getCandidate());
+                        msg.addProperty("sdpMid", candidate.getSdpMid());
+                        try {
+                            postJson(http, signalBase + "/send", msg);
+                        } catch (Exception e) {
+                            listenerError.compareAndSet(null, e);
+                        }
+                    }
+
+                    @Override
+                    public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
+                        byte[] bytes = new byte[msg.remaining()];
+                        msg.duplicate().get(bytes);
+                        inbox.offer(bytes);
+                    }
+
+                    @Override
+                    public void onRTCChannelError(RTCDataChannel channel, Throwable e) {
                         listenerError.compareAndSet(null, e);
                     }
-                }
 
-                @Override
-                public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
-                    byte[] bytes = new byte[msg.remaining()];
-                    msg.duplicate().get(bytes);
-                    inbox.offer(bytes);
-                }
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {}
 
-                @Override
-                public void onRTCChannelError(RTCDataChannel channel, Throwable e) {
-                    listenerError.compareAndSet(null, e);
-                }
+                    @Override
+                    public void onRTCChannelClosed(RTCDataChannel channel) {}
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {}
+                    @Override
+                    public void onRTCDisconnected(String reason) {
+                        listenerError.compareAndSet(null, new IllegalStateException("RTC disconnected: " + reason));
+                    }
 
-                @Override
-                public void onRTCChannelClosed(RTCDataChannel channel) {}
-
-                @Override
-                public void onRTCDisconnected(String reason) {
-                    listenerError.compareAndSet(null, new IllegalStateException("RTC disconnected: " + reason));
-                }
-
-                @Override
-                public void onRTCConnected() {
-                    connectedLatch.countDown();
-                }
-            });
-
-            poller = new Thread(() -> {
-                while (!stopPolling.get()) {
-                    try {
-                        JsonObject poll = getJson(http, signalBase + "/poll?to=jvm&after=" + cursor.get());
-                        if (poll.has("cursor")) cursor.set(poll.get("cursor").getAsInt());
-                        JsonArray messages = poll.has("messages") ? poll.getAsJsonArray("messages") : new JsonArray();
-                        for (JsonElement el : messages) {
-                            JsonObject msg = el.getAsJsonObject();
-                            String type = msg.get("type").getAsString();
-                            if ("answer".equals(type)) {
-                                if (answerSdp.compareAndSet(null, msg.get("sdp").getAsString())) {
-                                    answerLatch.countDown();
-                                }
-                            } else if ("ice".equals(type)) {
-                                String candidate = msg.get("candidate").getAsString();
-                                String sdpMid = msg.has("sdpMid") && !msg.get("sdpMid").isJsonNull()
-                                    ? msg.get("sdpMid").getAsString()
-                                    : null;
-                                try {
-                                    transport.addRemoteIceCandidates(List.of(new RTCTransportIceCandidate(candidate, sdpMid)));
-                                } catch (Throwable addErr) {
-                                    LOG.log(Level.FINE, "Ignoring remote ICE candidate add failure", addErr);
-                                }
-                            } else if ("android-ready".equals(type)) {
-                                androidReadyLatch.countDown();
-                            } else if ("meta".equals(type)) {
-                                if (msg.has("name")) meta.put(msg.get("name").getAsString(), msg.get("value").getAsString());
-                            } else if ("android-failed".equals(type)) {
-                                listenerError.compareAndSet(
-                                    null,
-                                    new IllegalStateException("Android harness failed: " + msg.get("error").getAsString())
-                                );
-                            }
-                        }
-                        Thread.sleep(50);
-                    } catch (Throwable t) {
-                        listenerError.compareAndSet(null, t);
-                        return;
+                    @Override
+                    public void onRTCConnected() {
+                        connectedLatch.countDown();
                     }
                 }
-            }, "jvm-android-interop-poller");
+            );
+
+            poller =
+                new Thread(
+                    () -> {
+                        while (!stopPolling.get()) {
+                            try {
+                                JsonObject poll = getJson(http, signalBase + "/poll?to=jvm&after=" + cursor.get());
+                                if (poll.has("cursor")) cursor.set(poll.get("cursor").getAsInt());
+                                JsonArray messages = poll.has("messages") ? poll.getAsJsonArray("messages") : new JsonArray();
+                                for (JsonElement el : messages) {
+                                    JsonObject msg = el.getAsJsonObject();
+                                    String type = msg.get("type").getAsString();
+                                    if ("answer".equals(type)) {
+                                        if (answerSdp.compareAndSet(null, msg.get("sdp").getAsString())) {
+                                            answerLatch.countDown();
+                                        }
+                                    } else if ("ice".equals(type)) {
+                                        String candidate = msg.get("candidate").getAsString();
+                                        String sdpMid = msg.has("sdpMid") && !msg.get("sdpMid").isJsonNull()
+                                            ? msg.get("sdpMid").getAsString()
+                                            : null;
+                                        try {
+                                            transport.addRemoteIceCandidates(
+                                                List.of(new RTCTransportIceCandidate(candidate, sdpMid))
+                                            );
+                                        } catch (Throwable addErr) {
+                                            LOG.log(Level.FINE, "Ignoring remote ICE candidate add failure", addErr);
+                                        }
+                                    } else if ("android-ready".equals(type)) {
+                                        androidReadyLatch.countDown();
+                                    } else if ("meta".equals(type)) {
+                                        if (msg.has("name")) meta.put(
+                                            msg.get("name").getAsString(),
+                                            msg.get("value").getAsString()
+                                        );
+                                    } else if ("android-failed".equals(type)) {
+                                        listenerError.compareAndSet(
+                                            null,
+                                            new IllegalStateException(
+                                                "Android harness failed: " + msg.get("error").getAsString()
+                                            )
+                                        );
+                                    }
+                                }
+                                Thread.sleep(50);
+                            } catch (Throwable t) {
+                                listenerError.compareAndSet(null, t);
+                                return;
+                            }
+                        }
+                    },
+                    "jvm-android-interop-poller"
+                );
             poller.setDaemon(true);
             poller.start();
 
-            String offer = transport.createChannel(RTCTransport.DEFAULT_CHANNEL, "jvm-android-proto", true, true, -1, null).await();
+            String offer = transport
+                .createChannel(RTCTransport.DEFAULT_CHANNEL, "jvm-android-proto", true, true, -1, null)
+                .await();
             JsonObject offerMsg = new JsonObject();
             offerMsg.addProperty("to", "android");
             offerMsg.addProperty("type", "offer");
@@ -264,7 +310,8 @@ public class JVMAndroidRtcInteropMain {
     }
 
     private static void postJson(HttpClient http, String url, JsonObject payload) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest req = HttpRequest
+            .newBuilder(URI.create(url))
             .timeout(Duration.ofSeconds(10))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload)))

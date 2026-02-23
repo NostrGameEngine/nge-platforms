@@ -1,3 +1,33 @@
+/**
+ * BSD 3-Clause License
+ * 
+ * Copyright (c) 2025, Riccardo Balbo
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
@@ -16,6 +46,7 @@ import org.ngengine.platform.transport.WebsocketTransport;
 import org.ngengine.platform.transport.WebsocketTransportListener;
 
 public class JVMWebsocketParityMain {
+
     private static final Gson GSON = new Gson();
 
     public static void main(String[] args) throws Exception {
@@ -68,13 +99,36 @@ public class JVMWebsocketParityMain {
         AtomicInteger openCount = new AtomicInteger(0);
         AtomicInteger clientCloseCount = new AtomicInteger(0);
 
-        ws.addListener(new WebsocketTransportListener() {
-            @Override public void onConnectionClosedByServer(String reason) { serverCloseReason.set(reason == null ? "" : reason); serverCloseLatch.countDown(); }
-            @Override public void onConnectionOpen() { openCount.incrementAndGet(); openLatch.countDown(); }
-            @Override public void onConnectionMessage(String msg) { inbox.offer(msg); }
-            @Override public void onConnectionClosedByClient(String reason) { clientCloseCount.incrementAndGet(); }
-            @Override public void onConnectionError(Throwable e) { error.compareAndSet(null, e); }
-        });
+        ws.addListener(
+            new WebsocketTransportListener() {
+                @Override
+                public void onConnectionClosedByServer(String reason) {
+                    serverCloseReason.set(reason == null ? "" : reason);
+                    serverCloseLatch.countDown();
+                }
+
+                @Override
+                public void onConnectionOpen() {
+                    openCount.incrementAndGet();
+                    openLatch.countDown();
+                }
+
+                @Override
+                public void onConnectionMessage(String msg) {
+                    inbox.offer(msg);
+                }
+
+                @Override
+                public void onConnectionClosedByClient(String reason) {
+                    clientCloseCount.incrementAndGet();
+                }
+
+                @Override
+                public void onConnectionError(Throwable e) {
+                    error.compareAndSet(null, e);
+                }
+            }
+        );
 
         ws.connect(wsUrl).await();
         await(openLatch, 10, "websocket open");
@@ -108,13 +162,36 @@ public class JVMWebsocketParityMain {
         AtomicInteger serverCloseCount = new AtomicInteger(0);
         AtomicReference<String> clientCloseReason = new AtomicReference<>("");
 
-        ws.addListener(new WebsocketTransportListener() {
-            @Override public void onConnectionClosedByServer(String reason) { serverCloseCount.incrementAndGet(); }
-            @Override public void onConnectionOpen() { openCount.incrementAndGet(); openLatch.countDown(); }
-            @Override public void onConnectionMessage(String msg) { inbox.offer(msg); }
-            @Override public void onConnectionClosedByClient(String reason) { clientCloseCount.incrementAndGet(); clientCloseReason.set(reason == null ? "" : reason); }
-            @Override public void onConnectionError(Throwable e) { error.compareAndSet(null, e); }
-        });
+        ws.addListener(
+            new WebsocketTransportListener() {
+                @Override
+                public void onConnectionClosedByServer(String reason) {
+                    serverCloseCount.incrementAndGet();
+                }
+
+                @Override
+                public void onConnectionOpen() {
+                    openCount.incrementAndGet();
+                    openLatch.countDown();
+                }
+
+                @Override
+                public void onConnectionMessage(String msg) {
+                    inbox.offer(msg);
+                }
+
+                @Override
+                public void onConnectionClosedByClient(String reason) {
+                    clientCloseCount.incrementAndGet();
+                    clientCloseReason.set(reason == null ? "" : reason);
+                }
+
+                @Override
+                public void onConnectionError(Throwable e) {
+                    error.compareAndSet(null, e);
+                }
+            }
+        );
 
         ws.connect(wsUrl).await();
         await(openLatch, 10, "client phase open");
@@ -139,7 +216,12 @@ public class JVMWebsocketParityMain {
         return out;
     }
 
-    private static String pollString(LinkedBlockingQueue<String> inbox, AtomicReference<Throwable> error, long timeoutSec, String phase) throws Exception {
+    private static String pollString(
+        LinkedBlockingQueue<String> inbox,
+        AtomicReference<Throwable> error,
+        long timeoutSec,
+        String phase
+    ) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSec);
         while (System.nanoTime() < deadline) {
             Throwable t = error.get();

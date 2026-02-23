@@ -1,3 +1,33 @@
+/**
+ * BSD 3-Clause License
+ * 
+ * Copyright (c) 2025, Riccardo Balbo
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
 package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
@@ -16,6 +46,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 
 public class JVMAsyncParityMain {
+
     private static final Gson GSON = new Gson();
 
     public static void main(String[] args) throws Exception {
@@ -72,29 +103,47 @@ public class JVMAsyncParityMain {
 
             out.addProperty(
                 "awaitAnyFirstSuccess",
-                p.awaitAny(List.of(AsyncTask.failed(new RuntimeException("x")), exec.runLater(() -> 42, 10, TimeUnit.MILLISECONDS))).await()
+                p
+                    .awaitAny(
+                        List.of(AsyncTask.failed(new RuntimeException("x")), exec.runLater(() -> 42, 10, TimeUnit.MILLISECONDS))
+                    )
+                    .await()
             );
             out.addProperty(
                 "awaitAnyFilter",
-                p.awaitAny(
-                    List.of(exec.runLater(() -> 5, 0, TimeUnit.MILLISECONDS), exec.runLater(() -> 12, 10, TimeUnit.MILLISECONDS)),
-                    v -> v > 10
-                ).await()
+                p
+                    .awaitAny(
+                        List.of(
+                            exec.runLater(() -> 5, 0, TimeUnit.MILLISECONDS),
+                            exec.runLater(() -> 12, 10, TimeUnit.MILLISECONDS)
+                        ),
+                        v -> v > 10
+                    )
+                    .await()
             );
 
-            out.addProperty("awaitAllFail", fails(() -> p.awaitAll(List.of(AsyncTask.completed(1), AsyncTask.failed(new RuntimeException("x")))).await()));
+            out.addProperty(
+                "awaitAllFail",
+                fails(() -> p.awaitAll(List.of(AsyncTask.completed(1), AsyncTask.failed(new RuntimeException("x")))).await())
+            );
             out.addProperty(
                 "awaitAnyAllFail",
-                fails(() -> p.awaitAny(List.of(AsyncTask.failed(new RuntimeException("a")), AsyncTask.failed(new RuntimeException("b")))).await())
+                fails(() ->
+                    p
+                        .awaitAny(
+                            List.of(AsyncTask.failed(new RuntimeException("a")), AsyncTask.failed(new RuntimeException("b")))
+                        )
+                        .await()
+                )
             );
             out.addProperty(
                 "awaitAnyNoMatch",
                 fails(() -> p.awaitAny(List.of(AsyncTask.completed(1), AsyncTask.completed(2)), v -> v > 10).await())
             );
 
-            List<AsyncTask<Integer>> settled = p.awaitAllSettled(
-                List.of(AsyncTask.completed(1), AsyncTask.failed(new RuntimeException("z")))
-            ).await();
+            List<AsyncTask<Integer>> settled = p
+                .awaitAllSettled(List.of(AsyncTask.completed(1), AsyncTask.failed(new RuntimeException("z"))))
+                .await();
             out.addProperty("awaitAllSettledCount", settled.size());
             out.addProperty(
                 "awaitAllSettledPattern",
@@ -106,19 +155,29 @@ public class JVMAsyncParityMain {
             q.add("q2");
             out.addProperty("queueOrder", q.poll() + "," + q.poll());
         } finally {
-            try { exec.close(); } catch (Throwable ignored) {}
+            try {
+                exec.close();
+            } catch (Throwable ignored) {}
         }
     }
 
     private static boolean fails(ThrowingRunnable r) {
-        try { r.run(); return false; } catch (Throwable t) { return true; }
+        try {
+            r.run();
+            return false;
+        } catch (Throwable t) {
+            return true;
+        }
     }
 
     @FunctionalInterface
-    private interface ThrowingRunnable { void run() throws Exception; }
+    private interface ThrowingRunnable {
+        void run() throws Exception;
+    }
 
     private static void postJson(HttpClient http, String url, JsonObject payload) throws Exception {
-        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+        HttpRequest req = HttpRequest
+            .newBuilder(URI.create(url))
             .header("Content-Type", "application/json; charset=utf-8")
             .timeout(Duration.ofSeconds(15))
             .POST(HttpRequest.BodyPublishers.ofString(GSON.toJson(payload)))
