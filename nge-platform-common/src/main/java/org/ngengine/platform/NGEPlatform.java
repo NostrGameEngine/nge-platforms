@@ -307,14 +307,17 @@ public abstract class NGEPlatform {
                         }
                     })
                     .then(result -> {
-                        if (!resolved.getAndSet(true)) {
-                            if (filter.test(result)) {
+                        if (resolved.get()) {
+                            return null;
+                        }
+                        if (filter.test(result)) {
+                            if (!resolved.getAndSet(true)) {
                                 res.accept(result);
-                            } else {
-                                int remaining = count.decrementAndGet();
-                                if (remaining == 0) {
-                                    rej.accept(new Exception("No promises matched the filter"));
-                                }
+                            }
+                        } else {
+                            int remaining = count.decrementAndGet();
+                            if (remaining == 0 && !resolved.get()) {
+                                rej.accept(new Exception("No promises matched the filter"));
                             }
                         }
                         return null;

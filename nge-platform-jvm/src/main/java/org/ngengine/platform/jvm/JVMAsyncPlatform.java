@@ -268,7 +268,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             if (!getMemoryLimits().checkForData(data1.length)) throw new IllegalArgumentException(
                 "Input exceeds buffer limits"
             );
-            if (!getMemoryLimits().checkForData(data2.length)) throw new IllegalArgumentException(
+            if (data2 != null && !getMemoryLimits().checkForData(data2.length)) throw new IllegalArgumentException(
                 "Input exceeds buffer limits"
             );
 
