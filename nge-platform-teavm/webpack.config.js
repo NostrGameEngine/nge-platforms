@@ -37,7 +37,7 @@ module.exports = {
         fallback: {
             "buffer": require.resolve("buffer/"),
             "path": require.resolve("path-browserify"),
-            "crypto": require.resolve("crypto-browserify")
+            "crypto": false
         }
     },
     plugins: [
