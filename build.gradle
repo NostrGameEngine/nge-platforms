@@ -285,7 +285,7 @@ subprojects { proj ->
             enabled = false
         }
         proj.dependencies {
-            spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0"
+            spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0"
         }
         proj.tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach { task ->
             task.reports {
