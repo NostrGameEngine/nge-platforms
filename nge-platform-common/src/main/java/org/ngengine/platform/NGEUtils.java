@@ -147,20 +147,35 @@ public class NGEUtils {
 
     public static String safeString(Object input) {
         if (input == null) return "";
+        MemoryLimits limits = getPlatform().getMemoryLimits();
         if (input instanceof String) {
-            return (String) input;
+            // nop
+            input = (String) input;
         } else if (input instanceof byte[]) {
-            return new String((byte[]) input, StandardCharsets.UTF_8);
+            if(!limits.checkForData(((byte[]) input).length)) {
+                throw new IllegalArgumentException("Input byte array is too large: " + ((byte[]) input).length);
+            }
+            input = new String((byte[]) input, StandardCharsets.UTF_8);
         } else if (input instanceof char[]) {
-            return new String((char[]) input);
+            if(!limits.checkForData(((char[]) input).length)) {
+                throw new IllegalArgumentException("Input char array is too large: " + ((char[]) input).length);
+            }
+            input = new String((char[]) input);
         } else if (input instanceof ByteBuffer) {
             ByteBuffer buffer = (ByteBuffer) input;
+            if(!limits.checkForData(buffer.remaining())) {
+                throw new IllegalArgumentException("Input byte buffer is too large: " + buffer.remaining());
+            }
             byte[] bytes = new byte[buffer.remaining()];
             buffer.slice().get(bytes);
-            return new String(bytes, StandardCharsets.UTF_8);
+            input = new String(bytes, StandardCharsets.UTF_8);
         } else {
-            return String.valueOf(input);
+            input = String.valueOf(input);
         }
+        if(!limits.checkForString(((String) input).length())) {
+            throw new IllegalArgumentException("Input string is too large: " + ((String) input).length());
+        }
+        return (String) input;
     }
 
     private static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -176,7 +191,13 @@ public class NGEUtils {
             }
             return list.toArray(new String[0]);
         } else if (tags instanceof String[]) {
-            return (String[]) tags;
+            MemoryLimits limits = getPlatform().getMemoryLimits();
+            for (String o : (String[]) tags) {
+                if(!limits.checkForString(o.length())) {
+                    throw new IllegalArgumentException("Input string is too large: " + o.length());
+                }
+            }
+            return (String[]) tags;            
         } else {
             throw new IllegalArgumentException("Input is not a string array: " + tags);
         }
@@ -207,7 +228,11 @@ public class NGEUtils {
             }
             return list;
         } else if (tags instanceof String[]) {
-            return List.of((String[]) tags);
+            ArrayList<String> list = new ArrayList<>();
+            for (String o : (String[]) tags) {
+                list.add(safeString(o));
+            }
+            return list;
         } else {
             throw new IllegalArgumentException("Input is not a string array: " + tags);
         }
@@ -375,7 +400,7 @@ public class NGEUtils {
         System
             .getProperty(
                 "nge-platforms.validURISchemes",
-                NGEPlatform.get().getPlatformName().contains("capacitor ") ? "https,http,capacitor" : "https,http"
+                NGEPlatform.get().getPlatformName().contains("capacitor ") ? "https,http,capacitor,wss,ws" : "https,http,wss,ws"
             )
             .split(",")
     );
@@ -500,5 +525,81 @@ public class NGEUtils {
             }
         }
         return sb.toString();
+    }
+
+    public static byte[] safeByteArray(Object input) {
+        byte[] out = null;
+        if (input instanceof byte[]) {
+            out = (byte[]) input;
+        } else if (input instanceof ByteBuffer) {
+            out = ((ByteBuffer) input).array();
+        } else if (input instanceof String) {
+            out = ((String) input).getBytes(StandardCharsets.UTF_8);
+        } else {
+            throw new IllegalArgumentException("Input is not a byte array: " + input);
+        }
+        if(!getPlatform().getMemoryLimits().checkForData(out.length)) {
+            throw new IllegalArgumentException("Input byte array is too large: " + out.length);
+        }
+        return out;
+    }
+
+    public static ByteBuffer safeByteBuffer(Object input) {
+        ByteBuffer out = null;
+        if (input instanceof ByteBuffer) {
+            out = (ByteBuffer) input;
+        } else if (input instanceof byte[]) {
+            out = ByteBuffer.wrap((byte[]) input);
+        } else if (input instanceof String) {
+            out = ByteBuffer.wrap(((String) input).getBytes(StandardCharsets.UTF_8));
+        } else {
+            throw new IllegalArgumentException("Input is not a byte buffer: " + input);
+        }
+        if(!getPlatform().getMemoryLimits().checkForData(out.remaining())) {
+            throw new IllegalArgumentException("Input byte buffer is too large: " + out.remaining());
+        }
+        return out;
+    }
+
+    public static byte[] safeBigByteArray(Object input) {
+        byte[] out = null;
+        if (input instanceof byte[]) {
+            out = (byte[]) input;
+        } else if (input instanceof ByteBuffer) {
+            out = ((ByteBuffer) input).array();
+        } else if (input instanceof String) {
+            out = ((String) input).getBytes(StandardCharsets.UTF_8);
+        } else {
+            throw new IllegalArgumentException("Input is not a byte array: " + input);
+        }
+        if(!getPlatform().getMemoryLimits().checkForBigData(out.length)) {
+            throw new IllegalArgumentException("Input byte array is too large: " + out.length);
+        }
+        return out;
+    }
+
+    public static ByteBuffer safeBigByteBuffer(Object input) {
+        ByteBuffer out = null;
+        if (input instanceof ByteBuffer) {
+            out = (ByteBuffer) input;
+        } else if (input instanceof byte[]) {
+            out = ByteBuffer.wrap((byte[]) input);
+        } else if (input instanceof String) {
+            out = ByteBuffer.wrap(((String) input).getBytes(StandardCharsets.UTF_8));
+        } else {
+            throw new IllegalArgumentException("Input is not a byte buffer: " + input);
+        }
+        if(!getPlatform().getMemoryLimits().checkForBigData(out.remaining())) {
+            throw new IllegalArgumentException("Input byte buffer is too large: " + out.remaining());
+        }
+        return out;
+    }
+
+    public static String safeJsonString(Object input) {
+        String out = safeString(input);
+        if(!getPlatform().getMemoryLimits().checkForJSON(out.getBytes(StandardCharsets.UTF_8).length)) {
+            throw new IllegalArgumentException("Input JSON string is too large: " + out.length());
+        }
+        return out;
     }
 }
