@@ -31,6 +31,8 @@
 package org.ngengine.platform.teavm;
 
 import java.io.IOException;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -46,6 +48,7 @@ import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
 import org.teavm.jso.dom.events.Event;
 import org.teavm.jso.dom.events.EventListener;
+import org.teavm.jso.typedarrays.Uint8Array;
 
 public class TeaVMWebsocketTransport implements WebsocketTransport {
 
@@ -79,7 +82,11 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         @JSProperty("onerror")
         void setOnError(EventListener handler);
 
+        @JSProperty("binaryType")
+        void setBinaryType(String type);
+
         void send(String data);
+        void send(Buffer data);
 
         void close(int code, String reason);
     }
@@ -90,7 +97,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
     private interface MessageEvent extends Event {
         @JSProperty("data")
-        String getData();
+        Object getData();
     }
 
     private interface CloseEvent extends Event {
@@ -101,12 +108,22 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         String getReason();
     }
 
+    @JSBody(params = { "data" }, script = "return typeof data === 'string';")
+    private static native boolean isStringData(Object data);
+
+    @JSBody(params = { "data" }, script = "return data;")
+    private static native String asStringData(Object data);
+
+    @JSBody(params = { "data" }, script = "return new Uint8Array(data);")
+    private static native Uint8Array asUint8Array(Object data);
+
     @Override
     public AsyncTask<Void> connect(String url) {
         return this.platform.wrapPromise((res, rej) -> {
                 try {
                     if (this.ws == null) {
                         this.ws = createWebSocket(url);
+                        this.ws.setBinaryType("arraybuffer");
 
                         AtomicBoolean done = new AtomicBoolean(false);
 
@@ -141,12 +158,33 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
                         this.ws.setOnMessage(evt -> {
                                 this.asyncExecutor.run(() -> {
-                                        String message = ((MessageEvent) evt).getData();
-                                        for (WebsocketTransportListener listener : listeners) {
-                                            try {
-                                                listener.onConnectionMessage(message);
-                                            } catch (Exception e) {
-                                                logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
+                                        Object data = ((MessageEvent) evt).getData();
+                                        if (isStringData(data)) {
+                                            String message = asStringData(data);
+                                            for (WebsocketTransportListener listener : listeners) {
+                                                try {
+                                                    listener.onConnectionMessage(message);
+                                                } catch (Exception e) {
+                                                    logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
+                                                }
+                                            }
+                                        } else {
+                                            Uint8Array arr = asUint8Array(data);
+                                            byte[] bytes = new byte[arr.getLength()];
+                                            for (int i = 0; i < bytes.length; i++) {
+                                                bytes[i] = (byte) arr.get(i);
+                                            }
+                                            ByteBuffer message = ByteBuffer.wrap(bytes);
+                                            for (WebsocketTransportListener listener : listeners) {
+                                                try {
+                                                    listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
+                                                } catch (Exception e) {
+                                                    logger.log(
+                                                        Level.WARNING,
+                                                        "Error in onConnectionBinaryMessage listener",
+                                                        e
+                                                    );
+                                                }
                                             }
                                         }
                                         return null;
@@ -224,6 +262,23 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
                     this.ws.send(message);
 
+                    res.accept(null);
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            });
+    }
+
+    @Override
+    public AsyncTask<Void> sendBinary(ByteBuffer data) {
+        return this.platform.wrapPromise((res, rej) -> {
+                try {
+                    if (this.ws == null) {
+                        rej.accept(new IOException("WebSocket not connected"));
+                        return;
+                    }
+
+                    this.ws.send(data.duplicate());
                     res.accept(null);
                 } catch (Exception e) {
                     rej.accept(e);

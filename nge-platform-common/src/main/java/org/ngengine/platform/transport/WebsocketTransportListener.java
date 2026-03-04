@@ -30,10 +30,15 @@
  */
 package org.ngengine.platform.transport;
 
+import java.nio.ByteBuffer;
+
 public interface WebsocketTransportListener {
     void onConnectionClosedByServer(String reason);
     void onConnectionOpen();
     void onConnectionMessage(String msg);
+
+    default void onConnectionBinaryMessage(ByteBuffer msg){
+    }
 
     void onConnectionClosedByClient(String reason);
 

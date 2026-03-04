@@ -5,6 +5,7 @@
 package org.ngengine.platform.android;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -23,6 +24,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
+import okio.ByteString;
 
 public class AndroidWebsocketTransport implements WebsocketTransport {
 
@@ -136,6 +138,20 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                                     listener.onConnectionMessage(text);
                                 } catch (Exception e) {
                                     logger.warning("Error in message listener: " + e);
+                                }
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onMessage(WebSocket webSocket, ByteString bytes) {
+                        executor.execute(() -> {
+                            ByteBuffer message = ByteBuffer.wrap(bytes.toByteArray());
+                            for (WebsocketTransportListener listener : listeners) {
+                                try {
+                                    listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
+                                } catch (Exception e) {
+                                    logger.warning("Error in binary message listener: " + e);
                                 }
                             }
                         });
@@ -256,6 +272,37 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                         rs0.accept(null);
                     } else {
                         Exception ex = new IOException("Failed to send message");
+                        rej.accept(ex);
+                        rj0.accept(ex);
+                    }
+                });
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    @Override
+    public AsyncTask<Void> sendBinary(ByteBuffer data) {
+        WebSocket ws = this.webSocket;
+
+        return platform.wrapPromise((res, rej) -> {
+            try {
+                if (ws == null) {
+                    rej.accept(new IOException("WebSocket not connected"));
+                    return;
+                }
+
+                enqueue((rs0, rj0) -> {
+                    ByteBuffer source = data.duplicate();
+                    byte[] bytes = new byte[source.remaining()];
+                    source.get(bytes);
+                    boolean sent = ws.send(ByteString.of(bytes));
+                    if (sent) {
+                        res.accept(null);
+                        rs0.accept(null);
+                    } else {
+                        Exception ex = new IOException("Failed to send binary message");
                         rej.accept(ex);
                         rj0.accept(ex);
                     }

@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -57,10 +58,12 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     private static final int DEFAULT_MAX_MESSAGE_SIZE = 65_536;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
     private static final int BUFFER_INITIAL_SIZE = 8192;
+    private static final int BINARY_BUFFER_GROWTH_STEP = 16 * 1024;
 
     private volatile WebSocket openWebSocket;
     private static final int maxMessageSize = DEFAULT_MAX_MESSAGE_SIZE;
     private final StringBuilder messageBuffer = new StringBuilder(BUFFER_INITIAL_SIZE);
+    private ByteBuffer binaryBuffer = ByteBuffer.allocate(BUFFER_INITIAL_SIZE);
 
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final JVMAsyncPlatform platform;
@@ -202,6 +205,44 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     }
 
     @Override
+    public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+        synchronized (binaryBuffer) {
+            ensureBinaryCapacity(binaryBuffer.position() + data.remaining());
+            binaryBuffer.put(data);
+
+            if (last) {
+                binaryBuffer.flip();
+                ByteBuffer message = ByteBuffer.allocate(binaryBuffer.remaining()).put(binaryBuffer);
+                message.flip();
+                binaryBuffer.clear();
+                for (WebsocketTransportListener listener : listeners) {
+                    try {
+                        listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
+                    } catch (Exception e) {
+                        logger.warning("Error in binary message listener: " + e);
+                    }
+                }
+            }
+        }
+        return WebSocket.Listener.super.onBinary(webSocket, data, last);
+    }
+
+    private void ensureBinaryCapacity(int requiredCapacity) {
+        if (requiredCapacity <= binaryBuffer.capacity()) {
+            return;
+        }
+        int missing = requiredCapacity - binaryBuffer.capacity();
+        int steps = (missing + BINARY_BUFFER_GROWTH_STEP - 1) / BINARY_BUFFER_GROWTH_STEP;
+        int newCapacity = binaryBuffer.capacity() + (steps * BINARY_BUFFER_GROWTH_STEP);
+        newCapacity = Math.min(newCapacity, DEFAULT_MAX_MESSAGE_SIZE);
+        ByteBuffer grown = ByteBuffer.allocate(newCapacity);
+        binaryBuffer.flip();
+        grown.put(binaryBuffer);
+        binaryBuffer = grown;
+    }
+
+
+    @Override
     public void onOpen(WebSocket webSocket) {
         logger.finest("WebSocket opened");
         assert this.openWebSocket == null : "WebSocket already open";
@@ -263,6 +304,75 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         }
 
         WebSocket.Listener.super.onError(webSocket, error);
+    }
+
+    @Override
+    public AsyncTask<Void> sendBinary(ByteBuffer data) {
+        WebSocket ws = this.openWebSocket;
+
+        return platform.wrapPromise((res, rej) -> {
+            try {
+                if (ws == null) {
+                    rej.accept(new IOException("WebSocket not connected"));
+                    return;
+                }
+                try {
+                    final ByteBuffer source = data.duplicate();
+                    final int totalBytes = source.remaining();
+                    if (totalBytes <= maxMessageSize) {
+                        enqueue((rs0, rj0) -> {
+                            assert dbg(() -> {
+                                logger.finest("Sending full binary message: " + totalBytes);
+                            });
+                            ws
+                                .sendBinary(source, true)
+                                .handle((result, error) -> {
+                                    if (error != null) {
+                                        rej.accept(error);
+                                        rj0.accept(error);
+                                    } else {
+                                        res.accept(null);
+                                        rs0.accept(null);
+                                    }
+                                    return null;
+                                });
+                        });
+                    } else {
+                        enqueue((rs0, rj0) -> {
+                            CompletableFuture<WebSocket> future = CompletableFuture.completedFuture(null);
+                            while (source.hasRemaining()) {
+                                int chunkSize = Math.min(source.remaining(), maxMessageSize);
+                                ByteBuffer chunk = source.slice();
+                                chunk.limit(chunkSize);
+                                source.position(source.position() + chunkSize);
+                                final boolean isLast = !source.hasRemaining();
+                                future =
+                                    future.thenComposeAsync(
+                                        r -> {
+                                            return ws.sendBinary(chunk, isLast);
+                                        },
+                                        executor
+                                    );
+                            }
+                            future.handle((result, error) -> {
+                                if (error != null) {
+                                    rej.accept(error);
+                                    rj0.accept(error);
+                                } else {
+                                    res.accept(null);
+                                    rs0.accept(null);
+                                }
+                                return null;
+                            });
+                        });
+                    }
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
     }
 
     @Override
@@ -354,4 +464,6 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     public void removeListener(WebsocketTransportListener listener) {
         listeners.remove(listener);
     }
+
+ 
 }

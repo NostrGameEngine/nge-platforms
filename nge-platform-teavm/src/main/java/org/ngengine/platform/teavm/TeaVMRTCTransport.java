@@ -52,6 +52,7 @@ import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
+import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
@@ -62,7 +63,7 @@ public class TeaVMRTCTransport implements RTCTransport {
 
     private final List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
-    private final List<Consumer<RTCDataChannel>> pendingIncomingChannelResolvers = new CopyOnWriteArrayList<>();
+    private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private final Map<org.ngengine.platform.teavm.webrtc.RTCDataChannel, RTCDataChannel> channelWrappers =
         new ConcurrentHashMap<>();
     private final Map<org.ngengine.platform.teavm.webrtc.RTCDataChannel, AsyncTask<RTCDataChannel>> channelReadyTasks =
@@ -147,10 +148,7 @@ public class TeaVMRTCTransport implements RTCTransport {
                 configureChannel(nativeChannel)
                     .catchException(e -> logger.log(Level.WARNING, "Error configuring channel", e))
                     .then(channel -> {
-                        if (!pendingIncomingChannelResolvers.isEmpty()) {
-                            Consumer<RTCDataChannel> waiter = pendingIncomingChannelResolvers.remove(0);
-                            waiter.accept(channel);
-                        }
+                        resolvePendingIncomingChannel(channel);
                         return null;
                     });
             });
@@ -268,6 +266,57 @@ public class TeaVMRTCTransport implements RTCTransport {
         channelWrappers.remove(nativeChannel);
     }
 
+    public String getName(){
+        return connId;
+    }
+
+    private String resolveChannelLabel(String name) {
+        return (name == null || name.isEmpty()) ? defaultChannelLabel() : name;
+    }
+
+    private void resolvePendingIncomingChannel(RTCDataChannel channel) {
+        List<Consumer<RTCDataChannel>> waiters = pendingIncomingChannelResolvers.remove(channel.getName());
+        if (waiters == null) {
+            return;
+        }
+        for (Consumer<RTCDataChannel> waiter : waiters) {
+            try {
+                waiter.accept(channel);
+            } catch (Throwable t) {
+                logger.log(Level.WARNING, "Error resolving pending incoming channel waiter", t);
+            }
+        }
+    }
+
+    private AsyncTask<RTCDataChannel> awaitIncomingChannel(String label) {
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            return existing.ready();
+        }
+        NGEPlatform platform = NGEUtils.getPlatform();
+        return platform.promisify(
+            (res, rej) -> {
+                RTCDataChannel current = getDataChannel(label);
+                if (current != null) {
+                    current.ready().catchException(rej::accept).then(channel -> {
+                        res.accept(channel);
+                        return null;
+                    });
+                    return;
+                }
+                pendingIncomingChannelResolvers
+                    .computeIfAbsent(label, _k -> new CopyOnWriteArrayList<>())
+                    .add(channel -> {
+                        channel.ready().catchException(rej::accept).then(ready -> {
+                            res.accept(ready);
+                            return null;
+                        });
+                    });
+            },
+            this.asyncExecutor
+        );
+    }
+
     private AsyncTask<RTCDataChannel> awaitChannelReady(org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel) {
         if ("open".equals(nativeChannel.getReadyState())) {
             return AsyncTask.completed(wrapChannel(nativeChannel));
@@ -283,6 +332,11 @@ public class TeaVMRTCTransport implements RTCTransport {
     }
 
     private AsyncTask<RTCDataChannel> configureChannel(org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel) {
+        AsyncTask<RTCDataChannel> existingReadyTask = channelReadyTasks.get(nativeChannel);
+        if (existingReadyTask != null) {
+            return existingReadyTask;
+        }
+
         NGEPlatform platform = NGEUtils.getPlatform();
         RTCDataChannel wrapper = wrapChannel(nativeChannel);
 
@@ -307,6 +361,16 @@ public class TeaVMRTCTransport implements RTCTransport {
                     listener.onRTCChannelError(wrapper, new Exception(error.getError()));
                 } catch (Exception e) {
                     logger.log(Level.WARNING, "Error notifying channel error", e);
+                }
+            }
+        });
+
+        nativeChannel.setOnBufferedAmountLowHandler(() -> {
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCBufferedAmountLow(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying buffered amount low", e);
                 }
             }
         });
@@ -376,35 +440,27 @@ public class TeaVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<String> createChannel(
-        String name,
-        String protocol,
-        boolean ordered,
-        boolean reliable,
-        int maxRetransmits,
-        Duration maxPacketLifeTime
-    ) {
+    public AsyncTask<String> listen() {
         this.isInitiator = true;
         NGEPlatform platform = NGEUtils.getPlatform();
-
         return platform.promisify(
             (res, rej) -> {
                 try {
-                    int maxPacketLifeTimeMs = maxPacketLifeTime == null ? -1 : (int) maxPacketLifeTime.toMillis();
                     org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel = TeaVMBinds.rtcCreateDataChannel(
                         this.peerConnection,
-                        (name == null || name.isEmpty()) ? ("nostr4j-" + this.connId) : name,
-                        protocol,
-                        ordered,
-                        reliable,
-                        maxRetransmits,
-                        maxPacketLifeTimeMs
+                        defaultChannelLabel(),
+                        null,
+                        true,
+                        true,
+                        0,
+                        -1
                     );
                     configureChannel(nativeChannel)
                         .catchException(e -> logger.log(Level.WARNING, "Error configuring channel", e));
 
                     RTCSessionDescription offer = TeaVMBindsAsync.rtcCreateOffer(this.peerConnection);
                     TeaVMBindsAsync.rtcSetLocalDescription(this.peerConnection, offer.getSdp(), "offer");
+                    logger.fine("Default channel created, offer ready");
                     res.accept(offer.getSdp());
                 } catch (Throwable e) {
                     rej.accept(e);
@@ -415,7 +471,56 @@ public class TeaVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<RTCDataChannel> connect(String offerOrAnswer) {
+    public AsyncTask<RTCDataChannel> createDataChannel(
+        String name,
+        String protocol,
+        boolean ordered,
+        boolean reliable,
+        int maxRetransmits,
+        Duration maxPacketLifeTime
+    ) {
+        NGEPlatform platform = NGEUtils.getPlatform();
+        String label = resolveChannelLabel(name);
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            logger.fine("createDataChannel returning existing channel: " + label);
+            return existing.ready();
+        }
+
+        if (!this.isInitiator) {
+            logger.fine("Non-initiator createDataChannel is awaiting incoming channel: " + label);
+            return awaitIncomingChannel(label);
+        }
+
+        return platform.promisify(
+            (res, rej) -> {
+                try {
+                    int maxPacketLifeTimeMs = maxPacketLifeTime == null ? -1 : (int) maxPacketLifeTime.toMillis();
+                    org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel = TeaVMBinds.rtcCreateDataChannel(
+                        this.peerConnection,
+                        label,
+                        protocol,
+                        ordered,
+                        reliable,
+                        maxRetransmits,
+                        maxPacketLifeTimeMs
+                    );
+                    configureChannel(nativeChannel)
+                        .catchException(rej::accept)
+                        .then(channel -> {
+                            res.accept(channel);
+                            return null;
+                        });
+                } catch (Throwable e) {
+                    rej.accept(e);
+                }
+            },
+            this.asyncExecutor
+        );
+    }
+
+    @Override
+    public AsyncTask<String> connect(String offerOrAnswer) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         if (this.isInitiator) {
@@ -440,16 +545,8 @@ public class TeaVMRTCTransport implements RTCTransport {
                     TeaVMBindsAsync.rtcSetRemoteDescription(this.peerConnection, offerOrAnswer, "offer");
                     RTCSessionDescription answer = TeaVMBindsAsync.rtcCreateAnswer(this.peerConnection);
                     TeaVMBindsAsync.rtcSetLocalDescription(this.peerConnection, answer.getSdp(), "answer");
-                    logger.warning(
-                        "RTCTransport.connect(offer) generated an SDP answer that cannot be returned with current RTCTransport API"
-                    );
-
-                    if (!channelWrappers.isEmpty()) {
-                        res.accept(channelWrappers.values().iterator().next());
-                        return;
-                    }
-
-                    pendingIncomingChannelResolvers.add(channel -> res.accept(channel));
+                    logger.fine("Answer ready");
+                    res.accept(answer.getSdp());
                 } catch (Throwable e) {
                     rej.accept(e);
                 }
@@ -491,7 +588,7 @@ public class TeaVMRTCTransport implements RTCTransport {
 
     @Override
     public RTCDataChannel getDataChannel(String name) {
-        if (name == RTCTransport.DEFAULT_CHANNEL) name = "nostr4j-" + connId;
+        if (name == RTCTransport.DEFAULT_CHANNEL) name = defaultChannelLabel();
         for (RTCDataChannel channel : channelWrappers.values()) {
             if (name.equals(channel.getName())) {
                 return channel;

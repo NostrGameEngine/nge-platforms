@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.AsyncExecutor;
@@ -51,6 +52,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
+import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
@@ -83,6 +85,7 @@ public class JVMRTCTransport implements RTCTransport {
     private String connId;
     private PeerConnection conn;
     private final Map<DataChannel, RTCDataChannel> channels = new ConcurrentHashMap<>();
+    private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private volatile boolean isInitiator;
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private AsyncExecutor executor;
@@ -171,6 +174,14 @@ public class JVMRTCTransport implements RTCTransport {
                     }
                 }
             });
+        this.conn.onDataChannel.register((peer, nativeChannel) -> {
+                confChannel(nativeChannel)
+                    .catchException(e -> logger.log(Level.WARNING, "Error configuring incoming channel", e))
+                    .then(channel -> {
+                        resolvePendingIncomingChannel(channel);
+                        return null;
+                    });
+            });
 
         this.executor.runLater(
                 () -> {
@@ -192,6 +203,11 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     AsyncTask<RTCDataChannel> confChannel(DataChannel channel) {
+        RTCDataChannel existing = channels.get(channel);
+        if (existing != null) {
+            return existing.ready();
+        }
+
         NGEPlatform platform = NGEUtils.getPlatform();
 
         DataChannelReliability rel = channel.reliability();
@@ -332,6 +348,14 @@ public class JVMRTCTransport implements RTCTransport {
 
                 channel.onMessage.register(
                     Message.handleBinary((c, buffer) -> {
+                        // copy buffer for memory safety 
+                        // TODO: implement platform allocator
+                        ByteBuffer copy = ByteBuffer.allocate(buffer.remaining());
+                        copy.put(buffer);
+                        copy.flip();
+                        buffer = copy;
+                        ////
+
                         assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
                         for (RTCTransportListener listener : listeners) {
                             try {
@@ -342,6 +366,16 @@ public class JVMRTCTransport implements RTCTransport {
                         }
                     })
                 );
+
+                channel.onBufferedAmountLow.register(c -> {
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCBufferedAmountLow(wrapper);
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error notifying buffered amount low", e);
+                        }
+                    }
+                });
 
                 if (channel.isOpen()) {
                     for (RTCTransportListener listener : listeners) {
@@ -370,8 +404,80 @@ public class JVMRTCTransport implements RTCTransport {
         return p[0];
     }
 
+      public String getName(){
+        return connId;
+    }
+
+    private String resolveChannelLabel(String name) {
+        return (name == null || name.isEmpty()) ? defaultChannelLabel() : name;
+    }
+
+    private void resolvePendingIncomingChannel(RTCDataChannel channel) {
+        List<Consumer<RTCDataChannel>> waiters = pendingIncomingChannelResolvers.remove(channel.getName());
+        if (waiters == null) {
+            return;
+        }
+        for (Consumer<RTCDataChannel> waiter : waiters) {
+            try {
+                waiter.accept(channel);
+            } catch (Throwable t) {
+                logger.log(Level.WARNING, "Error resolving pending incoming channel waiter", t);
+            }
+        }
+    }
+
+    private AsyncTask<RTCDataChannel> awaitIncomingChannel(String label) {
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            return existing.ready();
+        }
+        NGEPlatform platform = NGEUtils.getPlatform();
+        return platform.wrapPromise((res, rej) -> {
+            RTCDataChannel current = getDataChannel(label);
+            if (current != null) {
+                current.ready().catchException(rej::accept).then(channel -> {
+                    res.accept(channel);
+                    return null;
+                });
+                return;
+            }
+            pendingIncomingChannelResolvers
+                .computeIfAbsent(label, _k -> new CopyOnWriteArrayList<>())
+                .add(channel -> {
+                    channel.ready().catchException(rej::accept).then(ready -> {
+                        res.accept(ready);
+                        return null;
+                    });
+                });
+        });
+    }
+
     @Override
-    public AsyncTask<String> createChannel(
+    public AsyncTask<String> listen() {
+        this.isInitiator = true;
+        NGEPlatform platform = NGEUtils.getPlatform();
+        return platform.wrapPromise((res, rej) -> {
+            try {
+                this.conn.onLocalDescription.register((peer, sdp, type) -> {
+                    if (type == SessionDescriptionType.OFFER) {
+                        res.accept(sdp);
+                    }
+                });
+
+                DataChannelReliability reliability = DataChannelReliability.DEFAULT.withUnordered(false).withUnreliable(false);
+                DataChannelInitSettings init = DataChannelInitSettings.DEFAULT.withReliability(reliability);
+
+                String label =   defaultChannelLabel();
+                DataChannel nativeChannel = this.conn.createDataChannel(label, init);
+                confChannel(nativeChannel).catchException(rej::accept);
+            } catch (Throwable e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    @Override
+    public AsyncTask<RTCDataChannel> createDataChannel(
         String name,
         String protocol,
         boolean ordered,
@@ -379,17 +485,21 @@ public class JVMRTCTransport implements RTCTransport {
         int maxRetransmits,
         Duration maxPacketLifeTime
     ) {
-        this.isInitiator = true;
         NGEPlatform platform = NGEUtils.getPlatform();
+        String label = resolveChannelLabel(name);
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            logger.fine("createDataChannel returning existing channel: " + label);
+            return existing.ready();
+        }
+
+        if (!this.isInitiator) {
+            logger.fine("Non-initiator createDataChannel is awaiting incoming channel: " + label);
+            return awaitIncomingChannel(label);
+        }
 
         return platform.wrapPromise((res, rej) -> {
             try {
-                this.conn.onLocalDescription.register((peer, sdp, type) -> {
-                        if (type == SessionDescriptionType.OFFER) {
-                            res.accept(sdp);
-                        }
-                    });
-
                 DataChannelReliability reliability = DataChannelReliability.DEFAULT
                     .withUnordered(!ordered)
                     .withUnreliable(!reliable);
@@ -407,10 +517,11 @@ public class JVMRTCTransport implements RTCTransport {
                     init = init.withProtocol(protocol);
                 }
 
-                String label = (name == null || name.isEmpty()) ? ("nostr4j-" + connId) : name;
-
                 DataChannel nativeChannel = this.conn.createDataChannel(label, init);
-                confChannel(nativeChannel).catchException(rej::accept);
+                confChannel(nativeChannel).catchException(rej::accept).then(channel -> {
+                        res.accept(channel);
+                        return null;
+                    });
             } catch (Throwable e) {
                 rej.accept(e);
             }
@@ -418,7 +529,7 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<RTCDataChannel> connect(String offerOrAnswer) {
+    public AsyncTask<String> connect(String offerOrAnswer) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         if (this.isInitiator) {
@@ -437,37 +548,21 @@ public class JVMRTCTransport implements RTCTransport {
         logger.fine("Connect using offer");
         String offer = offerOrAnswer;
 
-        AsyncTask<RTCDataChannel> openChannel = platform.wrapPromise((res, rej) -> {
-            this.conn.onDataChannel.register((peer, nativeChannel) -> {
-                    confChannel(nativeChannel)
-                        .catchException(rej::accept)
-                        .then(channel -> {
-                            res.accept(channel);
-                            return null;
-                        });
-                });
-        });
-
         return platform.wrapPromise((res, rej) -> {
             this.conn.onLocalDescription.register((peer, sdp, type) -> {
-                    if (type == SessionDescriptionType.ANSWER) {
-                        logger.fine("Answer ready");
-                        openChannel
-                            .catchException(rej::accept)
-                            .then(channel -> {
-                                res.accept(channel);
-                                return null;
-                            });
-                    }
-                });
+                if (type == SessionDescriptionType.ANSWER) {
+                    logger.fine("Answer ready");
+                    res.accept(sdp);
+                }
+            });
 
             this.conn.onStateChange.register((peer, state) -> {
-                    if (state == PeerState.RTC_CLOSED) {
-                        rej.accept(new Exception("Peer connection closed"));
-                    } else if (state == PeerState.RTC_FAILED) {
-                        rej.accept(new Exception("Peer connection failed"));
-                    }
-                });
+                if (state == PeerState.RTC_CLOSED) {
+                    rej.accept(new Exception("Peer connection closed"));
+                } else if (state == PeerState.RTC_FAILED) {
+                    rej.accept(new Exception("Peer connection failed"));
+                }
+            });
 
             this.conn.setRemoteDescription(offer, SessionDescriptionType.OFFER);
         });
@@ -499,7 +594,7 @@ public class JVMRTCTransport implements RTCTransport {
 
     @Override
     public RTCDataChannel getDataChannel(String name) {
-        if (name == RTCTransport.DEFAULT_CHANNEL) name = "nostr4j-" + connId;
+        if (name == RTCTransport.DEFAULT_CHANNEL) name = defaultChannelLabel();
         for (RTCDataChannel channel : channels.values()) {
             if (name.equals(channel.getName())) {
                 return channel;

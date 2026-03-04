@@ -55,7 +55,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.transport.RTCTransport;
-import org.ngengine.platform.transport.RTCTransport.RTCDataChannel;
+import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 
@@ -98,6 +98,8 @@ public class JVMAndroidRtcInteropMain {
         try {
             transport.addListener(
                 new RTCTransportListener() {
+                    @Override
+                    public void onRTCBufferedAmountLow(RTCDataChannel channel){}
                     @Override
                     public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
                         JsonObject msg = new JsonObject();
@@ -197,9 +199,7 @@ public class JVMAndroidRtcInteropMain {
             poller.setDaemon(true);
             poller.start();
 
-            String offer = transport
-                .createChannel(RTCTransport.DEFAULT_CHANNEL, "jvm-android-proto", true, true, -1, null)
-                .await();
+            String offer = transport.listen().await();
             JsonObject offerMsg = new JsonObject();
             offerMsg.addProperty("to", "android");
             offerMsg.addProperty("type", "offer");

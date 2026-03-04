@@ -30,6 +30,8 @@
  */
 package org.ngengine.platform.transport;
 
+import java.nio.ByteBuffer;
+
 import org.ngengine.platform.AsyncTask;
 
 public interface WebsocketTransport {
@@ -38,6 +40,8 @@ public interface WebsocketTransport {
     AsyncTask<Void> connect(String url);
 
     AsyncTask<Void> send(String message);
+
+    AsyncTask<Void> sendBinary(ByteBuffer data);
 
     void addListener(WebsocketTransportListener listener);
 

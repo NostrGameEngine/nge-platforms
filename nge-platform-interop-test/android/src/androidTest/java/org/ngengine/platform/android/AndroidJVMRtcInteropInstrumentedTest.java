@@ -40,7 +40,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.transport.RTCTransport;
-import org.ngengine.platform.transport.RTCTransport.RTCDataChannel;
+import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 import tel.schich.libdatachannel.PeerConnection;
@@ -51,6 +51,7 @@ public class AndroidJVMRtcInteropInstrumentedTest {
     private static final Gson GSON = new Gson();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final List<String> STUN_SERVERS = List.of("stun.l.google.com:19302");
+    private static final String JVM_INITIATOR_CHANNEL = "nostr4j-jvm-android-interop";
 
     @BeforeClass
     public static void ensurePlatform() throws Exception {
@@ -88,7 +89,8 @@ public class AndroidJVMRtcInteropInstrumentedTest {
         CountDownLatch connectedLatch = new CountDownLatch(1);
         CountDownLatch channelReadyLatch = new CountDownLatch(1);
         CountDownLatch jvmReadyLatch = new CountDownLatch(1);
-        AtomicReference<AsyncTask<RTCDataChannel>> responderChannelTaskRef = new AtomicReference<>();
+        AtomicReference<AsyncTask<String>> responderConnectTaskRef = new AtomicReference<>();
+        AtomicReference<AsyncTask<RTCDataChannel>> responderDefaultChannelTaskRef = new AtomicReference<>();
         BlockingQueue<byte[]> inbox = new LinkedBlockingQueue<>();
         AtomicReference<Throwable> listenerError = new AtomicReference<>();
         Map<String, String> meta = new ConcurrentHashMap<>();
@@ -141,6 +143,9 @@ public class AndroidJVMRtcInteropInstrumentedTest {
                 public void onRTCChannelClosed(RTCDataChannel channel) {}
 
                 @Override
+                public void onRTCBufferedAmountLow(RTCDataChannel channel) {}
+
+                @Override
                 public void onRTCDisconnected(String reason) {
                     listenerError.compareAndSet(null, new IllegalStateException("RTC disconnected: " + reason));
                 }
@@ -163,7 +168,7 @@ public class AndroidJVMRtcInteropInstrumentedTest {
                             JsonObject msg = el.getAsJsonObject();
                             String type = msg.get("type").getAsString();
                             if ("offer".equals(type)) {
-                                responderChannelTaskRef.compareAndSet(null, transport.connect(msg.get("sdp").getAsString()));
+                                responderConnectTaskRef.compareAndSet(null, transport.connect(msg.get("sdp").getAsString()));
                             } else if ("ice".equals(type)) {
                                 String candidate = msg.get("candidate").getAsString();
                                 String sdpMid = msg.has("sdpMid") && !msg.get("sdpMid").isJsonNull()
@@ -216,9 +221,16 @@ public class AndroidJVMRtcInteropInstrumentedTest {
                 fail("RTC connected event missing");
             }
 
-            AsyncTask<RTCDataChannel> responderChannelTask = responderChannelTaskRef.get();
-            assertNotNull("Responder channel task not created", responderChannelTask);
-            RTCDataChannel channel = responderChannelTask.await();
+            AsyncTask<String> responderConnectTask = responderConnectTaskRef.get();
+            assertNotNull("Responder connect task not created", responderConnectTask);
+            responderConnectTask.await();
+            responderDefaultChannelTaskRef.compareAndSet(
+                null,
+                transport.createDataChannel(JVM_INITIATOR_CHANNEL, null, true, true, 0, null)
+            );
+            AsyncTask<RTCDataChannel> responderDefaultChannelTask = responderDefaultChannelTaskRef.get();
+            assertNotNull("Responder default channel task not created", responderDefaultChannelTask);
+            RTCDataChannel channel = responderDefaultChannelTask.await();
             channel.ready().await();
             if (!channelReadyLatch.await(10, TimeUnit.SECONDS)) {
                 awaitNoListenerError(listenerError, "waiting for channel ready");

@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.AsyncExecutor;
@@ -51,6 +52,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
+import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
@@ -71,6 +73,7 @@ public class AndroidRTCTransport implements RTCTransport {
     private final List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final Map<DataChannel, RTCDataChannel> channelWrappers = new ConcurrentHashMap<>();
     private final Map<DataChannel, AsyncTask<RTCDataChannel>> channelReadyTasks = new ConcurrentHashMap<>();
+    private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
 
     private PeerConnectionConfiguration config;
@@ -145,6 +148,15 @@ public class AndroidRTCTransport implements RTCTransport {
                     }
                 }
             }
+        });
+
+        this.conn.onDataChannel.register((peer, nativeChannel) -> {
+            configureChannel(nativeChannel)
+                .catchException(e -> logger.log(Level.WARNING, "Error configuring incoming channel", e))
+                .then(channel -> {
+                    resolvePendingIncomingChannel(channel);
+                    return null;
+                });
         });
 
         this.executor.runLater(
@@ -286,7 +298,60 @@ public class AndroidRTCTransport implements RTCTransport {
         channelWrappers.remove(nativeChannel);
     }
 
+    public String getName(){
+        return connId;
+    }
+  
+    private String resolveChannelLabel(String name) {
+        return (name == null || name.isEmpty()) ? defaultChannelLabel() : name;
+    }
+
+    private void resolvePendingIncomingChannel(RTCDataChannel channel) {
+        List<Consumer<RTCDataChannel>> waiters = pendingIncomingChannelResolvers.remove(channel.getName());
+        if (waiters == null) {
+            return;
+        }
+        for (Consumer<RTCDataChannel> waiter : waiters) {
+            try {
+                waiter.accept(channel);
+            } catch (Throwable t) {
+                logger.log(Level.WARNING, "Error resolving pending incoming channel waiter", t);
+            }
+        }
+    }
+
+    private AsyncTask<RTCDataChannel> awaitIncomingChannel(String label) {
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            return existing.ready();
+        }
+        NGEPlatform platform = NGEUtils.getPlatform();
+        return platform.wrapPromise((res, rej) -> {
+            RTCDataChannel current = getDataChannel(label);
+            if (current != null) {
+                current.ready().catchException(rej::accept).then(channel -> {
+                    res.accept(channel);
+                    return null;
+                });
+                return;
+            }
+            pendingIncomingChannelResolvers
+                .computeIfAbsent(label, _k -> new CopyOnWriteArrayList<>())
+                .add(channel -> {
+                    channel.ready().catchException(rej::accept).then(ready -> {
+                        res.accept(ready);
+                        return null;
+                    });
+                });
+        });
+    }
+
     private AsyncTask<RTCDataChannel> configureChannel(DataChannel nativeChannel) {
+        AsyncTask<RTCDataChannel> existingReadyTask = channelReadyTasks.get(nativeChannel);
+        if (existingReadyTask != null) {
+            return existingReadyTask;
+        }
+
         NGEPlatform platform = NGEUtils.getPlatform();
         RTCDataChannel wrapper = wrapChannel(nativeChannel);
 
@@ -325,6 +390,16 @@ public class AndroidRTCTransport implements RTCTransport {
                 }
             })
         );
+
+        nativeChannel.onBufferedAmountLow.register(c -> {
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCBufferedAmountLow(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying buffered amount low", e);
+                }
+            }
+        });
 
         AsyncTask<RTCDataChannel> readyTask = platform.wrapPromise((res, rej) -> {
             if (nativeChannel.isOpen()) {
@@ -369,17 +444,9 @@ public class AndroidRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<String> createChannel(
-        String name,
-        String protocol,
-        boolean ordered,
-        boolean reliable,
-        int maxRetransmits,
-        Duration maxPacketLifeTime
-    ) {
+    public AsyncTask<String> listen() {
         this.isInitiator = true;
         NGEPlatform platform = NGEUtils.getPlatform();
-
         return platform.wrapPromise((res, rej) -> {
             try {
                 this.conn.onLocalDescription.register((peer, sdp, type) -> {
@@ -388,6 +455,41 @@ public class AndroidRTCTransport implements RTCTransport {
                     }
                 });
 
+                DataChannelReliability reliability = DataChannelReliability.DEFAULT.withUnordered(false).withUnreliable(false);
+                DataChannelInitSettings init = DataChannelInitSettings.DEFAULT.withReliability(reliability);
+                String label = defaultChannelLabel();
+                DataChannel nativeChannel = this.conn.createDataChannel(label, init);
+                configureChannel(nativeChannel).catchException(rej::accept);
+            } catch (Throwable e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    @Override
+    public AsyncTask<RTCDataChannel> createDataChannel(
+        String name,
+        String protocol,
+        boolean ordered,
+        boolean reliable,
+        int maxRetransmits,
+        Duration maxPacketLifeTime
+    ) {
+        NGEPlatform platform = NGEUtils.getPlatform();
+        String label = resolveChannelLabel(name);
+        RTCDataChannel existing = getDataChannel(label);
+        if (existing != null) {
+            logger.fine("createDataChannel returning existing channel: " + label);
+            return existing.ready();
+        }
+
+        if (!this.isInitiator) {
+            logger.fine("Non-initiator createDataChannel is awaiting incoming channel: " + label);
+            return awaitIncomingChannel(label);
+        }
+
+        return platform.wrapPromise((res, rej) -> {
+            try {
                 DataChannelReliability reliability = DataChannelReliability.DEFAULT
                     .withUnordered(!ordered)
                     .withUnreliable(!reliable);
@@ -403,10 +505,13 @@ public class AndroidRTCTransport implements RTCTransport {
                 if (protocol != null) {
                     init = init.withProtocol(protocol);
                 }
-
-                String label = (name == null || name.isEmpty()) ? ("nostr4j-" + connId) : name;
                 DataChannel nativeChannel = this.conn.createDataChannel(label, init);
-                configureChannel(nativeChannel).catchException(rej::accept);
+                configureChannel(nativeChannel)
+                    .catchException(rej::accept)
+                    .then(channel -> {
+                        res.accept(channel);
+                        return null;
+                    });
             } catch (Throwable e) {
                 rej.accept(e);
             }
@@ -414,7 +519,7 @@ public class AndroidRTCTransport implements RTCTransport {
     }
 
     @Override
-    public AsyncTask<RTCDataChannel> connect(String offerOrAnswer) {
+    public AsyncTask<String> connect(String offerOrAnswer) {
         NGEPlatform platform = NGEUtils.getPlatform();
 
         if (this.isInitiator) {
@@ -433,26 +538,11 @@ public class AndroidRTCTransport implements RTCTransport {
         logger.fine("Connect using offer");
         String offer = offerOrAnswer;
 
-        AsyncTask<RTCDataChannel> openChannel = platform.wrapPromise((res, rej) -> {
-            this.conn.onDataChannel.register((peer, nativeChannel) -> {
-                configureChannel(nativeChannel)
-                    .catchException(rej::accept)
-                    .then(channel -> {
-                        res.accept(channel);
-                        return null;
-                    });
-            });
-        });
-
         return platform.wrapPromise((res, rej) -> {
             this.conn.onLocalDescription.register((peer, sdp, type) -> {
                 if (type == SessionDescriptionType.ANSWER) {
-                    openChannel
-                        .catchException(rej::accept)
-                        .then(channel -> {
-                            res.accept(channel);
-                            return null;
-                        });
+                    logger.fine("Answer ready");
+                    res.accept(sdp);
                 }
             });
 
@@ -494,7 +584,7 @@ public class AndroidRTCTransport implements RTCTransport {
 
     @Override
     public RTCDataChannel getDataChannel(String name) {
-        if (name == RTCTransport.DEFAULT_CHANNEL) name = "nostr4j-" + connId;
+        if (name == RTCTransport.DEFAULT_CHANNEL) name = defaultChannelLabel();
         for (RTCDataChannel channel : channelWrappers.values()) {
             if (name.equals(channel.getName())) {
                 return channel;

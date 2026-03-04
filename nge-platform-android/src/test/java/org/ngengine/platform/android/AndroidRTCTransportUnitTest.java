@@ -11,6 +11,7 @@ import org.junit.Test;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.RTCTransport;
+import org.ngengine.platform.transport.RTCDataChannel ;
 
 public class AndroidRTCTransportUnitTest {
 
@@ -44,7 +45,7 @@ public class AndroidRTCTransportUnitTest {
         f.set(target, value);
     }
 
-    private static final class RecordingChannel extends RTCTransport.RTCDataChannel {
+    private static final class RecordingChannel extends RTCDataChannel {
         private final AtomicInteger writeCount = new AtomicInteger();
         private volatile byte[] lastWrite;
 
@@ -53,7 +54,7 @@ public class AndroidRTCTransportUnitTest {
         }
 
         @Override
-        public AsyncTask<RTCTransport.RTCDataChannel> ready() {
+        public AsyncTask<RTCDataChannel> ready() {
             return ImmediateAsyncTask.completed(this);
         }
 
