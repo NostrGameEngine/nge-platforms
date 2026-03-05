@@ -23,6 +23,20 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function toUint8Array(data) {
+  if (data instanceof Uint8Array) return data;
+  if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+  if (typeof data === 'string') return new TextEncoder().encode(data);
+  throw new TypeError(`Unsupported RTC message type: ${Object.prototype.toString.call(data)}`);
+}
+
+function setOnChannelMessage(channel, callback) {
+  channel.onmessage = (event) => {
+    callback(toUint8Array(event.data));
+  };
+}
+
 async function post(path, body) {
   const res = await fetch(`${signalBase}${path}`, {
     method: 'POST',
@@ -79,7 +93,7 @@ async function main() {
   };
 
   const channel = B.rtcCreateDataChannel(pc, 'nostr4j-browser-android-interop', 'browser-android-proto', true, true, -1, -1);
-  B.rtcSetOnMessageHandler(channel, (bytes) => {
+  setOnChannelMessage(channel, (bytes) => {
     received.push(Array.from(bytes));
     const text = decoder.decode(bytes);
     step(`received message ${text}`);
@@ -157,12 +171,9 @@ async function main() {
   }
   if (!androidReady) throw new Error('Timed out waiting for android-ready');
 
-  channel.send(encoder.encode('ping-from-browser'));
-  step('sent ping');
-
   const msgDeadline = Date.now() + 60000;
   while (Date.now() < msgDeadline) {
-    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android')) break;
+    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-android')) break;
     const poll = await get(`/poll?to=browser&after=${cursor}`);
     cursor = poll.cursor || cursor;
     for (const msg of poll.messages || []) {
@@ -175,8 +186,31 @@ async function main() {
     await sleep(50);
   }
 
-  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android')) {
-    throw new Error('Timed out waiting for pong-from-android');
+  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-android')) {
+    throw new Error('Timed out waiting for ping-from-android');
+  }
+
+  channel.send(encoder.encode('pong-from-browser').buffer);
+  step('sent pong');
+  channel.send(encoder.encode('ping-from-browser-2').buffer);
+  step('sent ping2');
+
+  const secondDeadline = Date.now() + 30000;
+  while (Date.now() < secondDeadline) {
+    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android-2')) break;
+    const poll = await get(`/poll?to=browser&after=${cursor}`);
+    cursor = poll.cursor || cursor;
+    for (const msg of poll.messages || []) {
+      if (msg.type === 'ice') {
+        const c = { candidate: msg.candidate, sdpMid: msg.sdpMid };
+        try { await pc.addIceCandidate(c); } catch (_) {}
+      }
+      if (msg.type === 'android-failed') throw new Error(`Android harness failed: ${msg.error}`);
+    }
+    await sleep(50);
+  }
+  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android-2')) {
+    throw new Error('Timed out waiting for pong-from-android-2');
   }
 
   setResult({

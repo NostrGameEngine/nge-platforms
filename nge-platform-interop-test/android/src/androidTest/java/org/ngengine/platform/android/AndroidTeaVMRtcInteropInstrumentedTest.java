@@ -251,15 +251,19 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
                 fail("Did not receive browser-ready signal");
             }
 
-            byte[] ping = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
-            String pingText = new String(ping, StandardCharsets.UTF_8);
-            assertTrue("Unexpected payload from browser: " + pingText, "ping-from-browser".equals(pingText));
-            channel.write(ByteBuffer.wrap("pong-from-android".getBytes(StandardCharsets.UTF_8))).await();
+            channel.write(ByteBuffer.wrap("ping-from-android".getBytes(StandardCharsets.UTF_8))).await();
+            byte[] pong = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
+            String pongText = new String(pong, StandardCharsets.UTF_8);
+            assertTrue("Unexpected payload from browser: " + pongText, "pong-from-browser".equals(pongText));
+            byte[] ping2 = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
+            String ping2Text = new String(ping2, StandardCharsets.UTF_8);
+            assertTrue("Unexpected second payload from browser: " + ping2Text, "ping-from-browser-2".equals(ping2Text));
+            channel.write(ByteBuffer.wrap("pong-from-android-2".getBytes(StandardCharsets.UTF_8))).await();
 
             channel.close().await();
             JsonObject result = new JsonObject();
             result.addProperty("ok", true);
-            result.addProperty("reply", "pong-from-android");
+            result.addProperty("reply", "pong-from-browser/pong-from-android-2");
             result.addProperty("browserLabel", meta.getOrDefault("browserLabel", ""));
             postJson(http, signalBase + "/result/android", result);
         } catch (Throwable t) {
@@ -287,10 +291,12 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
     ) throws Exception {
         long deadline = System.nanoTime() + unit.toNanos(timeout);
         while (System.nanoTime() < deadline) {
-            Throwable err = listenerError.get();
-            if (err != null) throw new IllegalStateException("Listener error", err);
             byte[] msg = inbox.poll(100, TimeUnit.MILLISECONDS);
             if (msg != null) return msg;
+            Throwable err = listenerError.get();
+            if (err != null) {
+                throw new IllegalStateException("Listener error", err);
+            }
         }
         throw new IllegalStateException("Timed out waiting for browser message");
     }

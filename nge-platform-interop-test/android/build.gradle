@@ -35,8 +35,8 @@ dependencies {
     androidTestImplementation 'junit:junit:4.13.2' 
     androidTestImplementation 'com.google.code.gson:gson:2.13.2'
     androidTestImplementation 'com.squareup.okhttp3:okhttp:5.3.2' 
-    androidTestImplementation 'tel.schich:libdatachannel-java-android:0.23.1.2'
-    androidTestImplementation 'tel.schich:libdatachannel-java:0.23.1.2'
+    androidTestImplementation 'org.ngengine:libdatachannel-java-android:0.24.1.0-SNAPSHOT'
+    androidTestImplementation 'org.ngengine:libdatachannel-java:0.24.1.0-SNAPSHOT'
 }
 
 tasks.register('androidRtcEmulatorHarness', Exec) {

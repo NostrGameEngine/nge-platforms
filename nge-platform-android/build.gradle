@@ -1,6 +1,10 @@
 plugins {
     id 'com.android.library'
  }
+
+configurations {
+    saferallocAndroidNatives
+}
  
 android {
     compileSdk 36
@@ -9,12 +13,22 @@ android {
     defaultConfig {
         minSdk 33
         targetSdk 33
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         
     }
     
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11
         targetCompatibility JavaVersion.VERSION_11
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDir("$buildDir/generated/saferalloc/jniLibs")
+        }
+        androidTest {
+            jniLibs.srcDir("$buildDir/generated/saferalloc/jniLibs")
+        }
     }
 
     testOptions {
@@ -32,10 +46,39 @@ dependencies {
     implementation 'com.google.code.gson:gson:2.13.2'
     implementation 'org.bouncycastle:bcprov-jdk18on:1.83'
     testImplementation 'junit:junit:4.13.2'
-    implementation 'tel.schich:libdatachannel-java-android:0.24.1.1'
-    implementation 'tel.schich:libdatachannel-java:0.24.1.1'
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'androidx.test:core:1.7.0'
+    androidTestImplementation 'androidx.test.ext:junit:1.3.0'
+    androidTestImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'org.ngengine:saferalloc:0.1.0-SNAPSHOT'
+    androidTestImplementation 'org.ngengine:saferalloc-natives-android:0.1.0-SNAPSHOT'
+    implementation 'org.ngengine:libdatachannel-java-arch-detect:0.24.1.0-SNAPSHOT'
+    implementation 'org.ngengine:libdatachannel-java:0.24.1.0-SNAPSHOT'
+    
     implementation 'com.squareup.okhttp3:okhttp:5.3.2'
 
+    implementation 'org.ngengine:saferalloc:0.1.0-SNAPSHOT'
+    implementation 'org.ngengine:saferalloc-natives-android:0.1.0-SNAPSHOT'
+    saferallocAndroidNatives 'org.ngengine:saferalloc-natives-android:0.1.0-SNAPSHOT'
+
+
+}
+
+tasks.register('extractSaferallocAndroidNatives', Copy) {
+    from({
+        configurations.saferallocAndroidNatives.collect { zipTree(it) }
+    }) {
+        include 'natives/android/**/libsaferalloc.so'
+        eachFile { details ->
+            details.path = details.path.replaceFirst('^natives/android/', '')
+        }
+        includeEmptyDirs = false
+    }
+    into("$buildDir/generated/saferalloc/jniLibs")
+}
+
+tasks.matching { it.name.startsWith('merge') && it.name.contains('JniLibFolders') }.configureEach {
+    dependsOn tasks.named('extractSaferallocAndroidNatives')
 }
 
 def sdk = System.getenv('ANDROID_SDK_ROOT') ?: System.getenv('ANDROID_HOME')

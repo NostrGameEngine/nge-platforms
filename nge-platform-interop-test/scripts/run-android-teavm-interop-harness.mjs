@@ -229,6 +229,7 @@ async function main() {
   const combined = {
     ok: Boolean(state.results.browser?.ok) && Boolean(state.results.android?.ok) && androidOut.code === 0,
     browser: state.results.browser ?? browserOut?.result ?? null,
+    browserPageResult: browserOut?.result ?? null,
     android: state.results.android ?? null,
     androidExitCode: androidOut.code,
   };

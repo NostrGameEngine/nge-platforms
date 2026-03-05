@@ -61,6 +61,7 @@ import tel.schich.libdatachannel.DataChannelCallback.Message;
 import tel.schich.libdatachannel.DataChannelInitSettings;
 import tel.schich.libdatachannel.DataChannelReliability;
 import tel.schich.libdatachannel.IceState;
+import tel.schich.libdatachannel.LibDataChannel;
 import tel.schich.libdatachannel.PeerConnection;
 import tel.schich.libdatachannel.PeerConnectionConfiguration;
 import tel.schich.libdatachannel.PeerState;
@@ -75,6 +76,7 @@ public class AndroidRTCTransport implements RTCTransport {
     private final Map<DataChannel, AsyncTask<RTCDataChannel>> channelReadyTasks = new ConcurrentHashMap<>();
     private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
+    private final List<RTCTransportIceCandidate> pendingRemoteCandidates = new CopyOnWriteArrayList<>();
 
     private PeerConnectionConfiguration config;
     private String connId;
@@ -83,9 +85,25 @@ public class AndroidRTCTransport implements RTCTransport {
     private AsyncExecutor executor;
     private volatile boolean connected;
     private RTCSettings settings;
+    private static volatile boolean libAllocator = false;
 
     public AndroidRTCTransport() {
         logger.fine("AndroidRTCTransport initialized");
+        configureLibDataChannelAllocatorIfRequested();
+    }
+
+    private static synchronized void configureLibDataChannelAllocatorIfRequested() {
+        if (libAllocator) {
+            return;
+        }
+        LibDataChannel.setAllocator(size -> {
+            ByteBuffer b = NGEPlatform.get().getNativeAllocator().calloc(1, size);
+            if (b == null) {
+                throw new IllegalStateException("Native allocator returned null buffer for size " + size);
+            }
+            return b;
+        });
+        libAllocator = true;
     }
 
     @Override
@@ -184,6 +202,30 @@ public class AndroidRTCTransport implements RTCTransport {
 
     private RTCDataChannel wrapChannel(DataChannel nativeChannel) {
         return channelWrappers.computeIfAbsent(nativeChannel, this::createChannelWrapper);
+    }
+
+    private void tryAddRemoteCandidate(RTCTransportIceCandidate candidate) {
+        if (trackedRemoteCandidates.contains(candidate)) {
+            return;
+        }
+        try {
+            this.conn.addRemoteCandidate(candidate.getCandidate(), candidate.getSdpMid());
+            trackedRemoteCandidates.add(candidate);
+            pendingRemoteCandidates.remove(candidate);
+        } catch (Throwable t) {
+            if (!pendingRemoteCandidates.contains(candidate)) {
+                pendingRemoteCandidates.add(candidate);
+            }
+        }
+    }
+
+    private void flushPendingRemoteCandidates() {
+        if (pendingRemoteCandidates.isEmpty()) {
+            return;
+        }
+        for (RTCTransportIceCandidate candidate : new ArrayList<>(pendingRemoteCandidates)) {
+            tryAddRemoteCandidate(candidate);
+        }
     }
 
     private AsyncTask<RTCDataChannel> awaitChannelReady(DataChannel nativeChannel) {
@@ -380,6 +422,12 @@ public class AndroidRTCTransport implements RTCTransport {
 
         nativeChannel.onMessage.register(
             Message.handleBinary((c, buffer) -> {
+                // copy buffer for memory safety 
+                ByteBuffer copy = NGEPlatform.get().getNativeAllocator().malloc(buffer.remaining());
+                copy.put(buffer);
+                copy.flip();
+                buffer = copy;
+                ////
                 assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
                 for (RTCTransportListener listener : listeners) {
                     try {
@@ -528,6 +576,7 @@ public class AndroidRTCTransport implements RTCTransport {
             return platform.wrapPromise((res, rej) -> {
                 try {
                     this.conn.setRemoteDescription(answer, SessionDescriptionType.ANSWER);
+                    flushPendingRemoteCandidates();
                     res.accept(null);
                 } catch (Throwable e) {
                     rej.accept(e);
@@ -555,17 +604,15 @@ public class AndroidRTCTransport implements RTCTransport {
             });
 
             this.conn.setRemoteDescription(offer, SessionDescriptionType.OFFER);
+            flushPendingRemoteCandidates();
         });
     }
 
     @Override
     public void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates) {
         for (RTCTransportIceCandidate candidate : candidates) {
-            if (!trackedRemoteCandidates.contains(candidate)) {
-                this.conn.addRemoteCandidate(candidate.getCandidate(), candidate.getSdpMid());
-                logger.fine("Adding remote candidate: " + candidate);
-                trackedRemoteCandidates.add(candidate);
-            }
+            logger.fine("Adding remote candidate: " + candidate);
+            tryAddRemoteCandidate(candidate);
         }
     }
 
