@@ -30,6 +30,8 @@
  */
 package org.ngengine.platform.transport;
 
+import java.util.Objects;
+
 public class RTCTransportIceCandidate {
 
     private final String candidate;
@@ -55,7 +57,7 @@ public class RTCTransportIceCandidate {
 
     @Override
     public int hashCode() {
-        return candidate.hashCode() + sdpMid.hashCode();
+        return Objects.hash(candidate, sdpMid);
     }
 
     @Override
@@ -63,6 +65,6 @@ public class RTCTransportIceCandidate {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         RTCTransportIceCandidate other = (RTCTransportIceCandidate) obj;
-        return candidate.equals(other.candidate) && sdpMid.equals(other.sdpMid);
+        return Objects.equals(candidate, other.candidate) && Objects.equals(sdpMid, other.sdpMid);
     }
 }

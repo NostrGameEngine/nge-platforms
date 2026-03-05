@@ -88,6 +88,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.BrowserInterceptor;
 import org.ngengine.platform.FailedToSignException;
+import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
@@ -98,12 +99,19 @@ import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
+
 // thread-safe
 public class JVMAsyncPlatform extends NGEPlatform {
     static {
         if (Security.getProvider("BC") == null) {
             Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
         }
+    }
+    private static final NGEAllocator allocator = new JVMNGEAllocator();
+
+    @Override
+    public NGEAllocator getNativeAllocator() {
+        return allocator;
     }
 
     private static final Logger logger = Logger.getLogger(JVMAsyncPlatform.class.getName());

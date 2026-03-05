@@ -79,6 +79,8 @@ import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
+import org.ngengine.platform.NGEAllocator;
+
 public class AndroidThreadedPlatform extends NGEPlatform {
 
     static {
@@ -99,7 +101,13 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     private final AsyncExecutor httpExecutor = newAsyncExecutor();
     private final AsyncExecutor rtcExecutor = newAsyncExecutor();
     private final ScheduledExecutorService websocketExecutor = Executors.newScheduledThreadPool(4);
+    private static final NGEAllocator allocator = new AndroidNGEAllocator();
 
+    @Override
+    public NGEAllocator getNativeAllocator() {
+        return allocator;
+    }
+    
     static {
         secureRandom = newSecureRandom();
     }

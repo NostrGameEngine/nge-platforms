@@ -63,10 +63,12 @@ allprojects {
     repositories {
         mavenLocal()
         mavenCentral()
+
         google()
         maven {
             url "https://maven.rblb.it/NostrGameEngine/libdatachannel-java"
         }
+        maven { url = uri("https://central.sonatype.com/repository/maven-snapshots") }
         maven { url = uri("https://teavm.org/maven/repository") }
     }
 }

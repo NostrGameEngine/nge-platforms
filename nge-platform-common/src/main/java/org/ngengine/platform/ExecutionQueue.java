@@ -68,7 +68,7 @@ public class ExecutionQueue implements Closeable {
         this.executor.runLater(
                 () -> {
                     int lg = leakGuard.get();
-                    logger.log(Level.WARNING, "ExecutionQueue: " + lg + " pending tasks");
+                    logger.log(Level.FINEST, "ExecutionQueue: " + lg + " pending tasks");
                     if (logger.isLoggable(Level.FINEST)) {
                         debug();
                     }

@@ -52,6 +52,7 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.RTCSettings;
@@ -65,9 +66,14 @@ import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
-
+    private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
     private AsyncExecutor defaultExecutor = newAsyncExecutor();
+
+    @Override
+    public NGEAllocator getNativeAllocator() {
+        return allocator;
+    }
 
     @Override
     public byte[] generatePrivateKey() {
