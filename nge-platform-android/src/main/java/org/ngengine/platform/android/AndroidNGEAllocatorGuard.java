@@ -140,9 +140,9 @@ public class AndroidNGEAllocatorGuard {
         adaptSoftBudget(currentBytes, projectedBytes, currentSoftBudget);
         currentSoftBudget = softBudget.get();
 
-        if(LOGGER.isLoggable(Level.INFO)){
+        if(LOGGER.isLoggable(Level.FINER)){
             float softBudgetPercent = projectedBytes / (float)currentSoftBudget * 100f;
-            LOGGER.log(Level.INFO, "\n"+
+            LOGGER.log(Level.FINER, "\n"+
                 "       Requested " + human(size) + "\n" +
                 "       Currently allocated: " + human(currentBytes) + "\n" +
                 "       Soft budget: " + human(currentSoftBudget) + "\n" +
@@ -200,8 +200,8 @@ public class AndroidNGEAllocatorGuard {
             long grownFromDemand = (long)(projectedBytes * growDemandFactor);
             long newBudget = clampBudget(Math.max(grownFromCurrent, grownFromDemand));
             if (newBudget > currentSoftBudget && softBudget.compareAndSet(currentSoftBudget, newBudget)) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.log(Level.INFO, ">>> Adaptive soft budget up: {0} -> {1}",
+                if (LOGGER.isLoggable(Level.FINER)) {
+                    LOGGER.log(Level.FINER, ">>> Adaptive soft budget up: {0} -> {1}",
                             new Object[]{human(currentSoftBudget), human(newBudget)});
                 }
             }
@@ -213,8 +213,8 @@ public class AndroidNGEAllocatorGuard {
         if (lows >= shrinkTriggerCount) {
             long reduced = clampBudget((long)(currentSoftBudget * shrinkFactor));
             if (reduced < currentSoftBudget && softBudget.compareAndSet(currentSoftBudget, reduced)) {
-                if (LOGGER.isLoggable(Level.INFO)) {
-                    LOGGER.log(Level.INFO, ">>> Adaptive soft budget down: {0} -> {1}",
+                if (LOGGER.isLoggable(Level.FINER)) {
+                    LOGGER.log(Level.FINER, ">>> Adaptive soft budget down: {0} -> {1}",
                             new Object[]{human(currentSoftBudget), human(reduced)});
                 }
             }
@@ -225,8 +225,8 @@ public class AndroidNGEAllocatorGuard {
     private static void requestGC(long now) {
         lastGCRun.updateAndGet(last -> {
             if (now - last >= gcIntervalMillis) {
-                if(LOGGER.isLoggable(Level.INFO)){
-                    LOGGER.log(Level.INFO, "!!! Requesting GC...");
+                if(LOGGER.isLoggable(Level.FINER)){
+                    LOGGER.log(Level.FINER, "!!! Requesting GC...");
                 }
                 gcInvoker.run();
                 gcInvoker.run();
