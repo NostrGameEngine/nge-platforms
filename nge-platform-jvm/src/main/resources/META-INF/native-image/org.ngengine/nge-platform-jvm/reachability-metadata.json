@@ -4251,6 +4251,17 @@
             ]
         },
         {
+            "type": "org.junit.runner.Description",
+            "methods": [
+                {
+                    "name": "getTestClass",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.junit.runner.Description"
         },
         {
