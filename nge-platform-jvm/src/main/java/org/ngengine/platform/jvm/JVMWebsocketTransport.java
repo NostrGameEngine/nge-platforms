@@ -219,7 +219,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     try {
                         listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
                     } catch (Exception e) {
-                        logger.warning("Error in binary message listener: " + e);
+                        logger.log(Level.WARNING, "Error in binary message listener",e);
                     }
                 }
             }
