@@ -59,6 +59,7 @@ tasks.named('sourcesJar') {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11) 
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
@@ -70,5 +71,6 @@ tasks.named('test') {
     }
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(11)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }

@@ -1,0 +1,55 @@
+name: Refresh Native Image Metadata
+
+on:
+  push:
+    branches:
+      - '**'
+    paths-ignore:
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+jobs:
+  refresh-native-image-metadata:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21 (Adoptium)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Regenerate GraalVM reachability metadata
+        id: refresh_metadata
+        continue-on-error: true
+        run: ./gradlew --no-daemon :nge-platform-jvm:refreshNativeImageMetadataAll
+
+      - name: Commit and push metadata changes
+        if: steps.refresh_metadata.outcome == 'success'
+        run: |
+          if git diff --quiet; then
+            echo "No metadata changes to commit."
+            exit 0
+          fi
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add nge-platform-jvm/src/main/resources/META-INF/native-image/
+          git commit -m "[Automated] Refresh GraalVM reachability metadata"
+          git push
+
+      - name: Metadata Refresh Warning
+        if: steps.refresh_metadata.outcome == 'failure'
+        run: echo "::warning::Reachability metadata refresh failed; this workflow is non-blocking and CI will continue."

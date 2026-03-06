@@ -9,18 +9,21 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(11) 
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
 tasks.named('compileTestJava') {
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
 tasks.named('test') {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 

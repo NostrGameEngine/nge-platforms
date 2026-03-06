@@ -34,6 +34,16 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    # - name: Refresh Native Image Metadata (Release Preflight)
+    #   if: github.event_name == 'release'
+    #   id: native_metadata
+    #   continue-on-error: true
+    #   run: ./gradlew --no-daemon :nge-platform-jvm:refreshNativeImageMetadataAll
+
+    # - name: Native Metadata Refresh Warning
+    #   if: github.event_name == 'release' && steps.native_metadata.outcome == 'failure'
+    #   run: echo "::warning::Native image metadata refresh failed, continuing release build."
+
     - name: Build
       run: |
         export VERSION=""

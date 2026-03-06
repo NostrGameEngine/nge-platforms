@@ -1,4 +1,7 @@
 
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
+
 plugins {
     id 'java-library'
 }
@@ -24,18 +27,21 @@ dependencies {
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21) 
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
 tasks.named('compileTestJava') {
     javaCompiler = javaToolchains.compilerFor {
         languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
 tasks.named('test') {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
     }
 }
 
@@ -45,4 +51,293 @@ tasks.named('test') {
         events "passed", "skipped", "failed"
         exceptionFormat "full"
     }
+}
+
+def nativeImageMetadataBuildDir = layout.buildDirectory.dir('native/metadata-agent')
+def nativeImageMetadataMainDir = layout.buildDirectory.dir('native/metadata-agent/main')
+def nativeImageMetadataTestsDir = layout.buildDirectory.dir('native/metadata-agent/tests')
+def nativeImageConfigDir = layout.projectDirectory.dir("src/main/resources/META-INF/native-image/${project.group}/${project.name}")
+def nativeImageReachabilityMetadataFile = nativeImageConfigDir.file('reachability-metadata.json')
+def nativeImageLegacyReflectConfigFile = nativeImageConfigDir.file('reflect-config.json')
+def forcedReachabilityReflectionTypes = [
+        'org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi$ECDSA'
+]
+
+def ensureJavaExecutableAvailable = { File executable, String taskName ->
+    if (executable == null || !executable.exists() || !executable.canExecute()) {
+        throw new GradleException("Task '${taskName}' requires a valid Java executable for GraalVM tracing agent, but found: ${executable}")
+    }
+}
+
+def ensureNativeImageAgentAvailable = { File executable, String taskName ->
+    File javaHome = executable?.parentFile?.parentFile
+    if (javaHome == null || !javaHome.exists()) {
+        throw new GradleException("Task '${taskName}' could not determine JAVA_HOME from executable: ${executable}")
+    }
+    def agentCandidates = fileTree(javaHome) {
+        include '**/libnative-image-agent.so'
+        include '**/libnative-image-agent.dylib'
+        include '**/native-image-agent.dll'
+    }.files
+    if (agentCandidates.isEmpty()) {
+        throw new GradleException(
+                "Task '${taskName}' requires GraalVM Native Image agent, but no native-image-agent library was found under ${javaHome}. " +
+                        "Use a GraalVM JDK with Native Image installed, then rerun."
+        )
+    }
+}
+
+def parseJsonArray = { File file, String label ->
+    def parsed = new JsonSlurper().parse(file)
+    if (!(parsed instanceof List)) {
+        throw new GradleException("${label} must be a JSON array, but found: ${parsed?.getClass()?.name}")
+    }
+    return (List) parsed
+}
+
+tasks.register('cleanNativeImageMetadataAgent', Delete) {
+    group = 'native image'
+    description = 'Deletes temporary GraalVM tracing-agent metadata output directory.'
+    delete nativeImageMetadataBuildDir
+}
+
+tasks.register('generateNativeImageMetadata', JavaExec) {
+    group = 'native image'
+    description = 'Runs a JVM entrypoint with GraalVM tracing agent enabled and writes metadata to build/native/metadata-agent.'
+    dependsOn testClasses
+    classpath = sourceSets.test.runtimeClasspath
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+        vendor = JvmVendorSpec.GRAAL_VM
+    }
+    workingDir = project.projectDir
+    outputs.dir(nativeImageMetadataMainDir)
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        File javaExec = javaLauncher.get().executablePath.asFile
+        ensureJavaExecutableAvailable(javaExec, name)
+        ensureNativeImageAgentAvailable(javaExec, name)
+
+        def configuredMainClass = project.findProperty('nativeImageMetadataMainClass')?.toString()?.trim()
+        if (!configuredMainClass) configuredMainClass = 'org.ngengine.platform.jvm.JVMReachAllMain'
+        mainClass.set(configuredMainClass)
+
+        def configuredArgs = project.findProperty('nativeImageMetadataMainArgs')?.toString()?.trim()
+        if (configuredArgs) {
+            args(configuredArgs.split(/\s+/) as List<String>)
+        }
+
+        File outDir = nativeImageMetadataMainDir.get().asFile
+        outDir.mkdirs()
+        jvmArgs("-agentlib:native-image-agent=config-output-dir=${outDir.absolutePath}")
+
+        logger.lifecycle("Generating Native Image metadata with tracing agent in: ${outDir}")
+    }
+
+    doLast {
+        logger.lifecycle("Tracing-agent generation finished. Expected metadata directory: ${nativeImageMetadataMainDir.get().asFile}")
+    }
+}
+
+tasks.register('generateNativeImageMetadataFromTests', Test) {
+    group = 'native image'
+    description = 'Runs tests with GraalVM tracing agent enabled and writes metadata to build/native/metadata-agent.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+        vendor = JvmVendorSpec.GRAAL_VM
+    }
+    useJUnit()
+    outputs.dir(nativeImageMetadataTestsDir)
+    outputs.upToDateWhen { false }
+
+    doFirst {
+        File javaExec = javaLauncher.get().executablePath.asFile
+        ensureJavaExecutableAvailable(javaExec, name)
+        ensureNativeImageAgentAvailable(javaExec, name)
+
+        File outDir = nativeImageMetadataTestsDir.get().asFile
+        outDir.mkdirs()
+        jvmArgs("-agentlib:native-image-agent=config-output-dir=${outDir.absolutePath}")
+
+        def configuredTestFilter = project.findProperty('nativeImageMetadataTestFilter')?.toString()?.trim()
+        if (configuredTestFilter) {
+            filter {
+                includeTestsMatching(configuredTestFilter)
+            }
+            logger.lifecycle("Using test filter for metadata generation: ${configuredTestFilter}")
+        }
+
+        logger.lifecycle("Generating Native Image metadata from tests in: ${outDir}")
+    }
+
+    doLast {
+        logger.lifecycle("Test-driven tracing-agent generation finished. Expected metadata directory: ${nativeImageMetadataTestsDir.get().asFile}")
+    }
+}
+
+tasks.register('syncNativeImageReflectConfig') {
+    group = 'native image'
+    description = 'Merges generated reachability metadata into src/main/resources/META-INF/native-image/<group>/<name>/reachability-metadata.json.'
+
+    doLast {
+        List<File> metadataRoots = [
+                nativeImageMetadataMainDir.get().asFile,
+                nativeImageMetadataTestsDir.get().asFile
+        ]
+
+        File destinationReachabilityMetadata = nativeImageReachabilityMetadataFile.asFile
+        File destinationLegacyReflectConfig = nativeImageLegacyReflectConfigFile.asFile
+        File destinationDir = destinationReachabilityMetadata.parentFile
+        destinationDir.mkdirs()
+
+        List<Map> generatedMetadataList = []
+        List<String> generatedSourceLabels = []
+        metadataRoots.each { File root ->
+            File generatedReachabilityConfig = new File(root, 'reachability-metadata.json')
+            File generatedReflectConfig = new File(root, 'reflect-config.json')
+            if (generatedReachabilityConfig.exists()) {
+                def reachabilityRoot = new JsonSlurper().parse(generatedReachabilityConfig)
+                if (!(reachabilityRoot instanceof Map)) {
+                    throw new GradleException("Generated reachability metadata (${generatedReachabilityConfig}) must be a JSON object.")
+                }
+                generatedMetadataList.add((Map) reachabilityRoot)
+                generatedSourceLabels.add(generatedReachabilityConfig.toString())
+            } else if (generatedReflectConfig.exists()) {
+                List legacyReflectEntries = parseJsonArray(generatedReflectConfig, "Generated reflect-config (${generatedReflectConfig})")
+                List migratedReflection = legacyReflectEntries
+                        .findAll { it instanceof Map }
+                        .collect { Map entry ->
+                            LinkedHashMap<String, Object> normalized = new LinkedHashMap<>(entry)
+                            if (!normalized.containsKey('type') && normalized.containsKey('name')) {
+                                normalized.put('type', normalized.get('name'))
+                                normalized.remove('name')
+                            }
+                            return normalized
+                        }
+                generatedMetadataList.add([reflection: migratedReflection])
+                generatedSourceLabels.add(generatedReflectConfig.toString())
+            }
+        }
+        Map generatedMetadata = [:]
+        generatedMetadataList.each { Map nextMetadata ->
+            nextMetadata.each { k, v ->
+                if (v instanceof List) {
+                    List existing = generatedMetadata.get(k) instanceof List ? (List) generatedMetadata.get(k) : []
+                    generatedMetadata.put(k, existing + (List) v)
+                } else {
+                    generatedMetadata.put(k, v)
+                }
+            }
+        }
+        List generatedReflection = generatedMetadata.get('reflection') instanceof List ? (List) generatedMetadata.get('reflection') : []
+        forcedReachabilityReflectionTypes.each { String typeName ->
+            generatedReflection.add([type: typeName])
+        }
+        generatedMetadata.put('reflection', generatedReflection)
+        Map existingMetadata = [:]
+        if (destinationReachabilityMetadata.exists()) {
+            def existingRoot = new JsonSlurper().parse(destinationReachabilityMetadata)
+            if (!(existingRoot instanceof Map)) {
+                throw new GradleException("Existing reachability metadata (${destinationReachabilityMetadata}) must be a JSON object.")
+            }
+            existingMetadata = (Map) existingRoot
+        } else if (destinationLegacyReflectConfig.exists()) {
+            List legacyReflectEntries = parseJsonArray(destinationLegacyReflectConfig, "Existing reflect-config (${destinationLegacyReflectConfig})")
+            List migratedReflection = legacyReflectEntries
+                    .findAll { it instanceof Map }
+                    .collect { Map entry ->
+                        LinkedHashMap<String, Object> normalized = new LinkedHashMap<>(entry)
+                        if (!normalized.containsKey('type') && normalized.containsKey('name')) {
+                            normalized.put('type', normalized.get('name'))
+                            normalized.remove('name')
+                        }
+                        return normalized
+                    }
+            existingMetadata = [reflection: migratedReflection]
+        }
+
+        LinkedHashMap<String, Object> mergedMetadata = new LinkedHashMap<>()
+        LinkedHashSet<String> sectionKeys = new LinkedHashSet<>()
+        sectionKeys.addAll(existingMetadata.keySet()*.toString())
+        sectionKeys.addAll(generatedMetadata.keySet()*.toString())
+        sectionKeys.each { String key ->
+            def existingValue = existingMetadata.get(key)
+            def generatedValue = generatedMetadata.get(key)
+            if (existingValue instanceof List || generatedValue instanceof List) {
+                List existingList = existingValue instanceof List ? (List) existingValue : []
+                List generatedList = generatedValue instanceof List ? (List) generatedValue : []
+                LinkedHashMap<String, Object> dedup = new LinkedHashMap<>()
+                (existingList + generatedList).each { Object item ->
+                    String itemKey = JsonOutput.toJson(item)
+                    dedup.put(itemKey, item)
+                }
+                List mergedList = new ArrayList<>(dedup.values())
+                mergedList.sort { Object a, Object b -> JsonOutput.toJson(a) <=> JsonOutput.toJson(b) }
+                mergedMetadata.put(key, mergedList)
+            } else if (generatedValue != null) {
+                mergedMetadata.put(key, generatedValue)
+            } else if (existingValue != null) {
+                mergedMetadata.put(key, existingValue)
+            }
+        }
+
+        String mergedJson = JsonOutput.prettyPrint(JsonOutput.toJson(mergedMetadata)) + System.lineSeparator()
+        destinationReachabilityMetadata.setText(mergedJson, 'UTF-8')
+        if (destinationLegacyReflectConfig.exists()) {
+            if (!destinationLegacyReflectConfig.delete()) {
+                throw new GradleException("Unable to delete legacy reflect-config.json at ${destinationLegacyReflectConfig}")
+            }
+        }
+
+        if (!generatedSourceLabels.isEmpty()) {
+            generatedSourceLabels.each { String s -> logger.lifecycle("Generated metadata source: ${s}") }
+        } else {
+            logger.lifecycle(
+                    "No generated reachability-metadata.json or reflect-config.json found under " +
+                            "${nativeImageMetadataBuildDir.get().asFile}; syncing existing metadata (or empty object) to stable classpath location."
+            )
+        }
+        logger.lifecycle("Synced GraalVM reachability metadata to: ${destinationReachabilityMetadata}")
+    }
+}
+
+tasks.register('refreshNativeImageMetadata') {
+    group = 'native image'
+    description = 'Convenience task: clean temporary metadata, run tracing-agent generation from JVM main entrypoint, then sync reachability-metadata.json.'
+    dependsOn 'cleanNativeImageMetadataAgent'
+    dependsOn 'generateNativeImageMetadata'
+    dependsOn 'syncNativeImageReflectConfig'
+}
+
+tasks.register('refreshNativeImageMetadataFromTests') {
+    group = 'native image'
+    description = 'Convenience task: clean temporary metadata, run tracing-agent generation from tests, then sync reachability-metadata.json.'
+    dependsOn 'cleanNativeImageMetadataAgent'
+    dependsOn 'generateNativeImageMetadataFromTests'
+    dependsOn 'syncNativeImageReflectConfig'
+}
+
+tasks.register('refreshNativeImageMetadataAll') {
+    group = 'native image'
+    description = 'Runs both ReachAll main harness and tests under tracing agent, then syncs reachability-metadata.json.'
+    dependsOn 'cleanNativeImageMetadataAgent'
+    dependsOn 'generateNativeImageMetadata'
+    dependsOn 'generateNativeImageMetadataFromTests'
+    dependsOn 'syncNativeImageReflectConfig'
+}
+
+tasks.named('generateNativeImageMetadata') {
+    mustRunAfter 'cleanNativeImageMetadataAgent'
+}
+
+tasks.named('generateNativeImageMetadataFromTests') {
+    mustRunAfter 'cleanNativeImageMetadataAgent'
+}
+
+tasks.named('syncNativeImageReflectConfig') {
+    mustRunAfter 'generateNativeImageMetadata'
+    mustRunAfter 'generateNativeImageMetadataFromTests'
 }
