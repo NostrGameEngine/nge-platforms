@@ -54,8 +54,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.RTCSettings;
-import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCDataChannel;
+import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 
@@ -98,7 +98,8 @@ public class JVMTeaVMRtcInteropMain {
             transport.addListener(
                 new RTCTransportListener() {
                     @Override
-                    public void onRTCBufferedAmountLow(RTCDataChannel channel){}
+                    public void onRTCBufferedAmountLow(RTCDataChannel channel) {}
+
                     @Override
                     public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
                         JsonObject msg = new JsonObject();

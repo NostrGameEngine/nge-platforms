@@ -37,8 +37,7 @@ public interface WebsocketTransportListener {
     void onConnectionOpen();
     void onConnectionMessage(String msg);
 
-    default void onConnectionBinaryMessage(ByteBuffer msg){
-    }
+    default void onConnectionBinaryMessage(ByteBuffer msg) {}
 
     void onConnectionClosedByClient(String reason);
 

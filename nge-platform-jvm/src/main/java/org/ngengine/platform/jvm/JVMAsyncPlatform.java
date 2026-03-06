@@ -99,7 +99,6 @@ import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
-
 // thread-safe
 public class JVMAsyncPlatform extends NGEPlatform {
     static {
@@ -107,6 +106,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
         }
     }
+
     private static final NGEAllocator allocator = new JVMNGEAllocator();
 
     @Override

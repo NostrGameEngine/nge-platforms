@@ -266,7 +266,7 @@ public class TeaVMRTCTransport implements RTCTransport {
         channelWrappers.remove(nativeChannel);
     }
 
-    public String getName(){
+    public String getName() {
         return connId;
     }
 
@@ -298,19 +298,25 @@ public class TeaVMRTCTransport implements RTCTransport {
             (res, rej) -> {
                 RTCDataChannel current = getDataChannel(label);
                 if (current != null) {
-                    current.ready().catchException(rej::accept).then(channel -> {
-                        res.accept(channel);
-                        return null;
-                    });
+                    current
+                        .ready()
+                        .catchException(rej::accept)
+                        .then(channel -> {
+                            res.accept(channel);
+                            return null;
+                        });
                     return;
                 }
                 pendingIncomingChannelResolvers
                     .computeIfAbsent(label, _k -> new CopyOnWriteArrayList<>())
                     .add(channel -> {
-                        channel.ready().catchException(rej::accept).then(ready -> {
-                            res.accept(ready);
-                            return null;
-                        });
+                        channel
+                            .ready()
+                            .catchException(rej::accept)
+                            .then(ready -> {
+                                res.accept(ready);
+                                return null;
+                            });
                     });
             },
             this.asyncExecutor

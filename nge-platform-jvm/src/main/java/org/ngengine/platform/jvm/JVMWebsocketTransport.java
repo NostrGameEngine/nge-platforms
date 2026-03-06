@@ -241,7 +241,6 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         binaryBuffer = grown;
     }
 
-
     @Override
     public void onOpen(WebSocket webSocket) {
         logger.finest("WebSocket opened");
@@ -464,6 +463,4 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     public void removeListener(WebsocketTransportListener listener) {
         listeners.remove(listener);
     }
-
- 
 }
