@@ -6,17 +6,17 @@ plugins {
  
 dependencies {
     api project(':nge-platform-common')
-    testImplementation "junit:junit:4.13.2"
-    implementation 'com.google.code.gson:gson:2.13.2'
-    implementation 'org.bouncycastle:bcprov-jdk18on:1.83'
-    implementation 'org.ngengine:libdatachannel-java-arch-detect:0.24.1.0-SNAPSHOT'
-    implementation 'org.ngengine:libdatachannel-java:0.24.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc:0.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc-natives-linux-x86_64:0.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc-natives-linux-aarch64:0.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc-natives-windows-x86_64:0.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc-natives-macos-x86_64:0.1.0-SNAPSHOT'
-    implementation 'org.ngengine:saferalloc-natives-macos-aarch64:0.1.0-SNAPSHOT'
+    testImplementation libs.junit4
+    implementation libs.gson
+    implementation libs.bcprov
+    implementation libs.libdatachannelJavaArchDetect
+    implementation libs.libdatachannelJava
+    implementation libs.saferalloc
+    implementation libs.saferallocNativesLinuxX64
+    implementation libs.saferallocNativesLinuxArm64
+    implementation libs.saferallocNativesWindowsX64
+    implementation libs.saferallocNativesMacosX64
+    implementation libs.saferallocNativesMacosArm64
 
 
 }
@@ -46,4 +46,3 @@ tasks.named('test') {
         exceptionFormat "full"
     }
 }
-

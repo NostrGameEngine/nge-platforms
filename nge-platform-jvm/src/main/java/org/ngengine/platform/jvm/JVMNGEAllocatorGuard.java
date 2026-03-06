@@ -6,7 +6,7 @@ import java.util.function.LongSupplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ngengine.saferalloc.SaferAllocNative;
+import org.ngengine.saferalloc.SaferAlloc;
 
 public class JVMNGEAllocatorGuard {
     private static final Logger LOGGER = Logger.getLogger(JVMNGEAllocatorGuard.class.getName());
@@ -127,7 +127,7 @@ public class JVMNGEAllocatorGuard {
     private static final AtomicLong lastAdaptUpdate = new AtomicLong(0L);
     private static final AtomicLong highPressureCount = new AtomicLong(0L);
     private static final AtomicLong lowPressureCount = new AtomicLong(0L);
-    private static volatile LongSupplier allocatedBytesSupplier = SaferAllocNative::currentAllocatedBytes;
+    private static volatile LongSupplier allocatedBytesSupplier = SaferAlloc::currentAllocatedBytes;
     private static volatile LongSupplier nowSupplier = System::currentTimeMillis;
     private static volatile Runnable gcInvoker = System::gc;
 
@@ -223,22 +223,26 @@ public class JVMNGEAllocatorGuard {
     }
 
     private static void requestGC(long now) {
-        lastGCRun.updateAndGet(last -> {
-            if (now - last >= gcIntervalMillis) {
-                if(LOGGER.isLoggable(Level.FINER)){
-                    LOGGER.log(Level.FINER, "!!! Requesting GC...");
-                }
-                gcInvoker.run();
-                gcInvoker.run();
-                return now;
+        if (now - lastGCRun.get() >= gcIntervalMillis) {
+            if (LOGGER.isLoggable(Level.FINER)) {
+                LOGGER.log(Level.FINER, "!!! Requesting GC...");
             }
-            return last;
-        });
-    }
 
+            // Calling gc() twice is a common heuristic to increase the likelihood of a full
+            // garbage collection cycle, which is important for timely release of native memory.
+            gcInvoker.run();
+            gcInvoker.run();
+
+            lastGCRun.updateAndGet(v -> {
+                if (v < now) return now;
+                return v;
+            });
+        }
+    }
+    
     // Test-only hooks to keep unit tests deterministic without real native allocations or GC calls.
     static void setTestHooks(LongSupplier allocatedBytes, LongSupplier now, Runnable gcAction) {
-        allocatedBytesSupplier = allocatedBytes != null ? allocatedBytes : SaferAllocNative::currentAllocatedBytes;
+        allocatedBytesSupplier = allocatedBytes != null ? allocatedBytes : SaferAlloc::currentAllocatedBytes;
         nowSupplier = now != null ? now : System::currentTimeMillis;
         gcInvoker = gcAction != null ? gcAction : System::gc;
     }
