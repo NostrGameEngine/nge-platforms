@@ -1,6 +1,29 @@
-# Nostr Game Engine platform libraries
+# NGE platforms
 
-Platform specific code used by the Nostr Game Engine and its libraries.
+### A collection of platform-specific code exposed through a single API
+
+When writing Java code for non-HotSpot runtimes such as Android or TeaVM, some functionality requires alternative implementations, workarounds, or platform-specific bindings. Maintaining separate modules for each target quickly becomes a headache.
+
+This library aims to reduce that complexity by providing a unified abstraction for utilities that would otherwise need to be implemented per platform. Libraries built on top of it can stay platform-agnostic while still supporting different runtimes.
+
+The project is somewhat eclectic and evolves based on real needs rather than a strict roadmap. It is mainly developed in sync with the requirements of [Nostr Game Engine](https://github.com/NostrGameEngine/ngengine) and [Nostr4j](https://github.com/NostrGameEngine/nostr4j), and new stuff is added as needed.
+
+Currently implemented utilities include:
+
+- Websocket client
+- WebRTC datachannels
+- HTTP client
+- Encryption and signing utilities
+- Storage utilities (virtual filesystem)
+- Safe type conversions
+- Memory limits
+- Hardened native memory allocator
+- Promise-like async tasks
+- Async executor aka thread pools
+- Concurrent queues and execution queues 
+- Clipboard access
+
+
 
 
 ## Usage
