@@ -38,6 +38,8 @@ jobs:
 
       - name: Commit and push metadata changes
         if: steps.refresh_metadata.outcome == 'success'
+        id: commit_push
+        continue-on-error: true
         run: |
           if git diff --quiet; then
             echo "No metadata changes to commit."
@@ -48,8 +50,31 @@ jobs:
           git config --local user.name "github-actions[bot]"
           git add nge-platform-jvm/src/main/resources/META-INF/native-image/
           git commit -m "[Automated] Refresh GraalVM reachability metadata"
-          git push
+
+          BRANCH="${GITHUB_REF_NAME}"
+          if [[ -z "$BRANCH" ]]; then
+            echo "ERROR: GITHUB_REF_NAME is empty." >&2
+            exit 1
+          fi
+
+          for attempt in 1 2 3; do
+            echo "Push attempt ${attempt} to ${BRANCH}"
+            git pull --rebase origin "${BRANCH}"
+            if git push origin "HEAD:${BRANCH}"; then
+              echo "Push succeeded."
+              exit 0
+            fi
+            echo "Push failed due to remote updates. Retrying..."
+            sleep 2
+          done
+
+          echo "ERROR: Failed to push metadata commit after 3 attempts." >&2
+          exit 1
 
       - name: Metadata Refresh Warning
         if: steps.refresh_metadata.outcome == 'failure'
         run: echo "::warning::Reachability metadata refresh failed; this workflow is non-blocking and CI will continue."
+
+      - name: Metadata Commit/Push Warning
+        if: steps.refresh_metadata.outcome == 'success' && steps.commit_push.outcome == 'failure'
+        run: echo "::warning::Reachability metadata commit/push failed after retries; this workflow is non-blocking and CI will continue."
