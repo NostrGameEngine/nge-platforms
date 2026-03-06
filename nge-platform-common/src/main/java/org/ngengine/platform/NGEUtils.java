@@ -152,18 +152,18 @@ public class NGEUtils {
             // nop
             input = (String) input;
         } else if (input instanceof byte[]) {
-            if(!limits.checkForData(((byte[]) input).length)) {
+            if (!limits.checkForData(((byte[]) input).length)) {
                 throw new IllegalArgumentException("Input byte array is too large: " + ((byte[]) input).length);
             }
             input = new String((byte[]) input, StandardCharsets.UTF_8);
         } else if (input instanceof char[]) {
-            if(!limits.checkForData(((char[]) input).length)) {
+            if (!limits.checkForData(((char[]) input).length)) {
                 throw new IllegalArgumentException("Input char array is too large: " + ((char[]) input).length);
             }
             input = new String((char[]) input);
         } else if (input instanceof ByteBuffer) {
             ByteBuffer buffer = (ByteBuffer) input;
-            if(!limits.checkForData(buffer.remaining())) {
+            if (!limits.checkForData(buffer.remaining())) {
                 throw new IllegalArgumentException("Input byte buffer is too large: " + buffer.remaining());
             }
             byte[] bytes = new byte[buffer.remaining()];
@@ -172,7 +172,7 @@ public class NGEUtils {
         } else {
             input = String.valueOf(input);
         }
-        if(!limits.checkForString(((String) input).length())) {
+        if (!limits.checkForString(((String) input).length())) {
             throw new IllegalArgumentException("Input string is too large: " + ((String) input).length());
         }
         return (String) input;
@@ -193,11 +193,11 @@ public class NGEUtils {
         } else if (tags instanceof String[]) {
             MemoryLimits limits = getPlatform().getMemoryLimits();
             for (String o : (String[]) tags) {
-                if(!limits.checkForString(o.length())) {
+                if (!limits.checkForString(o.length())) {
                     throw new IllegalArgumentException("Input string is too large: " + o.length());
                 }
             }
-            return (String[]) tags;            
+            return (String[]) tags;
         } else {
             throw new IllegalArgumentException("Input is not a string array: " + tags);
         }
@@ -538,7 +538,7 @@ public class NGEUtils {
         } else {
             throw new IllegalArgumentException("Input is not a byte array: " + input);
         }
-        if(!getPlatform().getMemoryLimits().checkForData(out.length)) {
+        if (!getPlatform().getMemoryLimits().checkForData(out.length)) {
             throw new IllegalArgumentException("Input byte array is too large: " + out.length);
         }
         return out;
@@ -555,7 +555,7 @@ public class NGEUtils {
         } else {
             throw new IllegalArgumentException("Input is not a byte buffer: " + input);
         }
-        if(!getPlatform().getMemoryLimits().checkForData(out.remaining())) {
+        if (!getPlatform().getMemoryLimits().checkForData(out.remaining())) {
             throw new IllegalArgumentException("Input byte buffer is too large: " + out.remaining());
         }
         return out;
@@ -572,7 +572,7 @@ public class NGEUtils {
         } else {
             throw new IllegalArgumentException("Input is not a byte array: " + input);
         }
-        if(!getPlatform().getMemoryLimits().checkForBigData(out.length)) {
+        if (!getPlatform().getMemoryLimits().checkForBigData(out.length)) {
             throw new IllegalArgumentException("Input byte array is too large: " + out.length);
         }
         return out;
@@ -589,7 +589,7 @@ public class NGEUtils {
         } else {
             throw new IllegalArgumentException("Input is not a byte buffer: " + input);
         }
-        if(!getPlatform().getMemoryLimits().checkForBigData(out.remaining())) {
+        if (!getPlatform().getMemoryLimits().checkForBigData(out.remaining())) {
             throw new IllegalArgumentException("Input byte buffer is too large: " + out.remaining());
         }
         return out;
@@ -597,7 +597,7 @@ public class NGEUtils {
 
     public static String safeJsonString(Object input) {
         String out = safeString(input);
-        if(!getPlatform().getMemoryLimits().checkForJSON(out.getBytes(StandardCharsets.UTF_8).length)) {
+        if (!getPlatform().getMemoryLimits().checkForJSON(out.getBytes(StandardCharsets.UTF_8).length)) {
             throw new IllegalArgumentException("Input JSON string is too large: " + out.length());
         }
         return out;

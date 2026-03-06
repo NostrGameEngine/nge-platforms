@@ -179,11 +179,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                                                 try {
                                                     listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
                                                 } catch (Exception e) {
-                                                    logger.log(
-                                                        Level.WARNING,
-                                                        "Error in onConnectionBinaryMessage listener",
-                                                        e
-                                                    );
+                                                    logger.log(Level.WARNING, "Error in onConnectionBinaryMessage listener", e);
                                                 }
                                             }
                                         }

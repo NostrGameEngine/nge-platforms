@@ -63,15 +63,8 @@ public interface RTCTransport extends Closeable {
     RTCDataChannel getDataChannel(String name);
     String getName();
 
-    default AsyncTask<RTCDataChannel> createDefaultChannel(){
-        return createDataChannel(
-            DEFAULT_CHANNEL,
-            "",
-            true,
-            true,
-            0,
-            Duration.ZERO
-        );
+    default AsyncTask<RTCDataChannel> createDefaultChannel() {
+        return createDataChannel(DEFAULT_CHANNEL, "", true, true, 0, Duration.ZERO);
     }
 
     default RTCDataChannel getDefaultChannel() {
@@ -79,7 +72,7 @@ public interface RTCTransport extends Closeable {
     }
 
     // TODO remove nostr4j- prefix, and update all tests and implementations accordingly
-    public default String defaultChannelLabel() {
+    default String defaultChannelLabel() {
         return "nostr4j-" + getName();
     }
 
@@ -93,7 +86,7 @@ public interface RTCTransport extends Closeable {
     }
 
     /** initialize default channel */
-    public AsyncTask<String> listen();
+    AsyncTask<String> listen();
 
     /**
      * Writes to the default channel

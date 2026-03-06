@@ -66,6 +66,7 @@ import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
+
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
     private AsyncExecutor defaultExecutor = newAsyncExecutor();
