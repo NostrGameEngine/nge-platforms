@@ -4832,6 +4832,29 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.TestLibDatachannelInitialization",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "libDataAllocator",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "libDataChannelLoadsWithoutError",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.Util",
             "methods": [
                 {
@@ -5331,6 +5354,31 @@
                     ]
                 },
                 {
+                    "name": "getInnerAllocatorNative",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "log",
+                    "parameterTypes": [
+                        "int",
+                        "java.lang.String"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "tel.schich.libdatachannel.LibDataChannel",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "allocate",
+                    "parameterTypes": [
+                        "int"
+                    ]
+                },
+                {
                     "name": "log",
                     "parameterTypes": [
                         "int",
@@ -5576,6 +5624,9 @@
         },
         {
             "glob": "x86_64/native/libdatachannel-java.so"
+        },
+        {
+            "glob": "x86_64/native/libdatachannel_mimalloc.so"
         },
         {
             "module": "java.base",
