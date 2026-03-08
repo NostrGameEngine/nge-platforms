@@ -6,16 +6,22 @@ cd "$ROOT_DIR"
 
 COPILOT_BIN="${COPILOT_BIN:-copilot}"
 COPILOT_MODEL="${COPILOT_MODEL:-gpt-5-mini}"
-COPILOT_EXTRA_ARGS="${COPILOT_EXTRA_ARGS:-}"
 AUTO_REFRESH="${AUTO_REFRESH:-1}"
+ARGS="$@"
+echo "Running copilot: 
+bin:   $COPILOT_BIN 
+model: $COPILOT_MODEL 
+args:  $ARGS"
+
+if [ "$ARGS" = "" ]; then
+  ARGS="-i"
+fi
 
 if ! command -v "$COPILOT_BIN" >/dev/null 2>&1; then
   echo "ERROR: Copilot CLI binary '$COPILOT_BIN' was not found in PATH." >&2
   echo "Set COPILOT_BIN to your command (example: COPILOT_BIN=copilot)." >&2
   exit 1
 fi
-
-read -r -a EXTRA_ARGS <<< "$COPILOT_EXTRA_ARGS"
 
 read -r -d '' PROMPT <<PROMPT_EOF || true
 You are updating GraalVM reachability coverage for this repository.
@@ -50,21 +56,8 @@ Important:
 - Do not git commit or push, just update the local files. I will review and commit manually.
 PROMPT_EOF
 
-echo "Running Copilot CLI with model: $COPILOT_MODEL"
 set -x
-"$COPILOT_BIN" --model "$COPILOT_MODEL" "${EXTRA_ARGS[@]}" -i "$PROMPT"
+"$COPILOT_BIN" --model "$COPILOT_MODEL" $ARGS "$PROMPT"
 set +x
 
-if [[ "$AUTO_REFRESH" == "1" ]]; then
-  echo "Refreshing reachability metadata after Copilot changes..."
-  ./gradlew --no-daemon :nge-platform-jvm:refreshNativeImageMetadataAll
-fi
 
-if [[ -f "nge-platform-jvm/src/main/resources/META-INF/native-image/org.ngengine/nge-platform-jvm/reachability-metadata.json" ]]; then
-  echo "Reachability metadata file is present."
-else
-  echo "ERROR: reachability metadata file was not found after update." >&2
-  exit 1
-fi
-
-echo "update-reachability.sh completed."
