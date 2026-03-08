@@ -431,24 +431,24 @@ public class TeaVMRTCTransport implements RTCTransport {
         );
 
         this.asyncExecutor.runLater(
-            () -> {
-                if (!"open".equals(nativeChannel.getReadyState())) {
-                    logger.warning("Data channel failed to open in time, closing channel");
-                    try {
-                        wrapper.close();
-                    } catch (Exception e) {
-                        logger.log(Level.FINE, "Error closing channel", e);
+                () -> {
+                    if (!"open".equals(nativeChannel.getReadyState())) {
+                        logger.warning("Data channel failed to open in time, closing channel");
+                        try {
+                            wrapper.close();
+                        } catch (Exception e) {
+                            logger.log(Level.FINE, "Error closing channel", e);
+                        }
+                        failReady.accept(new Exception("Channel open timeout"));
+                    } else {
+                        logger.fine("Data channel is open: " + wrapper.getName());
+                        completeReady.run();
                     }
-                    failReady.accept(new Exception("Channel open timeout"));
-                } else {
-                    logger.fine("Data channel is open: " + wrapper.getName());
-                    completeReady.run();
-                }
-                return null;
-            },
-            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
-            TimeUnit.MILLISECONDS
-        );
+                    return null;
+                },
+                Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+                TimeUnit.MILLISECONDS
+            );
 
         nativeChannel.setOnOpenHandler(() -> {
             completeReady.run();

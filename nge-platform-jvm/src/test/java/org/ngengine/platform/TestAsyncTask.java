@@ -707,7 +707,10 @@ public class TestAsyncTask {
         ExecutorService rawExecutor = Executors.newSingleThreadExecutor();
         rawExecutor.shutdownNow();
         Class<?> vtClass = Class.forName("org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor");
-        java.lang.reflect.Constructor<?> constructor = vtClass.getDeclaredConstructor(JVMAsyncPlatform.class, ExecutorService.class);
+        java.lang.reflect.Constructor<?> constructor = vtClass.getDeclaredConstructor(
+            JVMAsyncPlatform.class,
+            ExecutorService.class
+        );
         constructor.setAccessible(true);
         AsyncExecutor executor = (AsyncExecutor) constructor.newInstance(platform, rawExecutor);
 

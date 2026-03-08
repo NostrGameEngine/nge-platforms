@@ -48,6 +48,7 @@ import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 
 public class TeaVMRTCTransportUnitTest {
+
     private static final int STRESS_MESSAGES = 256;
 
     @Test

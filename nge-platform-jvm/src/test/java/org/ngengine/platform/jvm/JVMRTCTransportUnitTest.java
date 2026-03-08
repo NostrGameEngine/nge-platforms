@@ -47,9 +47,9 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Assume;
 import org.junit.Test;
 import org.ngengine.platform.AsyncExecutor;
-import org.ngengine.platform.RTCSettings;
-import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
@@ -57,6 +57,7 @@ import org.ngengine.platform.transport.RTCTransportIceCandidate;
 import org.ngengine.platform.transport.RTCTransportListener;
 
 public class JVMRTCTransportUnitTest {
+
     private static final int STRESS_MESSAGES = 256;
 
     @Test
@@ -125,33 +126,37 @@ public class JVMRTCTransportUnitTest {
         );
 
         try {
-            initiator.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    responder.addRemoteIceCandidates(List.of(candidate));
-                }
+            initiator.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        responder.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        initiatorReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            initiatorReady.countDown();
+                        }
                     }
                 }
-            });
+            );
 
-            responder.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    initiator.addRemoteIceCandidates(List.of(candidate));
-                }
+            responder.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        initiator.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        responderReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            responderReady.countDown();
+                        }
                     }
                 }
-            });
+            );
 
             initiator.start(settings, initiatorExecutor, "offerer-" + System.nanoTime(), Collections.emptyList());
             responder.start(settings, responderExecutor, "answerer-" + System.nanoTime(), Collections.emptyList());
@@ -160,8 +165,22 @@ public class JVMRTCTransportUnitTest {
             String answer = responder.connect(offer).await();
             initiator.connect(answer).await();
 
-            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
-            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
+            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
+            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
 
             RTCDataChannel initiatorChannel = initiatorCreated.await();
             RTCDataChannel responderChannel = responderAwaited.await();
@@ -211,59 +230,63 @@ public class JVMRTCTransportUnitTest {
         );
 
         try {
-            initiator.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    responder.addRemoteIceCandidates(List.of(candidate));
-                }
+            initiator.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        responder.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        initiatorReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            initiatorReady.countDown();
+                        }
                     }
-                }
 
-                @Override
-                public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
-                    if (!customLabel.equals(channel.getName())) {
-                        return;
-                    }
-                    byte[] bytes = new byte[msg.remaining()];
-                    msg.duplicate().get(bytes);
-                    if (java.util.Arrays.equals(payloadFromResponder, bytes)) {
-                        initiatorReceiveCount.incrementAndGet();
-                        initiatorReceived.countDown();
+                    @Override
+                    public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
+                        if (!customLabel.equals(channel.getName())) {
+                            return;
+                        }
+                        byte[] bytes = new byte[msg.remaining()];
+                        msg.duplicate().get(bytes);
+                        if (java.util.Arrays.equals(payloadFromResponder, bytes)) {
+                            initiatorReceiveCount.incrementAndGet();
+                            initiatorReceived.countDown();
+                        }
                     }
                 }
-            });
+            );
 
-            responder.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    initiator.addRemoteIceCandidates(List.of(candidate));
-                }
+            responder.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        initiator.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        responderReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            responderReady.countDown();
+                        }
                     }
-                }
 
-                @Override
-                public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
-                    if (!customLabel.equals(channel.getName())) {
-                        return;
-                    }
-                    byte[] bytes = new byte[msg.remaining()];
-                    msg.duplicate().get(bytes);
-                    if (java.util.Arrays.equals(payloadFromInitiator, bytes)) {
-                        responderReceiveCount.incrementAndGet();
-                        responderReceived.countDown();
+                    @Override
+                    public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
+                        if (!customLabel.equals(channel.getName())) {
+                            return;
+                        }
+                        byte[] bytes = new byte[msg.remaining()];
+                        msg.duplicate().get(bytes);
+                        if (java.util.Arrays.equals(payloadFromInitiator, bytes)) {
+                            responderReceiveCount.incrementAndGet();
+                            responderReceived.countDown();
+                        }
                     }
                 }
-            });
+            );
 
             initiator.start(settings, initiatorExecutor, "offerer-bidi-" + System.nanoTime(), Collections.emptyList());
             responder.start(settings, responderExecutor, "answerer-bidi-" + System.nanoTime(), Collections.emptyList());
@@ -272,8 +295,22 @@ public class JVMRTCTransportUnitTest {
             String answer = responder.connect(offer).await();
             initiator.connect(answer).await();
 
-            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
-            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
+            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
+            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
 
             RTCDataChannel initiatorChannel = initiatorCreated.await();
             RTCDataChannel responderChannel = responderAwaited.await();
@@ -286,29 +323,35 @@ public class JVMRTCTransportUnitTest {
             CountDownLatch sendCompleted = new CountDownLatch(2);
             AtomicReference<Throwable> sendError = new AtomicReference<>();
 
-            Thread sendFromInitiator = new Thread(() -> {
-                try {
-                    sendersReady.countDown();
-                    startSend.await(5, TimeUnit.SECONDS);
-                    initiatorChannel.write(ByteBuffer.wrap(payloadFromInitiator)).await();
-                } catch (Throwable t) {
-                    sendError.compareAndSet(null, t);
-                } finally {
-                    sendCompleted.countDown();
-                }
-            }, "rtc-send-initiator");
+            Thread sendFromInitiator = new Thread(
+                () -> {
+                    try {
+                        sendersReady.countDown();
+                        startSend.await(5, TimeUnit.SECONDS);
+                        initiatorChannel.write(ByteBuffer.wrap(payloadFromInitiator)).await();
+                    } catch (Throwable t) {
+                        sendError.compareAndSet(null, t);
+                    } finally {
+                        sendCompleted.countDown();
+                    }
+                },
+                "rtc-send-initiator"
+            );
 
-            Thread sendFromResponder = new Thread(() -> {
-                try {
-                    sendersReady.countDown();
-                    startSend.await(5, TimeUnit.SECONDS);
-                    responderChannel.write(ByteBuffer.wrap(payloadFromResponder)).await();
-                } catch (Throwable t) {
-                    sendError.compareAndSet(null, t);
-                } finally {
-                    sendCompleted.countDown();
-                }
-            }, "rtc-send-responder");
+            Thread sendFromResponder = new Thread(
+                () -> {
+                    try {
+                        sendersReady.countDown();
+                        startSend.await(5, TimeUnit.SECONDS);
+                        responderChannel.write(ByteBuffer.wrap(payloadFromResponder)).await();
+                    } catch (Throwable t) {
+                        sendError.compareAndSet(null, t);
+                    } finally {
+                        sendCompleted.countDown();
+                    }
+                },
+                "rtc-send-responder"
+            );
 
             sendFromInitiator.start();
             sendFromResponder.start();
@@ -363,97 +406,121 @@ public class JVMRTCTransportUnitTest {
         );
 
         try {
-            initiator.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    responder.addRemoteIceCandidates(List.of(candidate));
-                }
+            initiator.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        responder.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        initiatorReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            initiatorReady.countDown();
+                        }
                     }
-                }
 
-                @Override
-                public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
-                    if (!customLabel.equals(channel.getName())) {
-                        return;
-                    }
-                    byte[] bytes = new byte[msg.remaining()];
-                    msg.duplicate().get(bytes);
-                    if (java.util.Arrays.equals(payloadFromResponder, bytes)) {
-                        initiatorReceiveCount.incrementAndGet();
-                        initiatorReceived.countDown();
+                    @Override
+                    public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
+                        if (!customLabel.equals(channel.getName())) {
+                            return;
+                        }
+                        byte[] bytes = new byte[msg.remaining()];
+                        msg.duplicate().get(bytes);
+                        if (java.util.Arrays.equals(payloadFromResponder, bytes)) {
+                            initiatorReceiveCount.incrementAndGet();
+                            initiatorReceived.countDown();
+                        }
                     }
                 }
-            });
+            );
 
-            responder.addListener(new NoOpRtcTransportListener() {
-                @Override
-                public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
-                    initiator.addRemoteIceCandidates(List.of(candidate));
-                }
+            responder.addListener(
+                new NoOpRtcTransportListener() {
+                    @Override
+                    public void onLocalRTCIceCandidate(RTCTransportIceCandidate candidate) {
+                        initiator.addRemoteIceCandidates(List.of(candidate));
+                    }
 
-                @Override
-                public void onRTCChannelReady(RTCDataChannel channel) {
-                    if (customLabel.equals(channel.getName())) {
-                        responderReady.countDown();
+                    @Override
+                    public void onRTCChannelReady(RTCDataChannel channel) {
+                        if (customLabel.equals(channel.getName())) {
+                            responderReady.countDown();
+                        }
                     }
-                }
 
-                @Override
-                public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
-                    if (!customLabel.equals(channel.getName())) {
-                        return;
-                    }
-                    byte[] bytes = new byte[msg.remaining()];
-                    msg.duplicate().get(bytes);
-                    if (java.util.Arrays.equals(payloadFromInitiator, bytes)) {
-                        responderReceiveCount.incrementAndGet();
-                        responderReceived.countDown();
+                    @Override
+                    public void onRTCBinaryMessage(RTCDataChannel channel, ByteBuffer msg) {
+                        if (!customLabel.equals(channel.getName())) {
+                            return;
+                        }
+                        byte[] bytes = new byte[msg.remaining()];
+                        msg.duplicate().get(bytes);
+                        if (java.util.Arrays.equals(payloadFromInitiator, bytes)) {
+                            responderReceiveCount.incrementAndGet();
+                            responderReceived.countDown();
+                        }
                     }
                 }
-            });
+            );
 
             initiator.start(settings, initiatorExecutor, "offerer-prehs-" + System.nanoTime(), Collections.emptyList());
             responder.start(settings, responderExecutor, "answerer-prehs-" + System.nanoTime(), Collections.emptyList());
 
-            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
+            AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
             String offer = initiator.listen().await();
-            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(customLabel, "unit", true, true, 0, Duration.ZERO);
+            AsyncTask<RTCDataChannel> initiatorCreated = initiator.createDataChannel(
+                customLabel,
+                "unit",
+                true,
+                true,
+                0,
+                Duration.ZERO
+            );
 
             CountDownLatch sendersReady = new CountDownLatch(2);
             CountDownLatch startSend = new CountDownLatch(1);
             CountDownLatch sendCompleted = new CountDownLatch(2);
             AtomicReference<Throwable> sendError = new AtomicReference<>();
 
-            Thread sendFromInitiator = new Thread(() -> {
-                try {
-                    sendersReady.countDown();
-                    startSend.await(5, TimeUnit.SECONDS);
-                    RTCDataChannel channel = initiatorCreated.await();
-                    channel.write(ByteBuffer.wrap(payloadFromInitiator)).await();
-                } catch (Throwable t) {
-                    sendError.compareAndSet(null, t);
-                } finally {
-                    sendCompleted.countDown();
-                }
-            }, "rtc-send-prehs-initiator");
+            Thread sendFromInitiator = new Thread(
+                () -> {
+                    try {
+                        sendersReady.countDown();
+                        startSend.await(5, TimeUnit.SECONDS);
+                        RTCDataChannel channel = initiatorCreated.await();
+                        channel.write(ByteBuffer.wrap(payloadFromInitiator)).await();
+                    } catch (Throwable t) {
+                        sendError.compareAndSet(null, t);
+                    } finally {
+                        sendCompleted.countDown();
+                    }
+                },
+                "rtc-send-prehs-initiator"
+            );
 
-            Thread sendFromResponder = new Thread(() -> {
-                try {
-                    sendersReady.countDown();
-                    startSend.await(5, TimeUnit.SECONDS);
-                    RTCDataChannel channel = responderAwaited.await();
-                    channel.write(ByteBuffer.wrap(payloadFromResponder)).await();
-                } catch (Throwable t) {
-                    sendError.compareAndSet(null, t);
-                } finally {
-                    sendCompleted.countDown();
-                }
-            }, "rtc-send-prehs-responder");
+            Thread sendFromResponder = new Thread(
+                () -> {
+                    try {
+                        sendersReady.countDown();
+                        startSend.await(5, TimeUnit.SECONDS);
+                        RTCDataChannel channel = responderAwaited.await();
+                        channel.write(ByteBuffer.wrap(payloadFromResponder)).await();
+                    } catch (Throwable t) {
+                        sendError.compareAndSet(null, t);
+                    } finally {
+                        sendCompleted.countDown();
+                    }
+                },
+                "rtc-send-prehs-responder"
+            );
 
             sendFromInitiator.start();
             sendFromResponder.start();
@@ -515,16 +582,19 @@ public class JVMRTCTransportUnitTest {
             CountDownLatch awaitDone = new CountDownLatch(1);
             CountDownLatch awaitStarted = new CountDownLatch(1);
 
-            Thread waiter = new Thread(() -> {
-                try {
-                    awaitStarted.countDown();
-                    pendingReady.await();
-                } catch (Throwable t) {
-                    awaitError.set(t);
-                } finally {
-                    awaitDone.countDown();
-                }
-            }, "rtc-await-pending-ready");
+            Thread waiter = new Thread(
+                () -> {
+                    try {
+                        awaitStarted.countDown();
+                        pendingReady.await();
+                    } catch (Throwable t) {
+                        awaitError.set(t);
+                    } finally {
+                        awaitDone.countDown();
+                    }
+                },
+                "rtc-await-pending-ready"
+            );
 
             waiter.start();
             assertTrue("Await thread did not start", awaitStarted.await(2, TimeUnit.SECONDS));

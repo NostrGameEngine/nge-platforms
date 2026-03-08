@@ -44,7 +44,6 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -246,7 +245,7 @@ public class JVMRTCTransport implements RTCTransport {
         });
         Consumer<RTCDataChannel> res1 = (Consumer<RTCDataChannel>) cs[0];
         Consumer<Throwable> rej1 = (Consumer<Throwable>) cs[1];
-        
+
         pendingReadyRejectors.add(rej1);
         RTCDataChannel wrapper = new RTCDataChannel(
             channel.label(),
@@ -265,7 +264,7 @@ public class JVMRTCTransport implements RTCTransport {
             public AsyncTask<Void> write(ByteBuffer message) {
                 NGEPlatform platform = NGEUtils.getPlatform();
                 return this.ready()
-                    .compose(_ignored ->{
+                    .compose(_ignored -> {
                         return platform.wrapPromise((res, rej) -> {
                             try {
                                 boolean isDirectBuffer = message.isDirect();
@@ -283,7 +282,7 @@ public class JVMRTCTransport implements RTCTransport {
                                 rej.accept(e);
                             }
                         });
-            });
+                    });
             }
 
             @Override
@@ -344,29 +343,28 @@ public class JVMRTCTransport implements RTCTransport {
         Consumer<Exception> failReady = error -> {
             pendingReadyRejectors.remove(rej1);
             rej1.accept(error);
-            
         };
 
         // timeout for good measure
         this.executor.runLater(
-            () -> {
-                if (!channel.isOpen()) {
-                    logger.warning("Data channel failed to open in time, closing channel");
-                    try {
-                        wrapper.close();
-                    } catch (Exception e) {
-                        logger.log(Level.FINE, "Error closing channel", e);
+                () -> {
+                    if (!channel.isOpen()) {
+                        logger.warning("Data channel failed to open in time, closing channel");
+                        try {
+                            wrapper.close();
+                        } catch (Exception e) {
+                            logger.log(Level.FINE, "Error closing channel", e);
+                        }
+                        failReady.accept(new Exception("Channel open timeout"));
+                    } else {
+                        logger.fine("Data channel is open: " + wrapper.getName());
+                        completeReady.run();
                     }
-                    failReady.accept(new Exception("Channel open timeout"));
-                } else {
-                    logger.fine("Data channel is open: " + wrapper.getName());
-                    completeReady.run();
-                }
-                return null;
-            },
-            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
-            TimeUnit.MILLISECONDS
-        );
+                    return null;
+                },
+                Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+                TimeUnit.MILLISECONDS
+            );
 
         channel.onError.register((c, error) -> {
             logger.log(Level.WARNING, "Channel error: " + error);
@@ -434,7 +432,6 @@ public class JVMRTCTransport implements RTCTransport {
             logger.fine("Channel already opened: " + wrapper.getName());
             completeReady.run();
         }
-            
 
         return p;
     }

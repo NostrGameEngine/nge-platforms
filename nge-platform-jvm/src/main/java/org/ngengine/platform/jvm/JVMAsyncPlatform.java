@@ -449,19 +449,19 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (executor != null && executor instanceof VtExecutor) {
             try {
                 ((VtExecutor) executor).executor.submit(() -> {
-                    try {
-                        func.accept(
-                            r -> {
-                                fut.complete(r);
-                            },
-                            err -> {
-                                fut.completeExceptionally(err);
-                            }
-                        );
-                    } catch (Throwable e) {
-                        fut.completeExceptionally(e);
-                    }
-                });
+                        try {
+                            func.accept(
+                                r -> {
+                                    fut.complete(r);
+                                },
+                                err -> {
+                                    fut.completeExceptionally(err);
+                                }
+                            );
+                        } catch (Throwable e) {
+                            fut.completeExceptionally(e);
+                        }
+                    });
             } catch (RejectedExecutionException e) {
                 fut.completeExceptionally(e);
             }
@@ -484,10 +484,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
             private Throwable normalize(Throwable throwable) {
                 Throwable current = throwable;
-                while (
-                    current instanceof CompletionException ||
-                    current instanceof ExecutionException
-                ) {
+                while (current instanceof CompletionException || current instanceof ExecutionException) {
                     if (current.getCause() == null) {
                         break;
                     }

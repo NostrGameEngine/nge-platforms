@@ -281,7 +281,9 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         });
     }
 
-    private AsyncTask<Void> enqueueSend(java.util.function.BiConsumer<java.util.function.Consumer<Void>, java.util.function.Consumer<Throwable>> op) {
+    private AsyncTask<Void> enqueueSend(
+        java.util.function.BiConsumer<java.util.function.Consumer<Void>, java.util.function.Consumer<Throwable>> op
+    ) {
         return platform.wrapPromise((res, rej) -> {
             synchronized (sendQueueMonitor) {
                 if (sendQueueTail == null) {
