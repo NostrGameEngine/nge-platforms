@@ -4,6 +4,7 @@ const resultEl = document.getElementById('result');
 const progress = [];
 const url = new URL(window.location.href);
 const signalBase = url.searchParams.get('signalBase');
+const STRESS_MESSAGES = 256;
 
 function setResult(obj) {
   resultEl.textContent = JSON.stringify({ progress, ...obj }, null, 2);
@@ -87,6 +88,7 @@ async function main() {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   const received = [];
+  const receivedTexts = [];
   const remoteChannelPromise = new Promise((resolve) => {
     pc.ondatachannel = (ev) => {
       remoteChannel = ev.channel;
@@ -94,10 +96,8 @@ async function main() {
       B.rtcSetOnMessageHandler(remoteChannel, (bytes) => {
         received.push(Array.from(bytes));
         const text = decoder.decode(bytes);
+        receivedTexts.push(text);
         step(`received message ${text}`);
-        if (text === 'ping-from-jvm') {
-          remoteChannel.send(encoder.encode('pong-from-browser'));
-        }
       });
       resolve(remoteChannel);
     };
@@ -155,9 +155,14 @@ async function main() {
   await post('/send', { to: 'jvm', type: 'meta', name: 'protocol', value: channel.protocol || '' });
   await post('/send', { to: 'jvm', type: 'browser-ready' });
 
-  const msgDeadline = Date.now() + 15000;
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    channel.send(encoder.encode(`browser-seq:${i}`));
+  }
+  step('sent browser stress burst');
+
+  const msgDeadline = Date.now() + 60000;
   while (Date.now() < msgDeadline) {
-    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-jvm')) {
+    if (receivedTexts.length >= STRESS_MESSAGES) {
       break;
     }
     const poll = await get(`/poll?to=browser&after=${cursor}`);
@@ -168,8 +173,15 @@ async function main() {
     await sleep(50);
   }
 
-  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-jvm')) {
-    throw new Error('Timed out waiting for ping-from-jvm');
+  if (receivedTexts.length < STRESS_MESSAGES) {
+    throw new Error(`Timed out waiting for jvm stress burst (${receivedTexts.length}/${STRESS_MESSAGES})`);
+  }
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    const expected = `jvm-seq:${i}`;
+    const actual = receivedTexts[i];
+    if (actual !== expected) {
+      throw new Error(`Out-of-order RTC message from JVM: expected=${expected} actual=${actual}`);
+    }
   }
 
   setResult({
@@ -187,6 +199,8 @@ async function main() {
     ok: true,
     label: channel.label || '',
     protocol: channel.protocol || '',
+    browserToJvmStressCount: STRESS_MESSAGES,
+    jvmToBrowserStressCount: STRESS_MESSAGES,
   });
 
   try { channel.close(); } catch (_) {}

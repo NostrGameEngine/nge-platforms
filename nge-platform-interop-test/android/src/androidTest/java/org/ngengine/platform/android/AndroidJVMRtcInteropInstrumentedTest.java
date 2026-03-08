@@ -52,6 +52,7 @@ public class AndroidJVMRtcInteropInstrumentedTest {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final List<String> STUN_SERVERS = List.of("stun.l.google.com:19302");
     private static final String JVM_INITIATOR_CHANNEL = "nostr4j-jvm-android-interop";
+    private static final int STRESS_MESSAGES = 256;
 
     @BeforeClass
     public static void ensurePlatform() throws Exception {
@@ -255,15 +256,14 @@ public class AndroidJVMRtcInteropInstrumentedTest {
                 fail("Did not receive jvm-ready signal");
             }
 
-            byte[] ping = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
-            String pingText = new String(ping, StandardCharsets.UTF_8);
-            assertTrue("Unexpected payload from JVM: " + pingText, "ping-from-jvm".equals(pingText));
-            channel.write(ByteBuffer.wrap("pong-from-android".getBytes(StandardCharsets.UTF_8))).await();
+            assertReceiveStressBurst(inbox, listenerError, "jvm-seq", STRESS_MESSAGES, 60, TimeUnit.SECONDS);
+            sendStressBurst(channel, "android-seq", STRESS_MESSAGES);
 
             channel.close().await();
             JsonObject result = new JsonObject();
             result.addProperty("ok", true);
-            result.addProperty("reply", "pong-from-android");
+            result.addProperty("jvmToAndroidStressCount", STRESS_MESSAGES);
+            result.addProperty("androidToJvmStressCount", STRESS_MESSAGES);
             result.addProperty("jvmLabel", meta.getOrDefault("jvmLabel", ""));
             postJson(http, signalBase + "/result/android", result);
         } catch (Throwable t) {
@@ -310,6 +310,29 @@ public class AndroidJVMRtcInteropInstrumentedTest {
             if (msg != null) return msg;
         }
         throw new IllegalStateException("Timed out waiting for JVM message");
+    }
+
+    private static void sendStressBurst(RTCDataChannel channel, String prefix, int count) throws Exception {
+        for (int i = 0; i < count; i++) {
+            String payload = prefix + ":" + i;
+            channel.write(ByteBuffer.wrap(payload.getBytes(StandardCharsets.UTF_8))).await();
+        }
+    }
+
+    private static void assertReceiveStressBurst(
+        BlockingQueue<byte[]> inbox,
+        AtomicReference<Throwable> listenerError,
+        String expectedPrefix,
+        int count,
+        long timeout,
+        TimeUnit unit
+    ) throws Exception {
+        for (int i = 0; i < count; i++) {
+            byte[] msg = pollMessage(inbox, listenerError, timeout, unit);
+            String text = new String(msg, StandardCharsets.UTF_8);
+            String expected = expectedPrefix + ":" + i;
+            assertTrue("Out-of-order RTC message: expected=" + expected + " actual=" + text, expected.equals(text));
+        }
     }
 
     private static void awaitNoListenerError(AtomicReference<Throwable> listenerError, String phase) {

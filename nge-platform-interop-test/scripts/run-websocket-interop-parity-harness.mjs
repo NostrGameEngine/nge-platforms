@@ -76,6 +76,18 @@ function attachWsServer(server) {
         socket.send(msg);
         return;
       }
+      if (msg.startsWith('stress-client:')) {
+        socket.send(msg);
+        return;
+      }
+      if (msg.startsWith('burst-server:')) {
+        const requested = Number(msg.slice('burst-server:'.length));
+        const count = Number.isFinite(requested) && requested >= 0 ? Math.floor(requested) : 0;
+        for (let i = 0; i < count; i += 1) {
+          socket.send(`stress-server:${i}`);
+        }
+        return;
+      }
       if (msg === 'close-by-server') {
         socket.close(1000, 'server-close');
         return;
@@ -172,6 +184,10 @@ function compare(results) {
     'serverClosePhase.connectedAfterOpen',
     'serverClosePhase.welcome',
     'serverClosePhase.echo',
+    'serverClosePhase.stressClientCount',
+    'serverClosePhase.stressClientOrdered',
+    'serverClosePhase.stressServerCount',
+    'serverClosePhase.stressServerOrdered',
     'serverClosePhase.serverCloseReason',
     'serverClosePhase.clientCloseCount',
     'serverClosePhase.connectedAfterServerClose',

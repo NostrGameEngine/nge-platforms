@@ -31,6 +31,7 @@ import org.ngengine.platform.transport.WebsocketTransportListener;
 public class AndroidWebsocketParityInstrumentedTest {
     private static final Gson GSON = new Gson();
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+    private static final int STRESS_MESSAGES = 256;
 
     @BeforeClass
     public static void ensurePlatform() throws Exception {
@@ -97,6 +98,8 @@ public class AndroidWebsocketParityInstrumentedTest {
         String welcome = pollString(inbox, error, 10, "welcome");
         ws.send("echo:server-phase").await();
         String echo = pollString(inbox, error, 10, "echo");
+        boolean clientOrdered = runClientToServerStress(ws, inbox, error, STRESS_MESSAGES);
+        boolean serverOrdered = runServerToClientStress(ws, inbox, error, STRESS_MESSAGES);
         ws.send("close-by-server").await();
         await(serverCloseLatch, 10, "server close");
         Thread.sleep(50);
@@ -106,11 +109,51 @@ public class AndroidWebsocketParityInstrumentedTest {
         out.addProperty("connectedAfterOpen", connectedAfterOpen);
         out.addProperty("welcome", welcome);
         out.addProperty("echo", echo);
+        out.addProperty("stressClientCount", STRESS_MESSAGES);
+        out.addProperty("stressClientOrdered", clientOrdered);
+        out.addProperty("stressServerCount", STRESS_MESSAGES);
+        out.addProperty("stressServerOrdered", serverOrdered);
         out.addProperty("serverCloseReason", serverCloseReason.get());
         out.addProperty("clientCloseCount", clientCloseCount.get());
         out.addProperty("connectedAfterServerClose", ws.isConnected());
         out.addProperty("error", error.get() == null ? "" : String.valueOf(error.get()));
         return out;
+    }
+
+    private static boolean runClientToServerStress(
+        WebsocketTransport ws,
+        LinkedBlockingQueue<String> inbox,
+        AtomicReference<Throwable> error,
+        int count
+    ) throws Exception {
+        for (int i = 0; i < count; i++) {
+            ws.send("stress-client:" + i).await();
+        }
+        for (int i = 0; i < count; i++) {
+            String expected = "stress-client:" + i;
+            String actual = pollString(inbox, error, 10, "client stress echo " + i);
+            if (!expected.equals(actual)) {
+                throw new IllegalStateException("Out-of-order client stress echo: expected=" + expected + " actual=" + actual);
+            }
+        }
+        return true;
+    }
+
+    private static boolean runServerToClientStress(
+        WebsocketTransport ws,
+        LinkedBlockingQueue<String> inbox,
+        AtomicReference<Throwable> error,
+        int count
+    ) throws Exception {
+        ws.send("burst-server:" + count).await();
+        for (int i = 0; i < count; i++) {
+            String expected = "stress-server:" + i;
+            String actual = pollString(inbox, error, 10, "server stress burst " + i);
+            if (!expected.equals(actual)) {
+                throw new IllegalStateException("Out-of-order server stress burst: expected=" + expected + " actual=" + actual);
+            }
+        }
+        return true;
     }
 
     private static JsonObject runClientClosePhase(WebsocketTransport ws, String wsUrl) throws Exception {

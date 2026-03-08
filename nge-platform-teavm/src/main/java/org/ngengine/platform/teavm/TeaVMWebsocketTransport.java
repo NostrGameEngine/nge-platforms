@@ -59,6 +59,8 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     private final TeaVMPlatform platform;
     private final AsyncExecutor asyncExecutor;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    private final Object sendQueueMonitor = new Object();
+    private AsyncTask<Void> sendQueueTail = null;
 
     public TeaVMWebsocketTransport(TeaVMPlatform platform) {
         this.platform = platform;
@@ -249,37 +251,59 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
 
     @Override
     public AsyncTask<Void> send(String message) {
-        return this.platform.wrapPromise((res, rej) -> {
-                try {
-                    if (this.ws == null) {
-                        rej.accept(new IOException("WebSocket not connected"));
-                        return;
-                    }
-
-                    this.ws.send(message);
-
-                    res.accept(null);
-                } catch (Exception e) {
-                    rej.accept(e);
+        return enqueueSend((res, rej) -> {
+            try {
+                if (this.ws == null) {
+                    rej.accept(new IOException("WebSocket not connected"));
+                    return;
                 }
-            });
+                this.ws.send(message);
+                res.accept(null);
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
     }
 
     @Override
     public AsyncTask<Void> sendBinary(ByteBuffer data) {
-        return this.platform.wrapPromise((res, rej) -> {
-                try {
-                    if (this.ws == null) {
-                        rej.accept(new IOException("WebSocket not connected"));
-                        return;
-                    }
-
-                    this.ws.send(data.duplicate());
-                    res.accept(null);
-                } catch (Exception e) {
-                    rej.accept(e);
+        return enqueueSend((res, rej) -> {
+            try {
+                if (this.ws == null) {
+                    rej.accept(new IOException("WebSocket not connected"));
+                    return;
                 }
-            });
+                this.ws.send(data.duplicate());
+                res.accept(null);
+            } catch (Exception e) {
+                rej.accept(e);
+            }
+        });
+    }
+
+    private AsyncTask<Void> enqueueSend(java.util.function.BiConsumer<java.util.function.Consumer<Void>, java.util.function.Consumer<Throwable>> op) {
+        return platform.wrapPromise((res, rej) -> {
+            synchronized (sendQueueMonitor) {
+                if (sendQueueTail == null) {
+                    sendQueueTail = platform.wrapPromise((forward, ignored) -> forward.accept(null));
+                }
+                sendQueueTail =
+                    sendQueueTail.compose(ignored -> {
+                        return platform.wrapPromise((forward, ignoredErr) -> {
+                            op.accept(
+                                value -> {
+                                    res.accept(value);
+                                    forward.accept(null);
+                                },
+                                err -> {
+                                    rej.accept(err);
+                                    forward.accept(null);
+                                }
+                            );
+                        });
+                    });
+            }
+        });
     }
 
     @Override

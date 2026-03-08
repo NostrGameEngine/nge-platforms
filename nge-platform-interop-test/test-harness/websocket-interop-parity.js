@@ -1,6 +1,7 @@
 const resultEl = document.getElementById('result');
 const setResult = (obj) => { resultEl.textContent = JSON.stringify(obj, null, 2); };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const STRESS_MESSAGES = 256;
 
 function qs(name) {
   return new URLSearchParams(location.search).get(name);
@@ -47,6 +48,10 @@ async function runServerClosePhase(wsUrl) {
     connectedAfterOpen: false,
     welcome: '',
     echo: '',
+    stressClientCount: STRESS_MESSAGES,
+    stressClientOrdered: false,
+    stressServerCount: STRESS_MESSAGES,
+    stressServerOrdered: false,
     serverCloseReason: '',
     clientCloseCount: 0,
     connectedAfterServerClose: false,
@@ -97,6 +102,22 @@ async function runServerClosePhase(wsUrl) {
   out.welcome = await nextMessage('browser welcome');
   ws.send('echo:server-phase');
   out.echo = await nextMessage('browser echo');
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    ws.send(`stress-client:${i}`);
+  }
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    const msg = await nextMessage(`browser stress client echo ${i}`);
+    const expected = `stress-client:${i}`;
+    if (msg !== expected) throw new Error(`Out-of-order client stress echo: expected=${expected} actual=${msg}`);
+  }
+  out.stressClientOrdered = true;
+  ws.send(`burst-server:${STRESS_MESSAGES}`);
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    const msg = await nextMessage(`browser stress server burst ${i}`);
+    const expected = `stress-server:${i}`;
+    if (msg !== expected) throw new Error(`Out-of-order server stress burst: expected=${expected} actual=${msg}`);
+  }
+  out.stressServerOrdered = true;
   ws.send('close-by-server');
   await Promise.race([closePromise, sleep(10000).then(() => { throw new Error('Timed out waiting for server close'); })]);
   if (error) throw error;

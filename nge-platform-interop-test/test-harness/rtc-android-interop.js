@@ -4,6 +4,7 @@ const resultEl = document.getElementById('result');
 const progress = [];
 const url = new URL(window.location.href);
 const signalBase = url.searchParams.get('signalBase');
+const STRESS_MESSAGES = 256;
 
 function setResult(obj) {
   resultEl.textContent = JSON.stringify({ progress, ...obj }, null, 2);
@@ -76,6 +77,7 @@ async function main() {
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   const received = [];
+  const receivedTexts = [];
 
   step('create initiator peer');
   const pc = B.rtcCreatePeerConnection(['stun:stun.l.google.com:19302']);
@@ -96,6 +98,7 @@ async function main() {
   setOnChannelMessage(channel, (bytes) => {
     received.push(Array.from(bytes));
     const text = decoder.decode(bytes);
+    receivedTexts.push(text);
     step(`received message ${text}`);
   });
 
@@ -171,9 +174,14 @@ async function main() {
   }
   if (!androidReady) throw new Error('Timed out waiting for android-ready');
 
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    channel.send(encoder.encode(`browser-seq:${i}`).buffer);
+  }
+  step('sent browser stress burst');
+
   const msgDeadline = Date.now() + 60000;
   while (Date.now() < msgDeadline) {
-    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-android')) break;
+    if (receivedTexts.length >= STRESS_MESSAGES) break;
     const poll = await get(`/poll?to=browser&after=${cursor}`);
     cursor = poll.cursor || cursor;
     for (const msg of poll.messages || []) {
@@ -186,31 +194,15 @@ async function main() {
     await sleep(50);
   }
 
-  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'ping-from-android')) {
-    throw new Error('Timed out waiting for ping-from-android');
+  if (receivedTexts.length < STRESS_MESSAGES) {
+    throw new Error(`Timed out waiting for android stress burst (${receivedTexts.length}/${STRESS_MESSAGES})`);
   }
-
-  channel.send(encoder.encode('pong-from-browser').buffer);
-  step('sent pong');
-  channel.send(encoder.encode('ping-from-browser-2').buffer);
-  step('sent ping2');
-
-  const secondDeadline = Date.now() + 30000;
-  while (Date.now() < secondDeadline) {
-    if (received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android-2')) break;
-    const poll = await get(`/poll?to=browser&after=${cursor}`);
-    cursor = poll.cursor || cursor;
-    for (const msg of poll.messages || []) {
-      if (msg.type === 'ice') {
-        const c = { candidate: msg.candidate, sdpMid: msg.sdpMid };
-        try { await pc.addIceCandidate(c); } catch (_) {}
-      }
-      if (msg.type === 'android-failed') throw new Error(`Android harness failed: ${msg.error}`);
+  for (let i = 0; i < STRESS_MESSAGES; i += 1) {
+    const expected = `android-seq:${i}`;
+    const actual = receivedTexts[i];
+    if (actual !== expected) {
+      throw new Error(`Out-of-order RTC message from Android: expected=${expected} actual=${actual}`);
     }
-    await sleep(50);
-  }
-  if (!received.some((x) => decoder.decode(new Uint8Array(x)) === 'pong-from-android-2')) {
-    throw new Error('Timed out waiting for pong-from-android-2');
   }
 
   setResult({
@@ -228,6 +220,8 @@ async function main() {
     ok: true,
     label: channel.label || '',
     protocol: channel.protocol || '',
+    browserToAndroidStressCount: STRESS_MESSAGES,
+    androidToBrowserStressCount: STRESS_MESSAGES,
   });
 
   try { channel.close(); } catch (_) {}

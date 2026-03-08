@@ -201,6 +201,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 }
             }
         }
+        webSocket.request(1);
         return WebSocket.Listener.super.onText(webSocket, data, last);
     }
 
@@ -224,6 +225,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 }
             }
         }
+        webSocket.request(1);
         return WebSocket.Listener.super.onBinary(webSocket, data, last);
     }
 

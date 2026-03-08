@@ -52,6 +52,7 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final List<String> STUN_SERVERS = List.of("stun.l.google.com:19302");
     private static final String BROWSER_INITIATOR_CHANNEL = "nostr4j-browser-android-interop";
+    private static final int STRESS_MESSAGES = 256;
 
     @BeforeClass
     public static void ensurePlatform() throws Exception {
@@ -251,19 +252,14 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
                 fail("Did not receive browser-ready signal");
             }
 
-            channel.write(ByteBuffer.wrap("ping-from-android".getBytes(StandardCharsets.UTF_8))).await();
-            byte[] pong = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
-            String pongText = new String(pong, StandardCharsets.UTF_8);
-            assertTrue("Unexpected payload from browser: " + pongText, "pong-from-browser".equals(pongText));
-            byte[] ping2 = pollMessage(inbox, listenerError, 60, TimeUnit.SECONDS);
-            String ping2Text = new String(ping2, StandardCharsets.UTF_8);
-            assertTrue("Unexpected second payload from browser: " + ping2Text, "ping-from-browser-2".equals(ping2Text));
-            channel.write(ByteBuffer.wrap("pong-from-android-2".getBytes(StandardCharsets.UTF_8))).await();
+            sendStressBurst(channel, "android-seq", STRESS_MESSAGES);
+            assertReceiveStressBurst(inbox, listenerError, "browser-seq", STRESS_MESSAGES, 60, TimeUnit.SECONDS);
 
             channel.close().await();
             JsonObject result = new JsonObject();
             result.addProperty("ok", true);
-            result.addProperty("reply", "pong-from-browser/pong-from-android-2");
+            result.addProperty("androidToBrowserStressCount", STRESS_MESSAGES);
+            result.addProperty("browserToAndroidStressCount", STRESS_MESSAGES);
             result.addProperty("browserLabel", meta.getOrDefault("browserLabel", ""));
             postJson(http, signalBase + "/result/android", result);
         } catch (Throwable t) {
@@ -299,6 +295,29 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
             }
         }
         throw new IllegalStateException("Timed out waiting for browser message");
+    }
+
+    private static void sendStressBurst(RTCDataChannel channel, String prefix, int count) throws Exception {
+        for (int i = 0; i < count; i++) {
+            String payload = prefix + ":" + i;
+            channel.write(ByteBuffer.wrap(payload.getBytes(StandardCharsets.UTF_8))).await();
+        }
+    }
+
+    private static void assertReceiveStressBurst(
+        BlockingQueue<byte[]> inbox,
+        AtomicReference<Throwable> listenerError,
+        String expectedPrefix,
+        int count,
+        long timeout,
+        TimeUnit unit
+    ) throws Exception {
+        for (int i = 0; i < count; i++) {
+            byte[] msg = pollMessage(inbox, listenerError, timeout, unit);
+            String text = new String(msg, StandardCharsets.UTF_8);
+            String expected = expectedPrefix + ":" + i;
+            assertTrue("Out-of-order RTC message: expected=" + expected + " actual=" + text, expected.equals(text));
+        }
     }
 
     private static void awaitNoListenerError(AtomicReference<Throwable> listenerError, String phase) {

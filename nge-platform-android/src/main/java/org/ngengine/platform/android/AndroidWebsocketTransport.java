@@ -45,6 +45,8 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
     private final Object queueMonitor = new Object();
     private CompletableFuture<?> futureQueue = CompletableFuture.completedFuture(null);
+    private final Object callbackQueueMonitor = new Object();
+    private CompletableFuture<?> callbackFutureQueue = CompletableFuture.completedFuture(null);
 
     private volatile boolean isConnecting = false;
     private volatile boolean isClosing = false;
@@ -93,6 +95,18 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
         });
     }
 
+    private void enqueueCallback(Runnable callback) {
+        synchronized (callbackQueueMonitor) {
+            callbackFutureQueue = callbackFutureQueue.thenRunAsync(() -> {
+                try {
+                    callback.run();
+                } catch (Throwable t) {
+                    logger.warning("Error in queued callback: " + t);
+                }
+            }, executor);
+        }
+    }
+
     @Override
     public AsyncTask<Void> connect(String url) {
         logger.finest("Connecting to WebSocket: " + url);
@@ -113,7 +127,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                 WebSocketListener listener = new WebSocketListener() {
                     @Override
                     public void onOpen(WebSocket webSocket, Response response) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             logger.finest("WebSocket opened");
                             AndroidWebsocketTransport.this.webSocket = webSocket;
                             isConnecting = false;
@@ -132,7 +146,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
                     @Override
                     public void onMessage(WebSocket webSocket, String text) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             for (WebsocketTransportListener listener : listeners) {
                                 try {
                                     listener.onConnectionMessage(text);
@@ -145,7 +159,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
                     @Override
                     public void onMessage(WebSocket webSocket, ByteString bytes) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             ByteBuffer message = ByteBuffer.wrap(bytes.toByteArray());
                             for (WebsocketTransportListener listener : listeners) {
                                 try {
@@ -159,7 +173,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
                     @Override
                     public void onClosing(WebSocket webSocket, int code, String reason) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             logger.finest("WebSocket closing: " + code + " " + reason);
                             webSocket.close(code, reason);
                         });
@@ -167,7 +181,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
                     @Override
                     public void onClosed(WebSocket webSocket, int code, String reason) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             logger.finest("WebSocket closed: " + code + " " + reason);
                             AndroidWebsocketTransport.this.webSocket = null;
                             isClosing = false;
@@ -184,7 +198,7 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
                     @Override
                     public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-                        executor.execute(() -> {
+                        enqueueCallback(() -> {
                             logger.warning("WebSocket error: " + t);
                             AndroidWebsocketTransport.this.webSocket = null;
                             isConnecting = false;

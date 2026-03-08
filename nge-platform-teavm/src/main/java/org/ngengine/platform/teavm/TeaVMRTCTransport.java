@@ -68,6 +68,8 @@ public class TeaVMRTCTransport implements RTCTransport {
         new ConcurrentHashMap<>();
     private final Map<org.ngengine.platform.teavm.webrtc.RTCDataChannel, AsyncTask<RTCDataChannel>> channelReadyTasks =
         new ConcurrentHashMap<>();
+    private final Map<org.ngengine.platform.teavm.webrtc.RTCDataChannel, Consumer<Exception>> pendingReadyRejectors =
+        new ConcurrentHashMap<>();
 
     private String connId;
     private volatile boolean isInitiator;
@@ -345,6 +347,37 @@ public class TeaVMRTCTransport implements RTCTransport {
 
         NGEPlatform platform = NGEUtils.getPlatform();
         RTCDataChannel wrapper = wrapChannel(nativeChannel);
+        @SuppressWarnings("unchecked")
+        Consumer<?>[] cs = new Consumer[2];
+        AsyncTask<RTCDataChannel> readyTask = platform.promisify(
+            (res, rej) -> {
+                cs[0] = res;
+                cs[1] = rej;
+            },
+            this.asyncExecutor
+        );
+        Consumer<RTCDataChannel> resReady = (Consumer<RTCDataChannel>) cs[0];
+        Consumer<Throwable> rejReady = (Consumer<Throwable>) cs[1];
+        channelReadyTasks.put(nativeChannel, readyTask);
+        pendingReadyRejectors.put(nativeChannel, e -> rejReady.accept(e));
+
+        Runnable completeReady = () -> {
+            pendingReadyRejectors.remove(nativeChannel);
+            logger.fine("Data channel opened: " + wrapper.getName());
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCChannelReady(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying channel ready", e);
+                }
+            }
+            resReady.accept(wrapper);
+        };
+
+        Consumer<Exception> failReady = error -> {
+            pendingReadyRejectors.remove(nativeChannel);
+            rejReady.accept(error);
+        };
 
         nativeChannel.setBinaryType("arraybuffer");
 
@@ -358,6 +391,7 @@ public class TeaVMRTCTransport implements RTCTransport {
                     logger.log(Level.WARNING, "Error notifying channel close", e);
                 }
             }
+            failReady.accept(new Exception("Channel closed"));
         });
 
         nativeChannel.setOnErrorHandler(error -> {
@@ -396,52 +430,35 @@ public class TeaVMRTCTransport implements RTCTransport {
             }
         );
 
-        AsyncTask<RTCDataChannel> readyTask = platform.promisify(
-            (res, rej) -> {
-                try {
-                    if ("open".equals(nativeChannel.getReadyState())) {
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCChannelReady(wrapper);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error notifying channel ready", e);
-                            }
-                        }
-                        res.accept(wrapper);
-                        return;
+        this.asyncExecutor.runLater(
+            () -> {
+                if (!"open".equals(nativeChannel.getReadyState())) {
+                    logger.warning("Data channel failed to open in time, closing channel");
+                    try {
+                        wrapper.close();
+                    } catch (Exception e) {
+                        logger.log(Level.FINE, "Error closing channel", e);
                     }
-
-                    this.asyncExecutor.runLater(
-                            () -> {
-                                if (!"open".equals(nativeChannel.getReadyState())) {
-                                    logger.warning("Data channel failed to open in time, closing channel");
-                                    wrapper.close().catchException(e -> logger.log(Level.FINE, "Error closing channel", e));
-                                    rej.accept(new Exception("Channel open timeout"));
-                                }
-                                return null;
-                            },
-                            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
-                            TimeUnit.MILLISECONDS
-                        );
-
-                    nativeChannel.setOnOpenHandler(() -> {
-                        logger.fine("Data channel opened: " + wrapper.getName());
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCChannelReady(wrapper);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error notifying channel ready", e);
-                            }
-                        }
-                        res.accept(wrapper);
-                    });
-                } catch (Throwable e) {
-                    rej.accept(e);
+                    failReady.accept(new Exception("Channel open timeout"));
+                } else {
+                    logger.fine("Data channel is open: " + wrapper.getName());
+                    completeReady.run();
                 }
+                return null;
             },
-            this.asyncExecutor
+            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+            TimeUnit.MILLISECONDS
         );
-        channelReadyTasks.put(nativeChannel, readyTask);
+
+        nativeChannel.setOnOpenHandler(() -> {
+            completeReady.run();
+        });
+
+        if ("open".equals(nativeChannel.getReadyState())) {
+            logger.fine("Data channel already opened: " + wrapper.getName());
+            completeReady.run();
+        }
+
         return readyTask;
     }
 
@@ -610,6 +627,16 @@ public class TeaVMRTCTransport implements RTCTransport {
 
     @Override
     public void close() {
+        Exception transportClosed = new Exception("Transport closed");
+        for (Consumer<Exception> rejector : new CopyOnWriteArrayList<>(pendingReadyRejectors.values())) {
+            try {
+                rejector.accept(transportClosed);
+            } catch (Exception e) {
+                logger.log(Level.FINE, "Error rejecting pending ready task", e);
+            }
+        }
+        pendingReadyRejectors.clear();
+
         for (org.ngengine.platform.teavm.webrtc.RTCDataChannel channel : channelWrappers.keySet()) {
             try {
                 channel.close();

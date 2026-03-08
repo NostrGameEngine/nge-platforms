@@ -44,6 +44,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -94,6 +95,7 @@ public class JVMRTCTransport implements RTCTransport {
     private volatile boolean connected = false;
     private RTCSettings settings;
     private static volatile boolean libAllocator = false;
+    private final CopyOnWriteArrayList<Consumer<Throwable>> pendingReadyRejectors = new CopyOnWriteArrayList<>();
 
     public JVMRTCTransport() {
         logger.fine("JVMRTCTransport initialized");
@@ -237,188 +239,204 @@ public class JVMRTCTransport implements RTCTransport {
             : rel.maxPacketLifeTime();
 
         @SuppressWarnings("unchecked")
-        AsyncTask<RTCDataChannel>[] p = new AsyncTask[1];
+        Consumer<?>[] cs = new Consumer[2];
+        AsyncTask<RTCDataChannel> p = platform.wrapPromise((res, rej) -> {
+            cs[0] = res;
+            cs[1] = rej;
+        });
+        Consumer<RTCDataChannel> res1 = (Consumer<RTCDataChannel>) cs[0];
+        Consumer<Throwable> rej1 = (Consumer<Throwable>) cs[1];
+        
+        pendingReadyRejectors.add(rej1);
+        RTCDataChannel wrapper = new RTCDataChannel(
+            channel.label(),
+            channel.protocol(),
+            ordered,
+            reliable,
+            maxRetransmits,
+            maxPacketLifeTime
+        ) {
+            @Override
+            public AsyncTask<RTCDataChannel> ready() {
+                return p;
+            }
 
-        p[0] =
-            platform.wrapPromise((res1, rej1) -> {
-                RTCDataChannel wrapper = new RTCDataChannel(
-                    channel.label(),
-                    channel.protocol(),
-                    ordered,
-                    reliable,
-                    maxRetransmits,
-                    maxPacketLifeTime
-                ) {
-                    @Override
-                    public AsyncTask<RTCDataChannel> ready() {
-                        return p[0];
-                    }
-
-                    @Override
-                    public AsyncTask<Void> write(ByteBuffer message) {
-                        NGEPlatform platform = NGEUtils.getPlatform();
-                        return this.ready()
-                            .compose(_ignored ->
-                                platform.wrapPromise((res, rej) -> {
-                                    try {
-                                        boolean isDirectBuffer = message.isDirect();
-                                        if (!isDirectBuffer) {
-                                            ByteBuffer directBuffer = ByteBuffer.allocateDirect(message.remaining());
-                                            directBuffer.put(message.duplicate());
-                                            directBuffer.flip();
-                                            channel.sendMessage(directBuffer);
-                                        } else {
-                                            channel.sendMessage(message.duplicate());
-                                        }
-                                        res.accept(null);
-                                    } catch (Exception e) {
-                                        logger.log(Level.WARNING, "Error sending message", e);
-                                        rej.accept(e);
-                                    }
-                                })
-                            );
-                    }
-
-                    @Override
-                    public AsyncTask<Number> getMaxMessageSize() {
-                        return AsyncTask.completed(channel.maxMessageSize());
-                    }
-
-                    @Override
-                    public AsyncTask<Number> getAvailableAmount() {
-                        return AsyncTask.completed(channel.availableAmount());
-                    }
-
-                    @Override
-                    public AsyncTask<Number> getBufferedAmount() {
-                        return AsyncTask.completed(channel.bufferedAmount());
-                    }
-
-                    @Override
-                    public AsyncTask<Void> setBufferedAmountLowThreshold(int threshold) {
-                        return AsyncTask.create((res, rej) -> {
+            @Override
+            public AsyncTask<Void> write(ByteBuffer message) {
+                NGEPlatform platform = NGEUtils.getPlatform();
+                return this.ready()
+                    .compose(_ignored ->{
+                        return platform.wrapPromise((res, rej) -> {
                             try {
-                                channel.bufferedAmountLowThreshold(threshold);
-                                res.accept(null);
-                            } catch (Throwable e) {
-                                rej.accept(e);
-                            }
-                        });
-                    }
-
-                    @Override
-                    public AsyncTask<Void> close() {
-                        return AsyncTask.create((res, rej) -> {
-                            try {
-                                channels.remove(channel);
-                                channel.close();
-                                res.accept(null);
-                            } catch (Throwable e) {
-                                rej.accept(e);
-                            }
-                        });
-                    }
-                };
-
-                channels.put(channel, wrapper);
-
-                // timeout for good measure
-                this.executor.runLater(
-                        () -> {
-                            if (!channel.isOpen()) {
-                                logger.warning("Data channel failed to open in time, closing channel");
-                                try {
-                                    wrapper.close();
-                                } catch (Exception e) {
-                                    logger.log(Level.FINE, "Error closing channel", e);
+                                boolean isDirectBuffer = message.isDirect();
+                                if (!isDirectBuffer) {
+                                    ByteBuffer directBuffer = ByteBuffer.allocateDirect(message.remaining());
+                                    directBuffer.put(message.duplicate());
+                                    directBuffer.flip();
+                                    channel.sendMessage(directBuffer);
+                                } else {
+                                    channel.sendMessage(message.duplicate());
                                 }
-                                rej1.accept(new Exception("Channel open timeout"));
-                            }
-                            return null;
-                        },
-                        Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
-                        TimeUnit.MILLISECONDS
-                    );
-
-                channel.onError.register((c, error) -> {
-                    logger.log(Level.WARNING, "Channel error: " + error);
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCChannelError(wrapper, new Exception(error));
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying channel error", e);
-                        }
-                    }
-                });
-
-                channel.onClosed.register(c -> {
-                    logger.fine("Channel closed: " + wrapper.getName());
-                    channels.remove(channel);
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCChannelClosed(wrapper);
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying channel close", e);
-                        }
-                    }
-                    rej1.accept(new Exception("Channel closed"));
-                });
-
-                channel.onMessage.register(
-                    Message.handleBinary((c, buffer) -> {
-                        // copy buffer for memory safety
-                        ByteBuffer copy = NGEPlatform.get().getNativeAllocator().malloc(buffer.remaining());
-                        copy.put(buffer);
-                        copy.flip();
-                        buffer = copy;
-                        ////
-
-                        assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCBinaryMessage(wrapper, buffer);
+                                res.accept(null);
                             } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error handling message", e);
+                                logger.log(Level.WARNING, "Error sending message", e);
+                                rej.accept(e);
                             }
-                        }
-                    })
-                );
-
-                channel.onBufferedAmountLow.register(c -> {
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCBufferedAmountLow(wrapper);
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying buffered amount low", e);
-                        }
-                    }
-                });
-
-                if (channel.isOpen()) {
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCChannelReady(wrapper);
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying channel ready", e);
-                        }
-                    }
-                    res1.accept(wrapper);
-                } else {
-                    channel.onOpen.register(c -> {
-                        logger.fine("Channel opened: " + wrapper.getName());
-                        for (RTCTransportListener listener : listeners) {
-                            try {
-                                listener.onRTCChannelReady(wrapper);
-                            } catch (Exception e) {
-                                logger.log(Level.WARNING, "Error notifying channel ready", e);
-                            }
-                        }
-                        res1.accept(wrapper);
-                    });
-                }
+                        });
             });
+            }
 
-        return p[0];
+            @Override
+            public AsyncTask<Number> getMaxMessageSize() {
+                return AsyncTask.completed(channel.maxMessageSize());
+            }
+
+            @Override
+            public AsyncTask<Number> getAvailableAmount() {
+                return AsyncTask.completed(channel.availableAmount());
+            }
+
+            @Override
+            public AsyncTask<Number> getBufferedAmount() {
+                return AsyncTask.completed(channel.bufferedAmount());
+            }
+
+            @Override
+            public AsyncTask<Void> setBufferedAmountLowThreshold(int threshold) {
+                return AsyncTask.create((res, rej) -> {
+                    try {
+                        channel.bufferedAmountLowThreshold(threshold);
+                        res.accept(null);
+                    } catch (Throwable e) {
+                        rej.accept(e);
+                    }
+                });
+            }
+
+            @Override
+            public AsyncTask<Void> close() {
+                return AsyncTask.create((res, rej) -> {
+                    try {
+                        channels.remove(channel);
+                        channel.close();
+                        res.accept(null);
+                    } catch (Throwable e) {
+                        rej.accept(e);
+                    }
+                });
+            }
+        };
+
+        channels.put(channel, wrapper);
+
+        Runnable completeReady = () -> {
+            pendingReadyRejectors.remove(rej1);
+            res1.accept(wrapper);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCChannelReady(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying channel ready", e);
+                }
+            }
+        };
+
+        Consumer<Exception> failReady = error -> {
+            pendingReadyRejectors.remove(rej1);
+            rej1.accept(error);
+            
+        };
+
+        // timeout for good measure
+        this.executor.runLater(
+            () -> {
+                if (!channel.isOpen()) {
+                    logger.warning("Data channel failed to open in time, closing channel");
+                    try {
+                        wrapper.close();
+                    } catch (Exception e) {
+                        logger.log(Level.FINE, "Error closing channel", e);
+                    }
+                    failReady.accept(new Exception("Channel open timeout"));
+                } else {
+                    logger.fine("Data channel is open: " + wrapper.getName());
+                    completeReady.run();
+                }
+                return null;
+            },
+            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+            TimeUnit.MILLISECONDS
+        );
+
+        channel.onError.register((c, error) -> {
+            logger.log(Level.WARNING, "Channel error: " + error);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCChannelError(wrapper, new Exception(error));
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying channel error", e);
+                }
+            }
+        });
+
+        channel.onClosed.register(c -> {
+            logger.fine("Channel closed: " + wrapper.getName());
+            channels.remove(channel);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCChannelClosed(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying channel close", e);
+                }
+            }
+            failReady.accept(new Exception("Channel closed"));
+        });
+
+        channel.onMessage.register(
+            Message.handleBinary((c, buffer) -> {
+                // copy buffer for memory safety
+                // big buffer > 10MB  = native, small buffer = java heap
+                ByteBuffer copy = buffer.remaining() > 10 * 1024 * 1024
+                    ? NGEPlatform.get().getNativeAllocator().malloc(buffer.remaining())
+                    : ByteBuffer.allocate(buffer.remaining());
+                copy.put(buffer);
+                copy.flip();
+                buffer = copy;
+                ////
+
+                assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
+                for (RTCTransportListener listener : listeners) {
+                    try {
+                        listener.onRTCBinaryMessage(wrapper, buffer);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error handling message", e);
+                    }
+                }
+            })
+        );
+
+        channel.onBufferedAmountLow.register(c -> {
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCBufferedAmountLow(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying buffered amount low", e);
+                }
+            }
+        });
+
+        channel.onOpen.register(c -> {
+            logger.fine("Channel opened: " + wrapper.getName());
+            completeReady.run();
+        });
+
+        if (channel.isOpen()) {
+            logger.fine("Channel already opened: " + wrapper.getName());
+            completeReady.run();
+        }
+            
+
+        return p;
     }
 
     public String getName() {
@@ -658,6 +676,16 @@ public class JVMRTCTransport implements RTCTransport {
 
     @Override
     public void close() {
+        Exception transportClosed = new Exception("Transport closed");
+        for (Consumer<Throwable> rejector : new ArrayList<>(pendingReadyRejectors)) {
+            try {
+                rejector.accept(transportClosed);
+            } catch (Exception e) {
+                logger.log(Level.FINE, "Error rejecting pending ready task", e);
+            }
+        }
+        pendingReadyRejectors.clear();
+
         for (DataChannel nativeChannel : new ArrayList<>(channels.keySet())) {
             try {
                 nativeChannel.close();

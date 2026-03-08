@@ -74,6 +74,7 @@ public class AndroidRTCTransport implements RTCTransport {
     private final List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final Map<DataChannel, RTCDataChannel> channelWrappers = new ConcurrentHashMap<>();
     private final Map<DataChannel, AsyncTask<RTCDataChannel>> channelReadyTasks = new ConcurrentHashMap<>();
+    private final Map<DataChannel, Consumer<Exception>> pendingReadyRejectors = new ConcurrentHashMap<>();
     private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
     private final List<RTCTransportIceCandidate> pendingRemoteCandidates = new CopyOnWriteArrayList<>();
@@ -396,6 +397,33 @@ public class AndroidRTCTransport implements RTCTransport {
 
         NGEPlatform platform = NGEUtils.getPlatform();
         RTCDataChannel wrapper = wrapChannel(nativeChannel);
+        @SuppressWarnings("unchecked")
+        Consumer<?>[] cs = new Consumer[2];
+        AsyncTask<RTCDataChannel> readyTask = platform.wrapPromise((res, rej) -> {
+            cs[0] = res;
+            cs[1] = rej;
+        });
+        Consumer<RTCDataChannel> resReady = (Consumer<RTCDataChannel>) cs[0];
+        Consumer<Throwable> rejReady = (Consumer<Throwable>) cs[1];
+        channelReadyTasks.put(nativeChannel, readyTask);
+        pendingReadyRejectors.put(nativeChannel, e -> rejReady.accept(e));
+
+        Runnable completeReady = () -> {
+            pendingReadyRejectors.remove(nativeChannel);
+            resReady.accept(wrapper);
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCChannelReady(wrapper);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying channel ready", e);
+                }
+            }
+        };
+
+        Consumer<Exception> failReady = error -> {
+            pendingReadyRejectors.remove(nativeChannel);
+            rejReady.accept(error);
+        };
 
         nativeChannel.onError.register((c, error) -> {
             logger.log(Level.WARNING, "Channel error: " + error);
@@ -418,6 +446,7 @@ public class AndroidRTCTransport implements RTCTransport {
                     logger.log(Level.WARNING, "Error notifying channel close", e);
                 }
             }
+            failReady.accept(new Exception("Channel closed"));
         });
 
         nativeChannel.onMessage.register(
@@ -449,45 +478,36 @@ public class AndroidRTCTransport implements RTCTransport {
             }
         });
 
-        AsyncTask<RTCDataChannel> readyTask = platform.wrapPromise((res, rej) -> {
-            if (nativeChannel.isOpen()) {
-                for (RTCTransportListener listener : listeners) {
+        this.executor.runLater(
+            () -> {
+                if (!nativeChannel.isOpen()) {
+                    logger.warning("Data channel failed to open in time, closing channel");
                     try {
-                        listener.onRTCChannelReady(wrapper);
+                        wrapper.close();
                     } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error notifying channel ready", e);
+                        logger.log(Level.FINE, "Error closing channel", e);
                     }
+                    failReady.accept(new Exception("Channel open timeout"));
+                } else {
+                    logger.fine("Data channel is open: " + wrapper.getName());
+                    completeReady.run();
                 }
-                res.accept(wrapper);
-                return;
-            }
+                return null;
+            },
+            Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+            TimeUnit.MILLISECONDS
+        );
 
-            this.executor.runLater(
-                () -> {
-                    if (!nativeChannel.isOpen()) {
-                        logger.warning("Data channel failed to open in time, closing channel");
-                        wrapper.close().catchException(e -> logger.log(Level.FINE, "Error closing channel", e));
-                        rej.accept(new Exception("Channel open timeout"));
-                    }
-                    return null;
-                },
-                Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
-                TimeUnit.MILLISECONDS
-            );
-
-            nativeChannel.onOpen.register(c -> {
-                logger.fine("Channel opened: " + wrapper.getName());
-                for (RTCTransportListener listener : listeners) {
-                    try {
-                        listener.onRTCChannelReady(wrapper);
-                    } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error notifying channel ready", e);
-                    }
-                }
-                res.accept(wrapper);
-            });
+        nativeChannel.onOpen.register(c -> {
+            logger.fine("Channel opened: " + wrapper.getName());
+            completeReady.run();
         });
-        channelReadyTasks.put(nativeChannel, readyTask);
+
+        if (nativeChannel.isOpen()) {
+            logger.fine("Channel already opened: " + wrapper.getName());
+            completeReady.run();
+        }
+
         return readyTask;
     }
 
@@ -647,6 +667,16 @@ public class AndroidRTCTransport implements RTCTransport {
 
     @Override
     public void close() {
+        Exception transportClosed = new Exception("Transport closed");
+        for (Consumer<Exception> rejector : new ArrayList<>(pendingReadyRejectors.values())) {
+            try {
+                rejector.accept(transportClosed);
+            } catch (Exception e) {
+                logger.log(Level.FINE, "Error rejecting pending ready task", e);
+            }
+        }
+        pendingReadyRejectors.clear();
+
         for (DataChannel nativeChannel : new ArrayList<>(channelWrappers.keySet())) {
             try {
                 nativeChannel.close();
