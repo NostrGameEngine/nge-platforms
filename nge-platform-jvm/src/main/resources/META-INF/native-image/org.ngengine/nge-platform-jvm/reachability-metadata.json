@@ -4424,6 +4424,149 @@
                     ]
                 },
                 {
+                    "name": "testComposeAttachedAfterAlreadyResolvedTaskExecutes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testConcurrentPromises",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testErrorPropagationInChain",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testErrorRecoveryWithExceptionally",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testExceptionallyHandler",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testMultipleThenChaining",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testPromiseWithDependencies",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testPromisifyWithClosedExecutorReturnsFailedTask",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testResolveCalledTwiceShouldExecuteThenOnlyOnce",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testSimpleThenChaining",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWaitAllCompletionTracking",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWaitAllEmptyList",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWaitAllOrdering",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWaitAllSuccess",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWaitAllWithFailure",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testWrapPromiseSynchronousThrowReturnsFailedTask",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.TestAsyncTask",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setUp",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testAsyncPromiseResolution",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testAsyncResolveCalledTwiceShouldExecuteThenOnlyOnce",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testBasicPromiseRejection",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testBasicPromiseResolution",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "testComplexChaining",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "testConcurrentPromises",
                     "parameterTypes": [
                         
@@ -4598,6 +4741,18 @@
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$Context"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        "org.ngengine.platform.jvm.JVMAsyncPlatform",
+                        "java.util.concurrent.ExecutorService"
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor"
         },
         {
@@ -4674,6 +4829,53 @@
                     ]
                 },
                 {
+                    "name": "customChannelConcurrentBidirectionalSendDeliversToBothPeers",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "customChannelConcurrentBidirectionalSendQueuedBeforeHandshakeDeliversToBothPeers",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "customChannelCreatedOnInitiatorIsAvailableOnResponder",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "deprecatedWritePreservesOrderUnderStressInBothDirections",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "deprecatedWriteUsesDefaultChannel",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "pendingChannelReadyFailsWhenTransportCloses",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMRTCTransportUnitTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "deprecatedWriteUsesDefaultChannel",
                     "parameterTypes": [
                         
@@ -4714,6 +4916,29 @@
             "fields": [
                 {
                     "name": "openWebSocket"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransportUnitTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "inboundTextCallbacksPreserveOrderUnderStress",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "sendPreservesOrderUnderStressInBothDirections",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
