@@ -43,9 +43,11 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -437,30 +439,52 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
         CompletableFuture<T> fut = new CompletableFuture<>();
         if (executor != null && executor instanceof TExecutor) {
-            ((TExecutor) executor).executor.submit(() -> {
-                try {
-                    func.accept(
-                            r -> {
-                                fut.complete(r);
-                            },
-                            err -> {
-                                fut.completeExceptionally(err);
-                            });
-                } catch (Throwable e) {
-                    fut.completeExceptionally(e);
-                }
-            });
+            try {
+                ((TExecutor) executor).executor.submit(() -> {
+                    try {
+                        func.accept(
+                                r -> {
+                                    fut.complete(r);
+                                },
+                                err -> {
+                                    fut.completeExceptionally(err);
+                                });
+                    } catch (Throwable e) {
+                        fut.completeExceptionally(e);
+                    }
+                });
+            } catch (RejectedExecutionException e) {
+                fut.completeExceptionally(e);
+            }
         } else {
-            func.accept(
-                    r -> {
-                        fut.complete(r);
-                    },
-                    err -> {
-                        fut.completeExceptionally(err);
-                    });
+            try {
+                func.accept(
+                        r -> {
+                            fut.complete(r);
+                        },
+                        err -> {
+                            fut.completeExceptionally(err);
+                        });
+            } catch (Throwable e) {
+                fut.completeExceptionally(e);
+            }
         }
         return new AsyncTask<T>() {
             private volatile boolean cancelled = false;
+
+            private Throwable normalize(Throwable throwable) {
+                Throwable current = throwable;
+                while (
+                        current instanceof CompletionException ||
+                        current instanceof ExecutionException
+                ) {
+                    if (current.getCause() == null) {
+                        break;
+                    }
+                    current = current.getCause();
+                }
+                return current;
+            }
 
             @Override
             public T await() throws Exception {
@@ -488,22 +512,12 @@ public class AndroidThreadedPlatform extends NGEPlatform {
 
             @Override
             public boolean isFailed() {
-                try {
-                    fut.get();
-                    return false;
-                } catch (Throwable e) {
-                    return true;
-                }
+                return fut.isDone() && (fut.isCompletedExceptionally() || fut.isCancelled());
             }
 
             @Override
             public boolean isSuccess() {
-                try {
-                    fut.get();
-                    return true;
-                } catch (Throwable e) {
-                    return false;
-                }
+                return fut.isDone() && !fut.isCompletedExceptionally() && !fut.isCancelled();
             }
 
             @Override
@@ -514,7 +528,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                                 fut.handleAsync(
                                         (result, exception) -> {
                                             if (exception != null) {
-                                                rej.accept(exception);
+                                                rej.accept(normalize(exception));
                                                 return null;
                                             }
 
@@ -529,7 +543,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                             } else {
                                 fut.handle((result, exception) -> {
                                     if (exception != null) {
-                                        rej.accept(exception);
+                                        rej.accept(normalize(exception));
                                         return null;
                                     }
 
@@ -553,7 +567,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                                 fut.handleAsync(
                                         (result, exception) -> {
                                             if (exception != null) {
-                                                rej.accept(exception);
+                                                rej.accept(normalize(exception));
                                                 return null;
                                             }
 
@@ -575,7 +589,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                             } else {
                                 fut.handle((result, exception) -> {
                                     if (exception != null) {
-                                        rej.accept(exception);
+                                        rej.accept(normalize(exception));
                                         return null;
                                     }
 
@@ -605,7 +619,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                     fut.handleAsync(
                             (result, exception) -> {
                                 if (exception != null) {
-                                    func2.accept(exception);
+                                    func2.accept(normalize(exception));
                                 }
                                 return null;
                             },
@@ -613,7 +627,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                 } else {
                     fut.handle((result, exception) -> {
                         if (exception != null) {
-                            func2.accept(exception);
+                            func2.accept(normalize(exception));
                         }
                         return null;
                     });

@@ -296,14 +296,21 @@ public class TeaVMPlatform extends NGEPlatform {
                 promise.reject(e);
             }
         } else {
-            executor.run(() -> {
-                try {
-                    func.accept(promise::resolve, promise::reject);
-                } catch (Throwable e) {
-                    promise.reject(e);
+            try {
+                AsyncTask<?> submitted = executor.run(() -> {
+                    try {
+                        func.accept(promise::resolve, promise::reject);
+                    } catch (Throwable e) {
+                        promise.reject(e);
+                    }
+                    return null;
+                });
+                if (submitted != null) {
+                    submitted.catchException(promise::reject);
                 }
-                return null;
-            });
+            } catch (Throwable e) {
+                promise.reject(e);
+            }
         }
 
         return new AsyncTask<T>() {

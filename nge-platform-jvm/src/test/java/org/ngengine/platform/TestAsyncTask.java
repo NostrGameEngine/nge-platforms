@@ -35,6 +35,8 @@ import static org.junit.Assert.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -673,5 +675,51 @@ public class TestAsyncTask {
         assertTrue("Callback not executed within timeout", latch.await(1, TimeUnit.SECONDS));
         assertEquals("Then callback should only be called once", 1, thenCallCount.get());
         assertEquals("First resolution value should be used", "first", promise.await());
+    }
+
+    @Test
+    public void testComposeAttachedAfterAlreadyResolvedTaskExecutes() throws Exception {
+        AsyncTask<Integer> resolved = platform.wrapPromise((resolve, reject) -> resolve.accept(7));
+        assertEquals(Integer.valueOf(7), resolved.await());
+
+        AsyncTask<Integer> composed = resolved.compose(v -> AsyncTask.completed(v * 3));
+        assertEquals(Integer.valueOf(21), composed.await());
+    }
+
+    @Test
+    public void testWrapPromiseSynchronousThrowReturnsFailedTask() throws Exception {
+        AsyncTask<String> task = platform.wrapPromise((resolve, reject) -> {
+            throw new IllegalStateException("sync failure");
+        });
+
+        assertTrue(task.isDone());
+        assertTrue(task.isFailed());
+        try {
+            task.await();
+            fail("Expected exception");
+        } catch (Exception e) {
+            assertEquals("sync failure", e.getMessage());
+        }
+    }
+
+    @Test
+    public void testPromisifyWithClosedExecutorReturnsFailedTask() throws Exception {
+        ExecutorService rawExecutor = Executors.newSingleThreadExecutor();
+        rawExecutor.shutdownNow();
+        Class<?> vtClass = Class.forName("org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor");
+        java.lang.reflect.Constructor<?> constructor = vtClass.getDeclaredConstructor(JVMAsyncPlatform.class, ExecutorService.class);
+        constructor.setAccessible(true);
+        AsyncExecutor executor = (AsyncExecutor) constructor.newInstance(platform, rawExecutor);
+
+        AsyncTask<String> task = platform.promisify((resolve, reject) -> resolve.accept("ok"), executor);
+
+        assertTrue(task.isDone());
+        assertTrue(task.isFailed());
+        try {
+            task.await();
+            fail("Expected rejection from closed executor");
+        } catch (Exception e) {
+            assertNotNull(e);
+        }
     }
 }
