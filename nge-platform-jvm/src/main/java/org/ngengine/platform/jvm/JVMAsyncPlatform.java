@@ -667,21 +667,14 @@ public class JVMAsyncPlatform extends NGEPlatform {
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     {
+        Thread shutdownHook = new Thread(() -> {
+            logger.fine("Shutting down executor service...");
+            executor.shutdownNow();
+        }, "nge-jvm-async-shutdown-hook");
+        shutdownHook.setDaemon(true);
         Runtime
             .getRuntime()
-            .addShutdownHook(
-                new Thread(() -> {
-                    logger.fine("Shutting down executor service...");
-                    executor.shutdownNow();
-                    try {
-                        if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
-                            logger.warning("Executor did not terminate in the specified time.");
-                        }
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                    }
-                })
-            );
+            .addShutdownHook(shutdownHook);
     }
 
     protected class VtExecutor implements AsyncExecutor {
