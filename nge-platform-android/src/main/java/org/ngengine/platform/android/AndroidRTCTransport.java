@@ -183,7 +183,7 @@ public class AndroidRTCTransport implements RTCTransport {
                 if (connected) {
                     return null;
                 }
-                logger.warning("RTC Connection attempt timed out, closing connection");
+                logger.finer("RTC Connection attempt timed out, closing connection");
                 for (RTCTransportListener listener : listeners) {
                     try {
                         listener.onRTCDisconnected("timeout");
@@ -481,11 +481,11 @@ public class AndroidRTCTransport implements RTCTransport {
         this.executor.runLater(
             () -> {
                 if (!nativeChannel.isOpen()) {
-                    logger.warning("Data channel failed to open in time, closing channel");
+                    logger.finer("Data channel failed to open in time, closing channel");
                     try {
                         wrapper.close();
                     } catch (Exception e) {
-                        logger.log(Level.FINE, "Error closing channel", e);
+                        logger.log(Level.FINER, "Error closing channel", e);
                     }
                     failReady.accept(new Exception("Channel open timeout"));
                 } else {
