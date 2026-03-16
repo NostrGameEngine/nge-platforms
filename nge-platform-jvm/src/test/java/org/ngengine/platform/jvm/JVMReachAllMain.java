@@ -494,7 +494,8 @@ public final class JVMReachAllMain {
         safeRun(
             "schnorr",
             () -> {
-                byte[] msg = "reach".getBytes(StandardCharsets.UTF_8);
+                byte[] msg = new byte[32];
+                java.util.Arrays.fill(msg, (byte) 0x42);
                 byte[] sk = Schnorr.generatePrivateKey();
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
@@ -708,7 +709,9 @@ public final class JVMReachAllMain {
 
                     byte[] sk = Schnorr.generatePrivateKey();
                     byte[] pk = Schnorr.genPubKey(sk);
-                    Schnorr.sign("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8), sk, new byte[32]);
+                    byte[] msg = new byte[32];
+                    java.util.Arrays.fill(msg, (byte) 0x07);
+                    Schnorr.sign(msg, sk, new byte[32]);
                 } catch (Throwable ignored) {}
                 return null;
             }
