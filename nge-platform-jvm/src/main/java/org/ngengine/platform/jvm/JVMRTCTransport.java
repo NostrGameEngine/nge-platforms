@@ -51,7 +51,6 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import java.time.Duration;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;

@@ -49,7 +49,6 @@ import org.junit.Test;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEUtils;
-// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
@@ -277,7 +276,12 @@ public class JVMRTCTransportUnitTest {
             );
 
             initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-bidi-" + System.nanoTime(), Collections.emptyList());
-            responder.start(p2pAttemptTimeout, responderExecutor, "answerer-bidi-" + System.nanoTime(), Collections.emptyList());
+            responder.start(
+                p2pAttemptTimeout,
+                responderExecutor,
+                "answerer-bidi-" + System.nanoTime(),
+                Collections.emptyList()
+            );
 
             String offer = initiator.listen().await();
             String answer = responder.connect(offer).await();
@@ -446,8 +450,18 @@ public class JVMRTCTransportUnitTest {
                 }
             );
 
-            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-prehs-" + System.nanoTime(), Collections.emptyList());
-            responder.start(p2pAttemptTimeout, responderExecutor, "answerer-prehs-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(
+                p2pAttemptTimeout,
+                initiatorExecutor,
+                "offerer-prehs-" + System.nanoTime(),
+                Collections.emptyList()
+            );
+            responder.start(
+                p2pAttemptTimeout,
+                responderExecutor,
+                "answerer-prehs-" + System.nanoTime(),
+                Collections.emptyList()
+            );
 
             AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(
                 customLabel,
@@ -542,7 +556,12 @@ public class JVMRTCTransportUnitTest {
         Duration p2pAttemptTimeout = Duration.ofSeconds(20);
 
         try {
-            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-close-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(
+                p2pAttemptTimeout,
+                initiatorExecutor,
+                "offerer-close-" + System.nanoTime(),
+                Collections.emptyList()
+            );
             initiator.listen().await();
 
             AsyncTask<RTCDataChannel> pendingReady = initiator.createDataChannel(

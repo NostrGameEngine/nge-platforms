@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;

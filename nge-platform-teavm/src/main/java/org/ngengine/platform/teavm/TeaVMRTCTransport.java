@@ -48,7 +48,6 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import java.time.Duration;
 import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
@@ -77,7 +76,6 @@ public class TeaVMRTCTransport implements RTCTransport {
     private RTCPeerConnection peerConnection;
     private AsyncExecutor asyncExecutor;
     private Duration p2pAttemptTimeout;
-
 
     public TeaVMRTCTransport() {}
 

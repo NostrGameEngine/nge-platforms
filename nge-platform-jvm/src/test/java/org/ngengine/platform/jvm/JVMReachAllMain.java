@@ -51,7 +51,6 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
