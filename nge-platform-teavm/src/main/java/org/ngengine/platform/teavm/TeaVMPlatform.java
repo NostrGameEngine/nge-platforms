@@ -55,7 +55,6 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
@@ -679,9 +678,9 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
+    public RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers) {
         TeaVMRTCTransport transport = new TeaVMRTCTransport();
-        transport.start(settings, newAsyncExecutor(TeaVMRTCTransport.class), connId, stunServers);
+        transport.start(p2pAttemptTimeout, newAsyncExecutor(TeaVMRTCTransport.class), connId, stunServers);
         return transport;
     }
 

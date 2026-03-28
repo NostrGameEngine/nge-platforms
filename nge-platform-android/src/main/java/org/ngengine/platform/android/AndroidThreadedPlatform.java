@@ -75,7 +75,6 @@ import org.bouncycastle.math.ec.ECPoint;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.FailedToSignException;
-import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
@@ -917,9 +916,9 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
     
     @Override
-    public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
+    public RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers) {
         AndroidRTCTransport transport = new AndroidRTCTransport();
-        transport.start(settings, rtcExecutor, connId, stunServers);
+        transport.start(p2pAttemptTimeout, rtcExecutor, connId, stunServers);
         return transport;
     }
 

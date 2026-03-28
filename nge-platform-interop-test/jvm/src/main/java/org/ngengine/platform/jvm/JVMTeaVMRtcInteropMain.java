@@ -53,7 +53,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.ngengine.platform.RTCSettings;
+// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
@@ -85,14 +85,8 @@ public class JVMTeaVMRtcInteropMain {
         Map<String, String> meta = new ConcurrentHashMap<>();
 
         JVMAsyncPlatform platform = new JVMAsyncPlatform();
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(20)
-        );
-        RTCTransport transport = platform.newRTCTransport(settings, "jvm-teavm-interop", List.of());
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
+        RTCTransport transport = platform.newRTCTransport(p2pAttemptTimeout, "jvm-teavm-interop", List.of());
 
         Thread poller = null;
         try {

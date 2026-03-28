@@ -127,7 +127,7 @@ public abstract class NGEPlatform {
 
     public abstract WebsocketTransport newTransport();
 
-    public abstract RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers);
+    public abstract RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers);
 
     public abstract String sha256(String data);
 

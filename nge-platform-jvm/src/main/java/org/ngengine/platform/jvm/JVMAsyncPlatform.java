@@ -93,7 +93,6 @@ import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.NGEHttpResponse;
@@ -933,12 +932,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public RTCTransport newRTCTransport(RTCSettings settings, String connId, Collection<String> stunServers) {
+    public RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers) {
         if (connId != null && !getMemoryLimits().checkForString(connId.length())) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         JVMRTCTransport transport = new JVMRTCTransport();
-        transport.start(settings, newAsyncExecutor(RTCTransport.class), connId, stunServers);
+        transport.start(p2pAttemptTimeout, newAsyncExecutor(RTCTransport.class), connId, stunServers);
         return transport;
     }
 

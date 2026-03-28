@@ -38,7 +38,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
-import org.ngengine.platform.RTCSettings;
+// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
@@ -96,14 +96,8 @@ public class AndroidJVMRtcInteropInstrumentedTest {
         AtomicReference<Throwable> listenerError = new AtomicReference<>();
         Map<String, String> meta = new ConcurrentHashMap<>();
 
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(120)
-        );
-        RTCTransport transport = platform.newRTCTransport(settings, "android-jvm-interop", STUN_SERVERS);
+        Duration p2pAttemptTimeout = Duration.ofSeconds(120);
+        RTCTransport transport = platform.newRTCTransport(p2pAttemptTimeout, "android-jvm-interop", STUN_SERVERS);
 
         Thread poller = null;
         try {

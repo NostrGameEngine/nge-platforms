@@ -51,7 +51,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
+import java.time.Duration;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
@@ -92,7 +92,7 @@ public class JVMRTCTransport implements RTCTransport {
     private final List<RTCTransportIceCandidate> pendingRemoteCandidates = new CopyOnWriteArrayList<>();
     private AsyncExecutor executor;
     private volatile boolean connected = false;
-    private RTCSettings settings;
+    private volatile Duration p2pAttemptTimeout;
     private static volatile boolean libAllocator = false;
     private final CopyOnWriteArrayList<Consumer<Throwable>> pendingReadyRejectors = new CopyOnWriteArrayList<>();
 
@@ -116,9 +116,9 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     @Override
-    public void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
-        this.settings = settings;
+    public void start(Duration p2pAttemptTimeout, AsyncExecutor executor, String connId, Collection<String> stunServers) {
         this.executor = executor;
+        this.p2pAttemptTimeout = p2pAttemptTimeout;
         Collection<URI> stunUris = new ArrayList<>();
         for (String server : stunServers) {
             try {
@@ -216,7 +216,7 @@ public class JVMRTCTransport implements RTCTransport {
                     this.close();
                     return null;
                 },
-                settings.getP2pAttemptTimeout().toMillis(),
+                p2pAttemptTimeout.toMillis(),
                 TimeUnit.MILLISECONDS
             );
     }
@@ -362,7 +362,7 @@ public class JVMRTCTransport implements RTCTransport {
                     }
                     return null;
                 },
-                Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+                Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
                 TimeUnit.MILLISECONDS
             );
 

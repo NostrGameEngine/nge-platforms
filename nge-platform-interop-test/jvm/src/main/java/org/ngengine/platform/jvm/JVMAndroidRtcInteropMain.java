@@ -53,7 +53,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.ngengine.platform.RTCSettings;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
@@ -86,14 +85,8 @@ public class JVMAndroidRtcInteropMain {
         Map<String, String> meta = new ConcurrentHashMap<>();
 
         JVMAsyncPlatform platform = new JVMAsyncPlatform();
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(120)
-        );
-        RTCTransport transport = platform.newRTCTransport(settings, "jvm-android-interop", STUN_SERVERS);
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
+        RTCTransport transport = platform.newRTCTransport(p2pAttemptTimeout, "jvm-android-interop", STUN_SERVERS);
 
         Thread poller = null;
         try {

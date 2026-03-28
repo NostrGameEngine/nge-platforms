@@ -36,14 +36,13 @@ import java.time.Duration;
 import java.util.Collection;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
-import org.ngengine.platform.RTCSettings;
 
 public interface RTCTransport extends Closeable {
     String DEFAULT_CHANNEL = null;
     void close();
     boolean isConnected();
 
-    void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers);
+    void start(Duration p2pAttemptTimeout, AsyncExecutor executor, String connId, Collection<String> stunServers);
     AsyncTask<String> connect(String offerOrAnswer);
     AsyncTask<RTCDataChannel> createDataChannel(
         String name,

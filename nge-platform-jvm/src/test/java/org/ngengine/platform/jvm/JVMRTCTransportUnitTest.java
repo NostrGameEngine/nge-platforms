@@ -49,7 +49,7 @@ import org.junit.Test;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
+// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
@@ -117,13 +117,7 @@ public class JVMRTCTransportUnitTest {
         CountDownLatch initiatorReady = new CountDownLatch(1);
         CountDownLatch responderReady = new CountDownLatch(1);
 
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(20)
-        );
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
 
         try {
             initiator.addListener(
@@ -158,8 +152,8 @@ public class JVMRTCTransportUnitTest {
                 }
             );
 
-            initiator.start(settings, initiatorExecutor, "offerer-" + System.nanoTime(), Collections.emptyList());
-            responder.start(settings, responderExecutor, "answerer-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-" + System.nanoTime(), Collections.emptyList());
+            responder.start(p2pAttemptTimeout, responderExecutor, "answerer-" + System.nanoTime(), Collections.emptyList());
 
             String offer = initiator.listen().await();
             String answer = responder.connect(offer).await();
@@ -221,13 +215,7 @@ public class JVMRTCTransportUnitTest {
         AtomicInteger initiatorReceiveCount = new AtomicInteger();
         AtomicInteger responderReceiveCount = new AtomicInteger();
 
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(20)
-        );
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
 
         try {
             initiator.addListener(
@@ -288,8 +276,8 @@ public class JVMRTCTransportUnitTest {
                 }
             );
 
-            initiator.start(settings, initiatorExecutor, "offerer-bidi-" + System.nanoTime(), Collections.emptyList());
-            responder.start(settings, responderExecutor, "answerer-bidi-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-bidi-" + System.nanoTime(), Collections.emptyList());
+            responder.start(p2pAttemptTimeout, responderExecutor, "answerer-bidi-" + System.nanoTime(), Collections.emptyList());
 
             String offer = initiator.listen().await();
             String answer = responder.connect(offer).await();
@@ -397,13 +385,7 @@ public class JVMRTCTransportUnitTest {
         AtomicInteger initiatorReceiveCount = new AtomicInteger();
         AtomicInteger responderReceiveCount = new AtomicInteger();
 
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(20)
-        );
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
 
         try {
             initiator.addListener(
@@ -464,8 +446,8 @@ public class JVMRTCTransportUnitTest {
                 }
             );
 
-            initiator.start(settings, initiatorExecutor, "offerer-prehs-" + System.nanoTime(), Collections.emptyList());
-            responder.start(settings, responderExecutor, "answerer-prehs-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-prehs-" + System.nanoTime(), Collections.emptyList());
+            responder.start(p2pAttemptTimeout, responderExecutor, "answerer-prehs-" + System.nanoTime(), Collections.emptyList());
 
             AsyncTask<RTCDataChannel> responderAwaited = responder.createDataChannel(
                 customLabel,
@@ -557,16 +539,10 @@ public class JVMRTCTransportUnitTest {
     public void pendingChannelReadyFailsWhenTransportCloses() throws Exception {
         JVMRTCTransport initiator = newTransportOrSkip();
         AsyncExecutor initiatorExecutor = NGEUtils.getPlatform().newAsyncExecutor("jvm-rtc-test-close-pending");
-        RTCSettings settings = new RTCSettings(
-            RTCSettings.SIGNALING_LOOP_INTERVAL,
-            RTCSettings.PEER_EXPIRATION,
-            RTCSettings.DELAYED_CANDIDATES_INTERVAL,
-            RTCSettings.ROOM_LOOP_INTERVAL,
-            Duration.ofSeconds(20)
-        );
+        Duration p2pAttemptTimeout = Duration.ofSeconds(20);
 
         try {
-            initiator.start(settings, initiatorExecutor, "offerer-close-" + System.nanoTime(), Collections.emptyList());
+            initiator.start(p2pAttemptTimeout, initiatorExecutor, "offerer-close-" + System.nanoTime(), Collections.emptyList());
             initiator.listen().await();
 
             AsyncTask<RTCDataChannel> pendingReady = initiator.createDataChannel(

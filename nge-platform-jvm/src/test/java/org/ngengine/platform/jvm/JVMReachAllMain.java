@@ -51,7 +51,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
+// RTCSettings removed; use Duration p2pAttemptTimeout directly
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
@@ -394,15 +394,9 @@ public final class JVMReachAllMain {
         safeRun(
             "rtc-transport",
             () -> {
-                RTCSettings settings = new RTCSettings(
-                    Duration.ofMillis(250),
-                    Duration.ofSeconds(1),
-                    Duration.ofMillis(50),
-                    Duration.ofMillis(100),
-                    Duration.ofSeconds(2)
-                );
+                Duration p2pAttemptTimeout = Duration.ofSeconds(2);
                 Collection<String> stun = new ArrayList<>();
-                RTCTransport rtc = platform.newRTCTransport(settings, "reach-all-conn", stun);
+                RTCTransport rtc = platform.newRTCTransport(p2pAttemptTimeout, "reach-all-conn", stun);
                 rtc.getName();
                 rtc.isConnected();
                 rtc.close();

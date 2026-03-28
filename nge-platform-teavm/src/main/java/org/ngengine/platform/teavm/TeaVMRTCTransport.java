@@ -48,7 +48,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.RTCSettings;
+import java.time.Duration;
 import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
@@ -76,13 +76,14 @@ public class TeaVMRTCTransport implements RTCTransport {
     private volatile boolean connected;
     private RTCPeerConnection peerConnection;
     private AsyncExecutor asyncExecutor;
-    private RTCSettings settings;
+    private Duration p2pAttemptTimeout;
+
 
     public TeaVMRTCTransport() {}
 
     @Override
-    public void start(RTCSettings settings, AsyncExecutor executor, String connId, Collection<String> stunServers) {
-        this.settings = settings;
+    public void start(Duration p2pAttemptTimeout, AsyncExecutor executor, String connId, Collection<String> stunServers) {
+        this.p2pAttemptTimeout = p2pAttemptTimeout;
         this.connId = connId;
         this.asyncExecutor = executor;
         this.connected = false;
@@ -171,7 +172,7 @@ public class TeaVMRTCTransport implements RTCTransport {
                     close();
                     return null;
                 },
-                settings.getP2pAttemptTimeout().toMillis(),
+                Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
                 TimeUnit.MILLISECONDS
             );
     }
@@ -446,7 +447,7 @@ public class TeaVMRTCTransport implements RTCTransport {
                     }
                     return null;
                 },
-                Objects.requireNonNull(this.settings).getP2pAttemptTimeout().toMillis(),
+                Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
                 TimeUnit.MILLISECONDS
             );
 
