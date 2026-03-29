@@ -55,6 +55,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     private static final Logger logger = Logger.getLogger(TeaVMWebsocketTransport.class.getName());
 
     private volatile BrowserWebSocket ws;
+    private volatile int maxMessageSize = -1;
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final TeaVMPlatform platform;
     private final AsyncExecutor asyncExecutor;
@@ -65,6 +66,17 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     public TeaVMWebsocketTransport(TeaVMPlatform platform) {
         this.platform = platform;
         this.asyncExecutor = platform.newAsyncExecutor();
+    }
+
+    private int getEffectiveMaxMessageSize() {
+        if (maxMessageSize != -1) {
+            return maxMessageSize;
+        }
+        long transportLimit = platform.getMemoryLimits().getTransportLimit();
+        if (transportLimit <= 0L || transportLimit > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Invalid transport limit in MemoryLimits: " + transportLimit);
+        }
+        return (int) transportLimit;
     }
 
     // Native browser WebSocket interface definition
@@ -163,6 +175,27 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                                         Object data = ((MessageEvent) evt).getData();
                                         if (isStringData(data)) {
                                             String message = asStringData(data);
+                                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                                            if (message.length() > effectiveMaxMessageSize) {
+                                                IllegalArgumentException error = new IllegalArgumentException(
+                                                    "Incoming text message too large: " +
+                                                    message.length() +
+                                                    " chars (max " +
+                                                    effectiveMaxMessageSize +
+                                                    ")"
+                                                );
+                                                for (WebsocketTransportListener listener : listeners) {
+                                                    try {
+                                                        listener.onConnectionError(error);
+                                                    } catch (Exception e) {
+                                                        logger.log(Level.WARNING, "Error in onConnectionError listener", e);
+                                                    }
+                                                }
+                                                if (ws != null) {
+                                                    ws.close(1009, "Message too big");
+                                                }
+                                                return null;
+                                            }
                                             for (WebsocketTransportListener listener : listeners) {
                                                 try {
                                                     listener.onConnectionMessage(message);
@@ -172,6 +205,27 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                                             }
                                         } else {
                                             Uint8Array arr = asUint8Array(data);
+                                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                                            if (arr.getLength() > effectiveMaxMessageSize) {
+                                                IllegalArgumentException error = new IllegalArgumentException(
+                                                    "Incoming binary message too large: " +
+                                                    arr.getLength() +
+                                                    " bytes (max " +
+                                                    effectiveMaxMessageSize +
+                                                    ")"
+                                                );
+                                                for (WebsocketTransportListener listener : listeners) {
+                                                    try {
+                                                        listener.onConnectionError(error);
+                                                    } catch (Exception e) {
+                                                        logger.log(Level.WARNING, "Error in onConnectionError listener", e);
+                                                    }
+                                                }
+                                                if (ws != null) {
+                                                    ws.close(1009, "Message too big");
+                                                }
+                                                return null;
+                                            }
                                             byte[] bytes = new byte[arr.getLength()];
                                             for (int i = 0; i < bytes.length; i++) {
                                                 bytes[i] = (byte) arr.get(i);
@@ -257,6 +311,19 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                     rej.accept(new IOException("WebSocket not connected"));
                     return;
                 }
+                int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                if (message.length() > effectiveMaxMessageSize) {
+                    rej.accept(
+                        new IllegalArgumentException(
+                            "Outgoing text message too large: " +
+                            message.length() +
+                            " chars (max " +
+                            effectiveMaxMessageSize +
+                            ")"
+                        )
+                    );
+                    return;
+                }
                 this.ws.send(message);
                 res.accept(null);
             } catch (Exception e) {
@@ -271,6 +338,19 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
             try {
                 if (this.ws == null) {
                     rej.accept(new IOException("WebSocket not connected"));
+                    return;
+                }
+                int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                if (data.remaining() > effectiveMaxMessageSize) {
+                    rej.accept(
+                        new IllegalArgumentException(
+                            "Outgoing binary message too large: " +
+                            data.remaining() +
+                            " bytes (max " +
+                            effectiveMaxMessageSize +
+                            ")"
+                        )
+                    );
                     return;
                 }
                 this.ws.send(data.duplicate());
@@ -325,5 +405,18 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         }
         int state = this.ws.getReadyState();
         return state == 1; // WebSocket.OPEN
+    }
+
+    @Override
+    public void setMaxMessageSize(int maxMessageSize) {
+        if (maxMessageSize != -1 && maxMessageSize <= 0) {
+            throw new IllegalArgumentException("maxMessageSize must be -1 or greater than 0");
+        }
+        this.maxMessageSize = maxMessageSize;
+    }
+
+    @Override
+    public int getMaxMessageSize() {
+        return maxMessageSize;
     }
 }

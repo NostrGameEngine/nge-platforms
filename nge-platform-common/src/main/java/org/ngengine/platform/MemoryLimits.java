@@ -52,13 +52,17 @@ public class MemoryLimits {
 
     protected final long JSON_LIMIT = 10L * MIB;
     protected final long BASE64_LIMIT = 50L * MIB;
-    protected final long TRANSPORT_LIMIT = 10L * MIB;
+    protected final long TRANSPORT_LIMIT = 64L * MIB;
     protected final long BIGDATA_LIMIT = 1000L * MIB;
     protected final long DATA_LIMIT = 100L * MIB;
     protected final long IMAGE_LIMIT = 100L * MIB;
     protected final long KEYS_LIMIT = 10L * KIB;
     protected final long STRING_LIMIT = 100L * KIB;
     protected final long RANDOM_LIMIT = 10 * KIB;
+
+    public long getTransportLimit() {
+        return TRANSPORT_LIMIT;
+    }
 
     protected boolean checkLimit(long size, long limit) {
         return size >= 0L && size <= limit;

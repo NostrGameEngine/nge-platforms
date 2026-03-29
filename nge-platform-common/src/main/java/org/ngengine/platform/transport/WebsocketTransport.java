@@ -42,6 +42,18 @@ public interface WebsocketTransport {
 
     AsyncTask<Void> sendBinary(ByteBuffer data);
 
+    /**
+     * Set maximum message size in bytes/chars depending on transport payload type.
+     * A value of -1 means "use platform MemoryLimits transport limit".
+     */
+    void setMaxMessageSize(int maxMessageSize);
+
+    /**
+     * Return configured max message size.
+     * If this returns -1, the effective runtime limit is resolved from MemoryLimits.
+     */
+    int getMaxMessageSize();
+
     void addListener(WebsocketTransportListener listener);
 
     void removeListener(WebsocketTransportListener listener);

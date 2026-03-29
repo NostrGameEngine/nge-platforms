@@ -29,13 +29,12 @@ import okio.ByteString;
 public class AndroidWebsocketTransport implements WebsocketTransport {
 
     private static final Logger logger = Logger.getLogger(AndroidWebsocketTransport.class.getName());
-    private static final int DEFAULT_MAX_MESSAGE_SIZE = 65_536;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Duration READ_TIMEOUT = Duration.ofSeconds(30);
     private static final Duration WRITE_TIMEOUT = Duration.ofSeconds(30);
 
     private volatile WebSocket webSocket;
-    private static final int maxMessageSize = DEFAULT_MAX_MESSAGE_SIZE;
+    private volatile int maxMessageSize = -1;
     private final StringBuilder messageBuffer = new StringBuilder(8192);
 
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
@@ -68,6 +67,17 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
     @Override
     public boolean isConnected() {
         return this.webSocket != null && !isClosing;
+    }
+
+    private int getEffectiveMaxMessageSize() {
+        if (maxMessageSize != -1) {
+            return maxMessageSize;
+        }
+        long transportLimit = platform.getMemoryLimits().getTransportLimit();
+        if (transportLimit <= 0L || transportLimit > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Invalid transport limit in MemoryLimits: " + transportLimit);
+        }
+        return (int) transportLimit;
     }
 
     public <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> task) {
@@ -147,6 +157,20 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                     @Override
                     public void onMessage(WebSocket webSocket, String text) {
                         enqueueCallback(() -> {
+                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                            if (text.length() > effectiveMaxMessageSize) {
+                                IllegalArgumentException error = new IllegalArgumentException(
+                                        "Incoming text message too large: " + text.length() + " chars (max " + effectiveMaxMessageSize + ")");
+                                for (WebsocketTransportListener listener : listeners) {
+                                    try {
+                                        listener.onConnectionError(error);
+                                    } catch (Exception e) {
+                                        logger.warning("Error in error listener: " + e);
+                                    }
+                                }
+                                webSocket.close(1009, "Message too big");
+                                return;
+                            }
                             for (WebsocketTransportListener listener : listeners) {
                                 try {
                                     listener.onConnectionMessage(text);
@@ -160,6 +184,20 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                     @Override
                     public void onMessage(WebSocket webSocket, ByteString bytes) {
                         enqueueCallback(() -> {
+                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                            if (bytes.size() > effectiveMaxMessageSize) {
+                                IllegalArgumentException error = new IllegalArgumentException(
+                                        "Incoming binary message too large: " + bytes.size() + " bytes (max " + effectiveMaxMessageSize + ")");
+                                for (WebsocketTransportListener listener : listeners) {
+                                    try {
+                                        listener.onConnectionError(error);
+                                    } catch (Exception e) {
+                                        logger.warning("Error in error listener: " + e);
+                                    }
+                                }
+                                webSocket.close(1009, "Message too big");
+                                return;
+                            }
                             ByteBuffer message = ByteBuffer.wrap(bytes.toByteArray());
                             for (WebsocketTransportListener listener : listeners) {
                                 try {
@@ -277,6 +315,13 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                     rej.accept(new IOException("WebSocket not connected"));
                     return;
                 }
+                int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                if (message.length() > effectiveMaxMessageSize) {
+                    rej.accept(
+                            new IllegalArgumentException(
+                                    "Outgoing text message too large: " + message.length() + " chars (max " + effectiveMaxMessageSize + ")"));
+                    return;
+                }
 
                 // OkHttp handles message fragmentation internally
                 enqueue((rs0, rj0) -> {
@@ -304,6 +349,13 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
             try {
                 if (ws == null) {
                     rej.accept(new IOException("WebSocket not connected"));
+                    return;
+                }
+                int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+                if (data.remaining() > effectiveMaxMessageSize) {
+                    rej.accept(
+                            new IllegalArgumentException(
+                                    "Outgoing binary message too large: " + data.remaining() + " bytes (max " + effectiveMaxMessageSize + ")"));
                     return;
                 }
 
@@ -337,5 +389,18 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
     @Override
     public void removeListener(WebsocketTransportListener listener) {
         listeners.remove(listener);
+    }
+
+    @Override
+    public void setMaxMessageSize(int maxMessageSize) {
+        if (maxMessageSize != -1 && maxMessageSize <= 0) {
+            throw new IllegalArgumentException("maxMessageSize must be -1 or greater than 0");
+        }
+        this.maxMessageSize = maxMessageSize;
+    }
+
+    @Override
+    public int getMaxMessageSize() {
+        return maxMessageSize;
     }
 }

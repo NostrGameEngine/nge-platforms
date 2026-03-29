@@ -55,13 +55,12 @@ import org.ngengine.platform.transport.WebsocketTransportListener;
 public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.Listener {
 
     private static final Logger logger = Logger.getLogger(JVMWebsocketTransport.class.getName());
-    private static final int DEFAULT_MAX_MESSAGE_SIZE = 65_536;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
     private static final int BUFFER_INITIAL_SIZE = 8192;
     private static final int BINARY_BUFFER_GROWTH_STEP = 16 * 1024;
 
     private volatile WebSocket openWebSocket;
-    private static final int maxMessageSize = DEFAULT_MAX_MESSAGE_SIZE;
+    private volatile int maxMessageSize = -1;
     private final StringBuilder messageBuffer = new StringBuilder(BUFFER_INITIAL_SIZE);
     private ByteBuffer binaryBuffer = ByteBuffer.allocate(BUFFER_INITIAL_SIZE);
 
@@ -87,6 +86,30 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     @Override
     public boolean isConnected() {
         return this.openWebSocket != null;
+    }
+
+    @Override
+    public void setMaxMessageSize(int maxMessageSize) {
+        if (maxMessageSize != -1 && maxMessageSize <= 0) {
+            throw new IllegalArgumentException("maxMessageSize must be -1 or greater than 0");
+        }
+        this.maxMessageSize = maxMessageSize;
+    }
+
+    @Override
+    public int getMaxMessageSize() {
+        return maxMessageSize;
+    }
+
+    private int getEffectiveMaxMessageSize() {
+        if (maxMessageSize != -1) {
+            return maxMessageSize;
+        }
+        long transportLimit = platform.getMemoryLimits().getTransportLimit();
+        if (transportLimit <= 0L || transportLimit > Integer.MAX_VALUE) {
+            throw new IllegalStateException("Invalid transport limit in MemoryLimits: " + transportLimit);
+        }
+        return (int) transportLimit;
     }
 
     public <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> task) {
@@ -189,6 +212,14 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
         synchronized (messageBuffer) {
             messageBuffer.append(data);
+            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+            if (messageBuffer.length() > effectiveMaxMessageSize) {
+                int currentLength = messageBuffer.length();
+                messageBuffer.setLength(0);
+                throw new IllegalArgumentException(
+                    "Incoming text message too large: " + currentLength + " chars (max " + effectiveMaxMessageSize + ")"
+                );
+            }
             if (last) {
                 String message = messageBuffer.toString();
                 messageBuffer.setLength(0);
@@ -230,13 +261,19 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     }
 
     private void ensureBinaryCapacity(int requiredCapacity) {
+        int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+        if (requiredCapacity > effectiveMaxMessageSize) {
+            throw new IllegalArgumentException(
+                "Incoming binary message too large: " + requiredCapacity + " bytes (max " + effectiveMaxMessageSize + ")"
+            );
+        }
         if (requiredCapacity <= binaryBuffer.capacity()) {
             return;
         }
         int missing = requiredCapacity - binaryBuffer.capacity();
         int steps = (missing + BINARY_BUFFER_GROWTH_STEP - 1) / BINARY_BUFFER_GROWTH_STEP;
         int newCapacity = binaryBuffer.capacity() + (steps * BINARY_BUFFER_GROWTH_STEP);
-        newCapacity = Math.min(newCapacity, DEFAULT_MAX_MESSAGE_SIZE);
+        newCapacity = Math.min(newCapacity, effectiveMaxMessageSize);
         ByteBuffer grown = ByteBuffer.allocate(newCapacity);
         binaryBuffer.flip();
         grown.put(binaryBuffer);
@@ -319,8 +356,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 }
                 try {
                     final ByteBuffer source = data.duplicate();
+                    final int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
                     final int totalBytes = source.remaining();
-                    if (totalBytes <= maxMessageSize) {
+                    if (totalBytes <= effectiveMaxMessageSize) {
                         enqueue((rs0, rj0) -> {
                             assert dbg(() -> {
                                 logger.finest("Sending full binary message: " + totalBytes);
@@ -342,7 +380,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                         enqueue((rs0, rj0) -> {
                             CompletableFuture<WebSocket> future = CompletableFuture.completedFuture(null);
                             while (source.hasRemaining()) {
-                                int chunkSize = Math.min(source.remaining(), maxMessageSize);
+                                int chunkSize = Math.min(source.remaining(), effectiveMaxMessageSize);
                                 ByteBuffer chunk = source.slice();
                                 chunk.limit(chunkSize);
                                 source.position(source.position() + chunkSize);
@@ -387,11 +425,12 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     return;
                 }
                 try {
+                    final int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
                     int messageLength = message.length();
                     // Send entirely or in chunks if needed
                     // note: we don't need to wait for the message to be sent
                     // as long as it is enqueued we can assume it is sent
-                    if (messageLength <= maxMessageSize) {
+                    if (messageLength <= effectiveMaxMessageSize) {
                         enqueue((rs0, rj0) -> {
                             assert dbg(() -> {
                                 logger.finest("Sending full message: " + message.length());
@@ -416,7 +455,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                             while (position < messageLength) {
                                 // send in chunks
                                 int start = position;
-                                int end = Math.min(position + maxMessageSize, messageLength);
+                                int end = Math.min(position + effectiveMaxMessageSize, messageLength);
                                 assert dbg(() -> {
                                     logger.finest("Sending chunk: " + start + " " + end);
                                 });

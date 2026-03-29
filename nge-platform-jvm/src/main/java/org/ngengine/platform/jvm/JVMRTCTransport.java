@@ -105,6 +105,9 @@ public class JVMRTCTransport implements RTCTransport {
             return;
         }
         LibDataChannel.setAllocator(size -> {
+            if (!NGEPlatform.get().getMemoryLimits().checkForTransport(size)) {
+                throw new IllegalStateException("Transport memory limit exceeded: " + size);
+            }
             ByteBuffer b = NGEPlatform.get().getNativeAllocator().calloc(1, size);
             if (b == null) {
                 throw new IllegalStateException("Native allocator returned null buffer for size " + size);
