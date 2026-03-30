@@ -57,7 +57,7 @@ public class MemoryLimits {
     protected final long DATA_LIMIT = 100L * MIB;
     protected final long IMAGE_LIMIT = 100L * MIB;
     protected final long KEYS_LIMIT = 10L * KIB;
-    protected final long STRING_LIMIT = 100L * KIB;
+    protected final long STRING_LIMIT = 2L * MIB;
     protected final long RANDOM_LIMIT = 10 * KIB;
 
     public long getTransportLimit() {
