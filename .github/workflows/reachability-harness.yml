@@ -35,7 +35,7 @@ jobs:
           cache: 'gradle'
 
       - name: Install Copilot CLI
-        run: npm install --global @github/copilot
+        run: npm install --global @github/copilot@1.0.8
 
       - name: Run extend reachability harness with Copilot PAT
         env:
