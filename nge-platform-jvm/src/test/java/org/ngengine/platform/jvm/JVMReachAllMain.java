@@ -202,6 +202,55 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        // Deterministic test hooks to exercise adaptive soft-budget and GC request paths
+        safeRun(
+            "guard-testhooks",
+            () -> {
+                try {
+                    // Reset state and observe/adapt the soft budget deterministically
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                    long originalBudget = JVMNGEAllocatorGuard.getSoftBudgetForTests();
+
+                    final java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(System.currentTimeMillis() - 10_000L);
+                    final java.util.concurrent.atomic.AtomicLong allocated = new java.util.concurrent.atomic.AtomicLong(originalBudget);
+
+                    java.util.function.LongSupplier allocatedSupplier = new java.util.function.LongSupplier() {
+                        @Override
+                        public long getAsLong() {
+                            return allocated.get();
+                        }
+                    };
+                    // advance time by adaptInterval (safe large step) so adaptSoftBudget runs each loop
+                    java.util.function.LongSupplier nowSupplier = new java.util.function.LongSupplier() {
+                        @Override
+                        public long getAsLong() {
+                            return now.addAndGet(2_500L);
+                        }
+                    };
+
+                    Runnable noopGc = new Runnable() {
+                        @Override
+                        public void run() {}
+                    };
+
+                    // Install test hooks
+                    JVMNGEAllocatorGuard.setTestHooks(allocatedSupplier, nowSupplier, noopGc);
+
+                    // Trigger several allocations that push projectedBytes above soft budget to exercise growth path
+                    for (int i = 0; i < 5; i++) {
+                        JVMNGEAllocatorGuard.beforeAlloc(originalBudget);
+                        JVMNGEAllocatorGuard.notifyGC();
+                    }
+
+                    // Restore hooks to defaults to avoid affecting other tests (best-effort)
+                    JVMNGEAllocatorGuard.setTestHooks(null, null, null);
+                    return JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
     }
 
     private static void exerciseAsyncAndTasks(JVMAsyncPlatform platform) {
@@ -286,10 +335,41 @@ public final class JVMReachAllMain {
                 // Basic connected state check
                 ws.isConnected();
 
+                // Add a listener to exercise listener callback paths
+                org.ngengine.platform.transport.WebsocketTransportListener listener = new org.ngengine.platform.transport.WebsocketTransportListener() {
+                    @Override
+                    public void onConnectionOpen() {}
+
+                    @Override
+                    public void onConnectionMessage(String message) {}
+
+                    @Override
+                    public void onConnectionBinaryMessage(java.nio.ByteBuffer data) {}
+
+                    @Override
+                    public void onConnectionClosedByClient(String reason) {}
+
+                    @Override
+                    public void onConnectionClosedByServer(String reason) {}
+
+                    @Override
+                    public void onConnectionError(Throwable t) {}
+                };
+
+                try {
+                    ws.addListener(listener);
+                } catch (Throwable ignored) {}
+
                 // If we have the JVM implementation, inject a mock java.net.http.WebSocket to exercise send/receive code paths
                 try {
                     if (ws instanceof JVMWebsocketTransport) {
                         JVMWebsocketTransport jws = (JVMWebsocketTransport) ws;
+
+                        // exercise set/get max message size branch
+                        try {
+                            jws.setMaxMessageSize(1000);
+                            jws.getMaxMessageSize();
+                        } catch (Throwable ignored) {}
 
                         java.net.http.WebSocket mock = new java.net.http.WebSocket() {
                             @Override
@@ -370,13 +450,26 @@ public final class JVMReachAllMain {
                             // Send a large text message to exercise chunking path
                             StringBuilder big = new StringBuilder();
                             for (int i = 0; i < 70_000; i++) big.append('x');
-                            await(ws.send(big.toString()));
+                            // this will use effectiveMaxMessageSize (set above) to exercise chunking
+                            try {
+                                await(ws.send(big.toString()));
+                            } catch (Throwable ignored) {}
 
                             // Send a large binary message to exercise binary chunking and ensureBinaryCapacity
                             java.nio.ByteBuffer bigBuf = java.nio.ByteBuffer.allocate(70_000);
                             for (int i = 0; i < 70_000; i++) bigBuf.put((byte) (i & 0xFF));
                             bigBuf.flip();
-                            await(ws.sendBinary(bigBuf));
+                            try {
+                                await(ws.sendBinary(bigBuf));
+                            } catch (Throwable ignored) {}
+
+                            // Trigger error and close flows to exercise listener callbacks
+                            try {
+                                jws.onError(mock, new RuntimeException("reach-all-error"));
+                            } catch (Throwable ignored) {}
+                            try {
+                                jws.onClose(mock, 1001, "reach-all-close");
+                            } catch (Throwable ignored) {}
                         } catch (Throwable ignored) {}
                     }
                 } catch (Throwable ignored) {}
@@ -384,6 +477,10 @@ public final class JVMReachAllMain {
                 // Close gracefully (best-effort)
                 try {
                     await(ws.close("reach-all-close"));
+                } catch (Throwable ignored) {}
+
+                try {
+                    ws.removeListener(listener);
                 } catch (Throwable ignored) {}
 
                 return null;
@@ -398,7 +495,72 @@ public final class JVMReachAllMain {
                 RTCTransport rtc = platform.newRTCTransport(p2pAttemptTimeout, "reach-all-conn", stun);
                 rtc.getName();
                 rtc.isConnected();
-                rtc.close();
+
+                // Add a lightweight listener to exercise callback paths on the transport
+                org.ngengine.platform.transport.RTCTransportListener rlistener = new org.ngengine.platform.transport.RTCTransportListener() {
+                    @Override
+                    public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                    @Override
+                    public void onRTCBinaryMessage(org.ngengine.platform.transport.RTCDataChannel channel, java.nio.ByteBuffer data) {}
+
+                    @Override
+                    public void onRTCBufferedAmountLow(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                    @Override
+                    public void onRTCChannelClosed(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                    @Override
+                    public void onRTCChannelError(org.ngengine.platform.transport.RTCDataChannel channel, Throwable error) {}
+
+                    @Override
+                    public void onRTCConnected() {}
+
+                    @Override
+                    public void onRTCDisconnected(String reason) {}
+
+                    @Override
+                    public void onLocalRTCIceCandidate(org.ngengine.platform.transport.RTCTransportIceCandidate candidate) {}
+                };
+
+                try {
+                    rtc.addListener(rlistener);
+                } catch (Throwable ignored) {}
+
+                // Try adding remote candidates (will either apply or queue) and create a data channel (best-effort)
+                try {
+                    org.ngengine.platform.transport.RTCTransportIceCandidate c = new org.ngengine.platform.transport.RTCTransportIceCandidate(
+                        "candidate",
+                        "sdpMid"
+                    );
+                    rtc.addRemoteIceCandidates(List.of(c));
+                } catch (Throwable ignored) {}
+
+                try {
+                    // Attempt to create a data channel; may fail if native PeerConnection isn't fully functional in this environment
+                    try {
+                        org.ngengine.platform.AsyncTask<org.ngengine.platform.transport.RTCDataChannel> dt = rtc.createDataChannel(
+                            "reachall",
+                            null,
+                            true,
+                            true,
+                            0,
+                            null
+                        );
+                        try {
+                            await(dt);
+                        } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
+
+                try {
+                    rtc.close();
+                } catch (Throwable ignored) {}
+
+                try {
+                    rtc.removeListener(rlistener);
+                } catch (Throwable ignored) {}
+
                 return null;
             }
         );
