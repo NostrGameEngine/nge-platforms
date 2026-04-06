@@ -153,7 +153,6 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                         .handle((r, e) -> {
                             if (e != null) {
                                 Throwable cause = (e instanceof CompletionException && e.getCause() != null) ? e.getCause() : e;
-                                logger.log(Level.WARNING, "WebSocket connection error", cause);
                                 rej.accept(cause);
                             } else {
                                 logger.finest("WebSocket connected: " + url);
