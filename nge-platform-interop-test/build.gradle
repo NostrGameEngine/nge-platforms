@@ -10,7 +10,9 @@ node {
 }
 
 task npmInstallHarness(type: com.github.gradle.node.npm.task.NpmTask) {
-    args = ['install', '--no-fund', '--no-audit']
+    // wrtc ships its native binding via install scripts; force scripts enabled
+    // even if user/global npm config sets ignore-scripts=true.
+    args = ['install', '--no-fund', '--no-audit', '--ignore-scripts=false']
 }
 
 task rtcBrowserHarness(type: Exec) {
@@ -33,6 +35,18 @@ task jvmTeaVMInteropHarness(type: Exec) {
 
     doFirst {
         println "Running JVM<->TeaVM browser RTC interoperability harness"
+    }
+}
+
+task jvmTeaVMNodeInteropHarness(type: Exec) {
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:copyWebpackOutput"
+    dependsOn ":nge-platform-interop-test:jvm:classes"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-jvm-teavm-node-interop-harness.mjs"
+
+    doFirst {
+        println "Running JVM<->TeaVM Node.js RTC interoperability harness"
     }
 }
 
@@ -102,6 +116,7 @@ task interopMatrix {
     description = "Runs all interoperability harnesses across backends"
     dependsOn rtcBrowserHarness
     dependsOn jvmTeaVMInteropHarness
+    dependsOn jvmTeaVMNodeInteropHarness
     dependsOn jvmAndroidInteropHarness
     dependsOn androidTeaVMInteropHarness
     dependsOn platformParityHarness

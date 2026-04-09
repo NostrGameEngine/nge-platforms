@@ -10215,16 +10215,17 @@ var __webpack_exports__ = {};
 /* harmony import */ var _noble_hashes_utils_js__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(976);
 /* harmony import */ var _noble_hashes_scrypt__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(430);
 /* provided dependency */ var Buffer = __webpack_require__(287)["Buffer"];
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
+function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i["return"]) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
-function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
-function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
-function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
-function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 
 
@@ -10268,6 +10269,549 @@ var _bw = function _bw(data) {
 function _s() {
   return typeof window !== 'undefined' && window || typeof globalThis !== 'undefined' && globalThis || typeof __webpack_require__.g !== 'undefined' && __webpack_require__.g || typeof self !== 'undefined' && self;
 }
+function _isNodeRuntime() {
+  return typeof process !== 'undefined' && process !== null && typeof process.versions !== 'undefined' && process.versions !== null && typeof process.versions.node === 'string';
+}
+function _getNodeVersion() {
+  return _isNodeRuntime() ? process.versions.node : null;
+}
+function _hasIndexedDB() {
+  var _s2;
+  return !!((_s2 = _s()) !== null && _s2 !== void 0 && _s2.indexedDB);
+}
+var _dynamicImport = function _dynamicImport(specifier) {
+  try {
+    return Function('s', 'return import(s)')(specifier);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+};
+function _getNodeVStoreSafeName(name) {
+  if (name === null || name === undefined) {
+    throw new Error('VStore name is required.');
+  }
+  var s = String(name);
+  if (!s) {
+    throw new Error('VStore name is required.');
+  }
+  return encodeURIComponent(s);
+}
+function _pathStartsWith(pathModule, candidatePath, basePath) {
+  var candidate = pathModule.resolve(candidatePath);
+  var base = pathModule.resolve(basePath);
+  if (candidate === base) {
+    return true;
+  }
+  if (process.platform === 'win32') {
+    var c = candidate.toLowerCase();
+    var b = base.toLowerCase();
+    return c.startsWith(b + pathModule.sep);
+  }
+  return candidate.startsWith(base + pathModule.sep);
+}
+function _resolveNodeVStorePath(pathModule, basePath, userPath) {
+  if (userPath === null || userPath === undefined || String(userPath).length === 0) {
+    throw new Error('Path required');
+  }
+  var p = String(userPath);
+  if (pathModule.isAbsolute(p)) {
+    throw new Error('Absolute paths not allowed');
+  }
+  var candidate = pathModule.resolve(basePath, p);
+  if (!_pathStartsWith(pathModule, candidate, basePath)) {
+    throw new Error('Traversal detected');
+  }
+  return candidate;
+}
+var _getNodeDataPath = /*#__PURE__*/function () {
+  var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+    var s, osModule, pathModule, env, basePath;
+    return _regenerator().w(function (_context) {
+      while (1) switch (_context.n) {
+        case 0:
+          if (_isNodeRuntime()) {
+            _context.n = 1;
+            break;
+          }
+          return _context.a(2, null);
+        case 1:
+          s = _s();
+          if (!s._ngeNodeDataPath) {
+            _context.n = 2;
+            break;
+          }
+          return _context.a(2, s._ngeNodeDataPath);
+        case 2:
+          _context.n = 3;
+          return _dynamicImport('node:os');
+        case 3:
+          osModule = _context.v;
+          _context.n = 4;
+          return _dynamicImport('node:path');
+        case 4:
+          pathModule = _context.v;
+          env = process.env || {};
+          basePath = env.APP_DATA_DIR;
+          if (!basePath) {
+            if (process.platform === 'win32') {
+              basePath = env.APPDATA || pathModule.join(osModule.homedir(), 'AppData', 'Roaming');
+            } else if (process.platform === 'darwin') {
+              basePath = pathModule.join(osModule.homedir(), 'Library', 'Application Support');
+            } else {
+              basePath = env.XDG_DATA_HOME || pathModule.join(osModule.homedir(), '.local', 'share');
+            }
+          }
+          s._ngeNodeDataPath = pathModule.resolve(basePath);
+          return _context.a(2, s._ngeNodeDataPath);
+      }
+    }, _callee);
+  }));
+  return function _getNodeDataPath() {
+    return _ref.apply(this, arguments);
+  };
+}();
+var _getNodeFSVFileStore = /*#__PURE__*/function () {
+  var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(name) {
+    var s, fsModule, pathModule, baseDataPath, safeName, basePath, store;
+    return _regenerator().w(function (_context8) {
+      while (1) switch (_context8.n) {
+        case 0:
+          if (_isNodeRuntime()) {
+            _context8.n = 1;
+            break;
+          }
+          return _context8.a(2, null);
+        case 1:
+          s = _s();
+          if (typeof s._ngeNodeFSVFileStores === 'undefined') {
+            s._ngeNodeFSVFileStores = {};
+          }
+          if (!s._ngeNodeFSVFileStores[name]) {
+            _context8.n = 2;
+            break;
+          }
+          return _context8.a(2, s._ngeNodeFSVFileStores[name]);
+        case 2:
+          _context8.n = 3;
+          return _dynamicImport('node:fs/promises');
+        case 3:
+          fsModule = _context8.v;
+          _context8.n = 4;
+          return _dynamicImport('node:path');
+        case 4:
+          pathModule = _context8.v;
+          _context8.n = 5;
+          return _getNodeDataPath();
+        case 5:
+          baseDataPath = _context8.v;
+          safeName = _getNodeVStoreSafeName(name);
+          basePath = pathModule.resolve(baseDataPath, safeName);
+          store = {
+            close: function close() {},
+            exists: function exists(path) {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+                var fullPath, _t;
+                return _regenerator().w(function (_context2) {
+                  while (1) switch (_context2.p = _context2.n) {
+                    case 0:
+                      _context2.p = 0;
+                      fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                      _context2.n = 1;
+                      return fsModule.access(fullPath);
+                    case 1:
+                      return _context2.a(2, true);
+                    case 2:
+                      _context2.p = 2;
+                      _t = _context2.v;
+                      return _context2.a(2, false);
+                  }
+                }, _callee2, null, [[0, 2]]);
+              }))();
+            },
+            read: function read(path) {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+                var fullPath, bytes, _t2;
+                return _regenerator().w(function (_context3) {
+                  while (1) switch (_context3.p = _context3.n) {
+                    case 0:
+                      _context3.p = 0;
+                      fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                      _context3.n = 1;
+                      return fsModule.readFile(fullPath);
+                    case 1:
+                      bytes = _context3.v;
+                      return _context3.a(2, new Uint8Array(bytes));
+                    case 2:
+                      _context3.p = 2;
+                      _t2 = _context3.v;
+                      return _context3.a(2, null);
+                  }
+                }, _callee3, null, [[0, 2]]);
+              }))();
+            },
+            write: function write(path, data) {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+                var fullPath, parent, tmpPath, payload, _t3, _t4;
+                return _regenerator().w(function (_context4) {
+                  while (1) switch (_context4.p = _context4.n) {
+                    case 0:
+                      fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                      parent = pathModule.dirname(fullPath);
+                      _context4.n = 1;
+                      return fsModule.mkdir(parent, {
+                        recursive: true
+                      });
+                    case 1:
+                      tmpPath = pathModule.join(parent, ".vstore-".concat(Date.now(), "-").concat(Math.random().toString(16).slice(2), ".tmp"));
+                      payload = _u(data);
+                      _context4.n = 2;
+                      return fsModule.writeFile(tmpPath, payload);
+                    case 2:
+                      _context4.p = 2;
+                      _context4.n = 3;
+                      return fsModule.rename(tmpPath, fullPath);
+                    case 3:
+                      _context4.n = 9;
+                      break;
+                    case 4:
+                      _context4.p = 4;
+                      _t3 = _context4.v;
+                      _context4.p = 5;
+                      _context4.n = 6;
+                      return fsModule.unlink(tmpPath);
+                    case 6:
+                      _context4.n = 8;
+                      break;
+                    case 7:
+                      _context4.p = 7;
+                      _t4 = _context4.v;
+                    case 8:
+                      throw _t3;
+                    case 9:
+                      return _context4.a(2);
+                  }
+                }, _callee4, null, [[5, 7], [2, 4]]);
+              }))();
+            },
+            "delete": function _delete(path) {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+                var fullPath, _t5;
+                return _regenerator().w(function (_context5) {
+                  while (1) switch (_context5.p = _context5.n) {
+                    case 0:
+                      _context5.p = 0;
+                      fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                      _context5.n = 1;
+                      return fsModule.unlink(fullPath);
+                    case 1:
+                      _context5.n = 4;
+                      break;
+                    case 2:
+                      _context5.p = 2;
+                      _t5 = _context5.v;
+                      if (!(_t5 && _t5.code === 'ENOENT')) {
+                        _context5.n = 3;
+                        break;
+                      }
+                      return _context5.a(2);
+                    case 3:
+                      throw _t5;
+                    case 4:
+                      return _context5.a(2);
+                  }
+                }, _callee5, null, [[0, 2]]);
+              }))();
+            },
+            listAll: function listAll() {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+                var out, _walk, _t7, _t8;
+                return _regenerator().w(function (_context7) {
+                  while (1) switch (_context7.p = _context7.n) {
+                    case 0:
+                      out = [];
+                      _context7.p = 1;
+                      _context7.n = 2;
+                      return fsModule.mkdir(basePath, {
+                        recursive: true
+                      });
+                    case 2:
+                      _context7.n = 4;
+                      break;
+                    case 3:
+                      _context7.p = 3;
+                      _t7 = _context7.v;
+                    case 4:
+                      _walk = /*#__PURE__*/function () {
+                        var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(dir) {
+                          var entries, _iterator, _step, entry, full, rel, _t6;
+                          return _regenerator().w(function (_context6) {
+                            while (1) switch (_context6.p = _context6.n) {
+                              case 0:
+                                _context6.n = 1;
+                                return fsModule.readdir(dir, {
+                                  withFileTypes: true
+                                });
+                              case 1:
+                                entries = _context6.v;
+                                _iterator = _createForOfIteratorHelper(entries);
+                                _context6.p = 2;
+                                _iterator.s();
+                              case 3:
+                                if ((_step = _iterator.n()).done) {
+                                  _context6.n = 7;
+                                  break;
+                                }
+                                entry = _step.value;
+                                full = pathModule.join(dir, entry.name);
+                                if (!entry.isDirectory()) {
+                                  _context6.n = 5;
+                                  break;
+                                }
+                                _context6.n = 4;
+                                return _walk(full);
+                              case 4:
+                                _context6.n = 6;
+                                break;
+                              case 5:
+                                if (entry.isFile()) {
+                                  rel = pathModule.relative(basePath, full);
+                                  out.push(rel);
+                                }
+                              case 6:
+                                _context6.n = 3;
+                                break;
+                              case 7:
+                                _context6.n = 9;
+                                break;
+                              case 8:
+                                _context6.p = 8;
+                                _t6 = _context6.v;
+                                _iterator.e(_t6);
+                              case 9:
+                                _context6.p = 9;
+                                _iterator.f();
+                                return _context6.f(9);
+                              case 10:
+                                return _context6.a(2);
+                            }
+                          }, _callee6, null, [[2, 8, 9, 10]]);
+                        }));
+                        return function walk(_x2) {
+                          return _ref3.apply(this, arguments);
+                        };
+                      }();
+                      _context7.p = 5;
+                      _context7.n = 6;
+                      return _walk(basePath);
+                    case 6:
+                      _context7.n = 9;
+                      break;
+                    case 7:
+                      _context7.p = 7;
+                      _t8 = _context7.v;
+                      if (!(_t8 && _t8.code === 'ENOENT')) {
+                        _context7.n = 8;
+                        break;
+                      }
+                      return _context7.a(2, []);
+                    case 8:
+                      throw _t8;
+                    case 9:
+                      return _context7.a(2, out);
+                  }
+                }, _callee7, null, [[5, 7], [1, 3]]);
+              }))();
+            }
+          };
+          s._ngeNodeFSVFileStores[name] = store;
+          return _context8.a(2, store);
+      }
+    }, _callee8);
+  }));
+  return function _getNodeFSVFileStore(_x) {
+    return _ref2.apply(this, arguments);
+  };
+}();
+function _getMemoryVFileStore(name) {
+  var s = _s();
+  if (typeof s._ngeMemoryVFileStores === 'undefined') {
+    s._ngeMemoryVFileStores = {};
+  }
+  if (!s._ngeMemoryVFileStores[name]) {
+    s._ngeMemoryVFileStores[name] = new Map();
+  }
+  var store = s._ngeMemoryVFileStores[name];
+  return {
+    close: function close() {},
+    exists: function exists(path) {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
+        return _regenerator().w(function (_context9) {
+          while (1) switch (_context9.n) {
+            case 0:
+              return _context9.a(2, store.has(path));
+          }
+        }, _callee9);
+      }))();
+    },
+    read: function read(path) {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+        var data;
+        return _regenerator().w(function (_context0) {
+          while (1) switch (_context0.n) {
+            case 0:
+              if (store.has(path)) {
+                _context0.n = 1;
+                break;
+              }
+              return _context0.a(2, null);
+            case 1:
+              data = store.get(path);
+              return _context0.a(2, data ? new Uint8Array(data) : null);
+          }
+        }, _callee0);
+      }))();
+    },
+    write: function write(path, data) {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+        return _regenerator().w(function (_context1) {
+          while (1) switch (_context1.n) {
+            case 0:
+              store.set(path, new Uint8Array(_u(data)));
+            case 1:
+              return _context1.a(2);
+          }
+        }, _callee1);
+      }))();
+    },
+    "delete": function _delete(path) {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+        return _regenerator().w(function (_context10) {
+          while (1) switch (_context10.n) {
+            case 0:
+              store["delete"](path);
+            case 1:
+              return _context10.a(2);
+          }
+        }, _callee10);
+      }))();
+    },
+    listAll: function listAll() {
+      return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
+        return _regenerator().w(function (_context11) {
+          while (1) switch (_context11.n) {
+            case 0:
+              return _context11.a(2, Array.from(store.keys()));
+          }
+        }, _callee11);
+      }))();
+    }
+  };
+}
+function _getRTCPeerConnectionCtor() {
+  var _s3;
+  var ctor = (_s3 = _s()) === null || _s3 === void 0 ? void 0 : _s3.RTCPeerConnection;
+  if (typeof ctor === 'function') {
+    return ctor;
+  }
+  if (_isNodeRuntime()) {
+    throw new Error('RTCPeerConnection is not available in Node.js. Provide a node-webrtc-compatible implementation in your app and assign it to globalThis.RTCPeerConnection before using TeaVM RTC.');
+  }
+  throw new Error('RTCPeerConnection is not available in this runtime.');
+}
+function _getRTCIceCandidateCtor() {
+  var _s4;
+  var ctor = (_s4 = _s()) === null || _s4 === void 0 ? void 0 : _s4.RTCIceCandidate;
+  if (typeof ctor === 'function') {
+    return ctor;
+  }
+  if (_isNodeRuntime()) {
+    throw new Error('RTCIceCandidate is not available in Node.js. Provide a node-webrtc-compatible implementation in your app and assign it to globalThis.RTCIceCandidate before using TeaVM RTC.');
+  }
+  throw new Error('RTCIceCandidate is not available in this runtime.');
+}
+var _getNodeClipboard = /*#__PURE__*/function () {
+  var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
+    var s;
+    return _regenerator().w(function (_context14) {
+      while (1) switch (_context14.n) {
+        case 0:
+          if (_isNodeRuntime()) {
+            _context14.n = 1;
+            break;
+          }
+          return _context14.a(2, null);
+        case 1:
+          s = _s();
+          if (!s._ngeNodeClipboard) {
+            _context14.n = 2;
+            break;
+          }
+          return _context14.a(2, s._ngeNodeClipboard);
+        case 2:
+          s._ngeNodeClipboard = {
+            readText: function readText() {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
+                return _regenerator().w(function (_context12) {
+                  while (1) switch (_context12.n) {
+                    case 0:
+                      return _context12.a(2, '');
+                  }
+                }, _callee12);
+              }))();
+            },
+            writeText: function writeText(text) {
+              return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+                return _regenerator().w(function (_context13) {
+                  while (1) switch (_context13.n) {
+                    case 0:
+                      return _context13.a(2);
+                  }
+                }, _callee13);
+              }))();
+            }
+          };
+          return _context14.a(2, s._ngeNodeClipboard);
+      }
+    }, _callee14);
+  }));
+  return function _getNodeClipboard() {
+    return _ref4.apply(this, arguments);
+  };
+}();
+var _getClipboard = /*#__PURE__*/function () {
+  var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+    var _s5;
+    var injectedClipboard;
+    return _regenerator().w(function (_context15) {
+      while (1) switch (_context15.n) {
+        case 0:
+          injectedClipboard = (_s5 = _s()) === null || _s5 === void 0 ? void 0 : _s5.ngeClipboard;
+          if (!injectedClipboard) {
+            _context15.n = 1;
+            break;
+          }
+          return _context15.a(2, injectedClipboard);
+        case 1:
+          if (!(typeof navigator !== 'undefined' && navigator && navigator.clipboard)) {
+            _context15.n = 2;
+            break;
+          }
+          return _context15.a(2, navigator.clipboard);
+        case 2:
+          if (!_isNodeRuntime()) {
+            _context15.n = 3;
+            break;
+          }
+          return _context15.a(2, _getNodeClipboard());
+        case 3:
+          return _context15.a(2, null);
+      }
+    }, _callee15);
+  }));
+  return function _getClipboard() {
+    return _ref5.apply(this, arguments);
+  };
+}();
 var _sanitizeBigInts = function sanitizeBigInts(obj) {
   // Base cases for non-objects
   if (obj === null || obj === undefined) {
@@ -10371,32 +10915,36 @@ var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
 };
 var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   //str
-  var clipboard = _s().ngeClipboard || navigator.clipboard;
-  clipboard.readText().then(function (text) {
-    res(text);
+  _getClipboard().then(function (clipboard) {
+    if (!clipboard || typeof clipboard.readText !== 'function') {
+      return '';
+    }
+    return clipboard.readText();
+  }).then(function (text) {
+    res(text !== null && text !== void 0 ? text : '');
   })["catch"](function (err) {
     console.error('Failed to read clipboard contents: ', err);
-    res(null);
+    res('');
   });
 };
 var setClipboardContent = function setClipboardContent(text) {
   //void
-  try {
-    var clipboard = _s().ngeClipboard || navigator.clipboard;
-    clipboard.writeText(text)["catch"](function (err) {
-      console.error('Failed to write to clipboard: ', err);
-    });
-  } catch (err) {
+  _getClipboard().then(function (clipboard) {
+    if (!clipboard || typeof clipboard.writeText !== 'function') {
+      return;
+    }
+    return clipboard.writeText(text);
+  })["catch"](function (err) {
     console.error('Failed to write to clipboard: ', err);
-  }
+  });
 };
 var hasBundledResource = function hasBundledResource(path) {
-  var _s2;
+  var _s6;
   // boolean
   if (path.startsWith('/')) {
     path = path.substring(1);
   }
-  var bundle = (_s2 = _s()) === null || _s2 === void 0 ? void 0 : _s2.NGEBundledResources;
+  var bundle = (_s6 = _s()) === null || _s6 === void 0 ? void 0 : _s6.NGEBundledResources;
   if (!bundle) {
     console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
     return false;
@@ -10408,13 +10956,13 @@ var hasBundledResource = function hasBundledResource(path) {
   return true;
 };
 var getBundledResource = function getBundledResource(path) {
-  var _s3;
+  var _s7;
   // byte[]
 
   if (path.startsWith('/')) {
     path = path.substring(1);
   }
-  var bundle = (_s3 = _s()) === null || _s3 === void 0 ? void 0 : _s3.NGEBundledResources;
+  var bundle = (_s7 = _s()) === null || _s7 === void 0 ? void 0 : _s7.NGEBundledResources;
   if (!bundle) {
     console.warn('No bundled resources found. Ensure the bundler is configured correctly.');
     return null;
@@ -10444,95 +10992,39 @@ var aes256cbc = function aes256cbc(key /*byte[]*/, iv /*byte[]*/, data /*byte[]*
     throw error;
   }
 };
-function getVFileStore(_x) {
+function getVFileStore(_x3) {
   return _getVFileStore.apply(this, arguments);
 }
 function _getVFileStore() {
-  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(name) {
-    var globalObj;
-    return _regenerator().w(function (_context23) {
-      while (1) switch (_context23.n) {
+  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(name) {
+    var globalObj, _t11;
+    return _regenerator().w(function (_context30) {
+      while (1) switch (_context30.p = _context30.n) {
         case 0:
           globalObj = _s(); // Check if IndexedDB is available in the current environment
-          if (globalObj.indexedDB) {
-            _context23.n = 1;
+          if (_hasIndexedDB()) {
+            _context30.n = 5;
             break;
           }
-          console.warn('IndexedDB is not supported in this environment.');
-          return _context23.a(2, {
-            exists: function () {
-              var _exists = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0(path) {
-                return _regenerator().w(function (_context0) {
-                  while (1) switch (_context0.n) {
-                    case 0:
-                      return _context0.a(2, false);
-                  }
-                }, _callee0);
-              }));
-              function exists(_x18) {
-                return _exists.apply(this, arguments);
-              }
-              return exists;
-            }(),
-            read: function () {
-              var _read = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(path) {
-                return _regenerator().w(function (_context1) {
-                  while (1) switch (_context1.n) {
-                    case 0:
-                      return _context1.a(2, null);
-                  }
-                }, _callee1);
-              }));
-              function read(_x19) {
-                return _read.apply(this, arguments);
-              }
-              return read;
-            }(),
-            write: function () {
-              var _write = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(path, data) {
-                return _regenerator().w(function (_context10) {
-                  while (1) switch (_context10.n) {
-                    case 0:
-                      return _context10.a(2);
-                  }
-                }, _callee10);
-              }));
-              function write(_x20, _x21) {
-                return _write.apply(this, arguments);
-              }
-              return write;
-            }(),
-            "delete": function () {
-              var _delete2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(path) {
-                return _regenerator().w(function (_context11) {
-                  while (1) switch (_context11.n) {
-                    case 0:
-                      return _context11.a(2);
-                  }
-                }, _callee11);
-              }));
-              function _delete(_x22) {
-                return _delete2.apply(this, arguments);
-              }
-              return _delete;
-            }(),
-            listAll: function () {
-              var _listAll = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12() {
-                return _regenerator().w(function (_context12) {
-                  while (1) switch (_context12.n) {
-                    case 0:
-                      return _context12.a(2, []);
-                  }
-                }, _callee12);
-              }));
-              function listAll() {
-                return _listAll.apply(this, arguments);
-              }
-              return listAll;
-            }()
-          });
-        case 1:
-          return _context23.a(2, new Promise(function (resolve, reject) {
+          if (!_isNodeRuntime()) {
+            _context30.n = 4;
+            break;
+          }
+          _context30.p = 1;
+          _context30.n = 2;
+          return _getNodeFSVFileStore(name);
+        case 2:
+          return _context30.a(2, _context30.v);
+        case 3:
+          _context30.p = 3;
+          _t11 = _context30.v;
+          console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', _t11);
+          return _context30.a(2, _getMemoryVFileStore(name));
+        case 4:
+          console.warn('IndexedDB is not supported in this environment. Falling back to an in-memory VStore.');
+          return _context30.a(2, _getMemoryVFileStore(name));
+        case 5:
+          return _context30.a(2, new Promise(function (resolve, reject) {
             var request = globalObj.indexedDB.open('nge-vstore-' + name, 1);
             request.onupgradeneeded = function (event) {
               var db = event.target.result;
@@ -10542,79 +11034,14 @@ function _getVFileStore() {
             };
             request.onerror = function (event) {
               console.error('Error opening IndexedDB:', event.target.error);
-              // Provide fallback implementation when DB can't be opened
-              resolve({
-                exists: function () {
-                  var _exists2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(path) {
-                    return _regenerator().w(function (_context13) {
-                      while (1) switch (_context13.n) {
-                        case 0:
-                          return _context13.a(2, false);
-                      }
-                    }, _callee13);
-                  }));
-                  function exists(_x23) {
-                    return _exists2.apply(this, arguments);
-                  }
-                  return exists;
-                }(),
-                read: function () {
-                  var _read2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(path) {
-                    return _regenerator().w(function (_context14) {
-                      while (1) switch (_context14.n) {
-                        case 0:
-                          return _context14.a(2, null);
-                      }
-                    }, _callee14);
-                  }));
-                  function read(_x24) {
-                    return _read2.apply(this, arguments);
-                  }
-                  return read;
-                }(),
-                write: function () {
-                  var _write2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(path, data) {
-                    return _regenerator().w(function (_context15) {
-                      while (1) switch (_context15.n) {
-                        case 0:
-                          return _context15.a(2);
-                      }
-                    }, _callee15);
-                  }));
-                  function write(_x25, _x26) {
-                    return _write2.apply(this, arguments);
-                  }
-                  return write;
-                }(),
-                "delete": function () {
-                  var _delete3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(path) {
-                    return _regenerator().w(function (_context16) {
-                      while (1) switch (_context16.n) {
-                        case 0:
-                          return _context16.a(2);
-                      }
-                    }, _callee16);
-                  }));
-                  function _delete(_x27) {
-                    return _delete3.apply(this, arguments);
-                  }
-                  return _delete;
-                }(),
-                listAll: function () {
-                  var _listAll2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-                    return _regenerator().w(function (_context17) {
-                      while (1) switch (_context17.n) {
-                        case 0:
-                          return _context17.a(2, []);
-                      }
-                    }, _callee17);
-                  }));
-                  function listAll() {
-                    return _listAll2.apply(this, arguments);
-                  }
-                  return listAll;
-                }()
-              });
+              if (_isNodeRuntime()) {
+                _getNodeFSVFileStore(name).then(resolve)["catch"](function (error) {
+                  console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', error);
+                  resolve(_getMemoryVFileStore(name));
+                });
+              } else {
+                resolve(_getMemoryVFileStore(name));
+              }
             };
             request.onsuccess = function (event) {
               var db = event.target.result;
@@ -10623,11 +11050,11 @@ function _getVFileStore() {
                   db.close();
                 },
                 exists: function exists(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
-                    return _regenerator().w(function (_context18) {
-                      while (1) switch (_context18.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
+                    return _regenerator().w(function (_context25) {
+                      while (1) switch (_context25.n) {
                         case 0:
-                          return _context18.a(2, new Promise(function (resolve, reject) {
+                          return _context25.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.count(path);
@@ -10640,15 +11067,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee18);
+                    }, _callee25);
                   }))();
                 },
                 read: function read(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
-                    return _regenerator().w(function (_context19) {
-                      while (1) switch (_context19.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
+                    return _regenerator().w(function (_context26) {
+                      while (1) switch (_context26.n) {
                         case 0:
-                          return _context19.a(2, new Promise(function (resolve, reject) {
+                          return _context26.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.get(path);
@@ -10661,15 +11088,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee19);
+                    }, _callee26);
                   }))();
                 },
                 write: function write(path, data) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
-                    return _regenerator().w(function (_context20) {
-                      while (1) switch (_context20.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27() {
+                    return _regenerator().w(function (_context27) {
+                      while (1) switch (_context27.n) {
                         case 0:
-                          return _context20.a(2, new Promise(function (resolve, reject) {
+                          return _context27.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store.put(data, path);
@@ -10682,15 +11109,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee20);
+                    }, _callee27);
                   }))();
                 },
                 "delete": function _delete(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
-                    return _regenerator().w(function (_context21) {
-                      while (1) switch (_context21.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
+                    return _regenerator().w(function (_context28) {
+                      while (1) switch (_context28.n) {
                         case 0:
-                          return _context21.a(2, new Promise(function (resolve, reject) {
+                          return _context28.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store["delete"](path);
@@ -10703,15 +11130,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee21);
+                    }, _callee28);
                   }))();
                 },
                 listAll: function listAll() {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
-                    return _regenerator().w(function (_context22) {
-                      while (1) switch (_context22.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
+                    return _regenerator().w(function (_context29) {
+                      while (1) switch (_context29.n) {
                         case 0:
-                          return _context22.a(2, new Promise(function (resolve, reject) {
+                          return _context29.a(2, new Promise(function (resolve, reject) {
                             try {
                               var transaction = db.transaction(["files"], 'readonly');
                               var store = transaction.objectStore("files");
@@ -10729,7 +11156,7 @@ function _getVFileStore() {
                             }
                           }));
                       }
-                    }, _callee22);
+                    }, _callee29);
                   }))();
                 }
               };
@@ -10737,148 +11164,148 @@ function _getVFileStore() {
             };
           }));
       }
-    }, _callee23);
+    }, _callee30, null, [[1, 3]]);
   }));
   return _getVFileStore.apply(this, arguments);
 }
 var vfileExists = /*#__PURE__*/function () {
-  var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(name, path) {
+  var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(name, path) {
     var vstore, v;
-    return _regenerator().w(function (_context) {
-      while (1) switch (_context.n) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.n) {
         case 0:
-          _context.n = 1;
+          _context16.n = 1;
           return getVFileStore(name);
         case 1:
-          vstore = _context.v;
-          _context.n = 2;
+          vstore = _context16.v;
+          _context16.n = 2;
           return vstore.exists(path);
         case 2:
-          v = _context.v;
+          v = _context16.v;
           vstore.close();
-          return _context.a(2, v);
+          return _context16.a(2, v);
       }
-    }, _callee);
+    }, _callee16);
   }));
-  return function vfileExists(_x2, _x3) {
-    return _ref.apply(this, arguments);
+  return function vfileExists(_x4, _x5) {
+    return _ref6.apply(this, arguments);
   };
 }();
 var vfileRead = /*#__PURE__*/function () {
-  var _ref2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(name, path) {
+  var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(name, path) {
     var vstore, v;
-    return _regenerator().w(function (_context2) {
-      while (1) switch (_context2.n) {
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.n) {
         case 0:
-          _context2.n = 1;
+          _context17.n = 1;
           return getVFileStore(name);
         case 1:
-          vstore = _context2.v;
-          _context2.n = 2;
+          vstore = _context17.v;
+          _context17.n = 2;
           return vstore.read(path);
         case 2:
-          v = _context2.v;
+          v = _context17.v;
           if (!(v === null || v === undefined)) {
-            _context2.n = 3;
+            _context17.n = 3;
             break;
           }
           console.warn("File not found: ".concat(path, " in store ").concat(name));
           vstore.close();
-          return _context2.a(2, null);
+          return _context17.a(2, null);
         case 3:
           vstore.close();
-          return _context2.a(2, _u(v));
+          return _context17.a(2, _u(v));
       }
-    }, _callee2);
+    }, _callee17);
   }));
-  return function vfileRead(_x4, _x5) {
-    return _ref2.apply(this, arguments);
+  return function vfileRead(_x6, _x7) {
+    return _ref7.apply(this, arguments);
   };
 }();
 var vfileWrite = /*#__PURE__*/function () {
-  var _ref3 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(name, path, data) {
+  var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(name, path, data) {
     var vstore;
-    return _regenerator().w(function (_context3) {
-      while (1) switch (_context3.n) {
+    return _regenerator().w(function (_context18) {
+      while (1) switch (_context18.n) {
         case 0:
-          _context3.n = 1;
+          _context18.n = 1;
           return getVFileStore(name);
         case 1:
-          vstore = _context3.v;
-          _context3.n = 2;
+          vstore = _context18.v;
+          _context18.n = 2;
           return vstore.write(path, _u(data));
         case 2:
           vstore.close();
         case 3:
-          return _context3.a(2);
+          return _context18.a(2);
       }
-    }, _callee3);
+    }, _callee18);
   }));
-  return function vfileWrite(_x6, _x7, _x8) {
-    return _ref3.apply(this, arguments);
+  return function vfileWrite(_x8, _x9, _x0) {
+    return _ref8.apply(this, arguments);
   };
 }();
 var vfileDelete = /*#__PURE__*/function () {
-  var _ref4 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(name, path) {
+  var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(name, path) {
     var vstore;
-    return _regenerator().w(function (_context4) {
-      while (1) switch (_context4.n) {
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.n) {
         case 0:
-          _context4.n = 1;
+          _context19.n = 1;
           return getVFileStore(name);
         case 1:
-          vstore = _context4.v;
-          _context4.n = 2;
+          vstore = _context19.v;
+          _context19.n = 2;
           return vstore["delete"](path);
         case 2:
           vstore.close();
         case 3:
-          return _context4.a(2);
+          return _context19.a(2);
       }
-    }, _callee4);
+    }, _callee19);
   }));
-  return function vfileDelete(_x9, _x0) {
-    return _ref4.apply(this, arguments);
+  return function vfileDelete(_x1, _x10) {
+    return _ref9.apply(this, arguments);
   };
 }();
 var vfileListAll = /*#__PURE__*/function () {
-  var _ref5 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(name) {
-    var vstore, files, v, _t;
-    return _regenerator().w(function (_context5) {
-      while (1) switch (_context5.p = _context5.n) {
+  var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(name) {
+    var vstore, files, v, _t9;
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.p = _context20.n) {
         case 0:
-          _context5.p = 0;
-          _context5.n = 1;
+          _context20.p = 0;
+          _context20.n = 1;
           return getVFileStore(name);
         case 1:
-          vstore = _context5.v;
-          _context5.n = 2;
+          vstore = _context20.v;
+          _context20.n = 2;
           return vstore.listAll();
         case 2:
-          files = _context5.v;
+          files = _context20.v;
           if (!(files === undefined || files === null)) {
-            _context5.n = 3;
+            _context20.n = 3;
             break;
           }
           console.warn("No files found in store ".concat(name));
           vstore.close();
-          return _context5.a(2, []);
+          return _context20.a(2, []);
         case 3:
           v = files.map(function (file) {
             return file.toString();
           });
           vstore.close();
-          return _context5.a(2, v);
+          return _context20.a(2, v);
         case 4:
-          _context5.p = 4;
-          _t = _context5.v;
-          console.error("Error listing files in store ".concat(name, ":"), _t);
-          return _context5.a(2, []);
+          _context20.p = 4;
+          _t9 = _context20.v;
+          console.error("Error listing files in store ".concat(name, ":"), _t9);
+          return _context20.a(2, []);
       }
-    }, _callee5, null, [[0, 4]]);
+    }, _callee20, null, [[0, 4]]);
   }));
-  return function vfileListAll(_x1) {
-    return _ref5.apply(this, arguments);
+  return function vfileListAll(_x11) {
+    return _ref0.apply(this, arguments);
   };
 }();
 var vfileExistsAsync = function vfileExistsAsync(name, path, res, rej) {
@@ -10933,6 +11360,8 @@ var getPlatformName = function getPlatformName() {
     runtime = "capacitor " + Capacitor.getPlatform();
   } else if (typeof self !== "undefined" && self.origin && self.origin.startsWith("capacitor:")) {
     runtime = "capacitor worker";
+  } else if (_isNodeRuntime()) {
+    runtime = "node " + _getNodeVersion();
   } else if (typeof window !== 'undefined') {
     runtime = "browser";
   }
@@ -10978,40 +11407,40 @@ function toFunction(f) {
   return fun.bind(obj);
 }
 var callFunction = /*#__PURE__*/function () {
-  var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(functionName, data, res, rej) {
-    var result, _t2;
-    return _regenerator().w(function (_context6) {
-      while (1) switch (_context6.p = _context6.n) {
+  var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(functionName, data, res, rej) {
+    var result, _t0;
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.p = _context21.n) {
         case 0:
-          _context6.p = 0;
-          _context6.n = 1;
+          _context21.p = 0;
+          _context21.n = 1;
           return toFunction(functionName).apply(void 0, _toConsumableArray(JSON.parse(data).args));
         case 1:
-          result = _context6.v;
+          result = _context21.v;
           res(JSON.stringify({
             result: result
           }));
-          _context6.n = 3;
+          _context21.n = 3;
           break;
         case 2:
-          _context6.p = 2;
-          _t2 = _context6.v;
-          console.error("Error executing function ".concat(functionName, ":"), _t2);
-          rej(String(_t2));
+          _context21.p = 2;
+          _t0 = _context21.v;
+          console.error("Error executing function ".concat(functionName, ":"), _t0);
+          rej(String(_t0));
         case 3:
-          return _context6.a(2);
+          return _context21.a(2);
       }
-    }, _callee6, null, [[0, 2]]);
+    }, _callee21, null, [[0, 2]]);
   }));
-  return function callFunction(_x10, _x11, _x12, _x13) {
-    return _ref6.apply(this, arguments);
+  return function callFunction(_x12, _x13, _x14, _x15) {
+    return _ref1.apply(this, arguments);
   };
 }();
 var canCallFunction = /*#__PURE__*/function () {
-  var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(functionName, res) {
+  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(functionName, res) {
     var canCall;
-    return _regenerator().w(function (_context7) {
-      while (1) switch (_context7.n) {
+    return _regenerator().w(function (_context22) {
+      while (1) switch (_context22.n) {
         case 0:
           // void
           try {
@@ -11028,12 +11457,12 @@ var canCallFunction = /*#__PURE__*/function () {
             res(false);
           }
         case 1:
-          return _context7.a(2);
+          return _context22.a(2);
       }
-    }, _callee7);
+    }, _callee22);
   }));
-  return function canCallFunction(_x14, _x15) {
-    return _ref7.apply(this, arguments);
+  return function canCallFunction(_x16, _x17) {
+    return _ref10.apply(this, arguments);
   };
 }();
 var openURL = function openURL(url) {
@@ -11187,7 +11616,8 @@ var rtcCreatePeerConnection = function rtcCreatePeerConnection(urls /*str[]*/) {
       };
     })
   };
-  var conn = new RTCPeerConnection(conf);
+  var RTCPeerConnectionCtor = _getRTCPeerConnectionCtor();
+  var conn = new RTCPeerConnectionCtor(conf);
   return conn;
 };
 var rtcCreateDataChannel = function rtcCreateDataChannel(conn /*RTCPeerConnection*/, label /*str*/, protocol /*str*/, ordered /*bool*/, reliable /*bool*/, maxRetransmits /*int*/, maxPacketLifeTimeMs /*int*/) {
@@ -11215,7 +11645,8 @@ var rtcCreateDataChannel = function rtcCreateDataChannel(conn /*RTCPeerConnectio
 };
 var rtcCreateIceCandidate = function rtcCreateIceCandidate(sdp /*str*/, spdMid /*str*/) {
   // RTCIceCandidate
-  return new RTCIceCandidate({
+  var RTCIceCandidateCtor = _getRTCIceCandidateCtor();
+  return new RTCIceCandidateCtor({
     candidate: sdp,
     sdpMid: spdMid,
     sdpMLineIndex: null
@@ -11270,22 +11701,22 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
     options.body = _u(body);
   }
   fetch(url, options).then(/*#__PURE__*/function () {
-    var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(response) {
-      var respHeaders, respBody, out, _t3, _t4;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.n) {
+    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(response) {
+      var respHeaders, respBody, out, _t1, _t10;
+      return _regenerator().w(function (_context23) {
+        while (1) switch (_context23.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
             response.headers.forEach(function (value, key) {
               respHeaders[key] = value;
             });
-            _t3 = Uint8Array;
-            _context8.n = 1;
+            _t1 = Uint8Array;
+            _context23.n = 1;
             return response.arrayBuffer();
           case 1:
-            _t4 = _context8.v;
-            respBody = new _t3(_t4);
+            _t10 = _context23.v;
+            respBody = new _t1(_t10);
             out = {
               status: response.status,
               statusText: response.statusText,
@@ -11294,12 +11725,12 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
             };
             res(out);
           case 2:
-            return _context8.a(2);
+            return _context23.a(2);
         }
-      }, _callee8);
+      }, _callee23);
     }));
-    return function (_x16) {
-      return _ref8.apply(this, arguments);
+    return function (_x18) {
+      return _ref11.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
@@ -11320,10 +11751,10 @@ var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, tim
     options.body = _u(body);
   }
   fetch(url, options).then(/*#__PURE__*/function () {
-    var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(response) {
+    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(response) {
       var respHeaders, stream, out;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.n) {
+      return _regenerator().w(function (_context24) {
+        while (1) switch (_context24.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
@@ -11339,12 +11770,12 @@ var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, tim
             };
             res(out);
           case 1:
-            return _context9.a(2);
+            return _context24.a(2);
         }
-      }, _callee9);
+      }, _callee24);
     }));
-    return function (_x17) {
-      return _ref9.apply(this, arguments);
+    return function (_x19) {
+      return _ref12.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
@@ -11425,8 +11856,27 @@ var rtcSetOnMessageHandler = function rtcSetOnMessageHandler(channel, callback) 
 };
 var panic = function panic(err) {
   // void
-  console.error('PANIC:', err);
-  alert('PANIC: ' + err);
+  var message = 'PANIC: ' + err;
+  if (_isNodeRuntime()) {
+    try {
+      if (process && process.stderr && typeof process.stderr.write === 'function') {
+        process.stderr.write(message + '\n');
+      } else {
+        console.error(message);
+      }
+    } catch (stderrError) {
+      console.error('Failed to write panic message to stderr:', stderrError);
+    }
+    if (process && typeof process.exit === 'function') {
+      process.exit(1);
+      return;
+    }
+    throw new Error(message);
+  }
+  console.error(message);
+  if (typeof alert === 'function') {
+    alert(message);
+  }
   // try to forcefully kill the script
   if (typeof window !== 'undefined' && window.location) {
     window.location.reload();

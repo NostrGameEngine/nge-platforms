@@ -43,6 +43,302 @@ function _s() {
         (typeof global !== 'undefined' && global) ||
         (typeof self !== 'undefined' && self));
 }
+
+function _isNodeRuntime() {
+    return typeof process !== 'undefined' &&
+        process !== null &&
+        typeof process.versions !== 'undefined' &&
+        process.versions !== null &&
+        typeof process.versions.node === 'string';
+}
+
+function _getNodeVersion() {
+    return _isNodeRuntime() ? process.versions.node : null;
+}
+
+function _hasIndexedDB() {
+    return !!_s()?.indexedDB;
+}
+
+const _dynamicImport = (specifier) => {
+    try {
+        return Function('s', 'return import(s)')(specifier);
+    } catch (error) {
+        return Promise.reject(error);
+    }
+};
+
+function _getNodeVStoreSafeName(name) {
+    if (name === null || name === undefined) {
+        throw new Error('VStore name is required.');
+    }
+    const s = String(name);
+    if (!s) {
+        throw new Error('VStore name is required.');
+    }
+    return encodeURIComponent(s);
+}
+
+function _pathStartsWith(pathModule, candidatePath, basePath) {
+    const candidate = pathModule.resolve(candidatePath);
+    const base = pathModule.resolve(basePath);
+
+    if (candidate === base) {
+        return true;
+    }
+
+    if (process.platform === 'win32') {
+        const c = candidate.toLowerCase();
+        const b = base.toLowerCase();
+        return c.startsWith(b + pathModule.sep);
+    }
+
+    return candidate.startsWith(base + pathModule.sep);
+}
+
+function _resolveNodeVStorePath(pathModule, basePath, userPath) {
+    if (userPath === null || userPath === undefined || String(userPath).length === 0) {
+        throw new Error('Path required');
+    }
+
+    const p = String(userPath);
+    if (pathModule.isAbsolute(p)) {
+        throw new Error('Absolute paths not allowed');
+    }
+
+    const candidate = pathModule.resolve(basePath, p);
+    if (!_pathStartsWith(pathModule, candidate, basePath)) {
+        throw new Error('Traversal detected');
+    }
+    return candidate;
+}
+
+const _getNodeDataPath = async () => {
+    if (!_isNodeRuntime()) {
+        return null;
+    }
+
+    const s = _s();
+    if (s._ngeNodeDataPath) {
+        return s._ngeNodeDataPath;
+    }
+
+    const osModule = await _dynamicImport('node:os');
+    const pathModule = await _dynamicImport('node:path');
+    const env = process.env || {};
+
+    let basePath = env.APP_DATA_DIR;
+    if (!basePath) {
+        if (process.platform === 'win32') {
+            basePath = env.APPDATA || pathModule.join(osModule.homedir(), 'AppData', 'Roaming');
+        } else if (process.platform === 'darwin') {
+            basePath = pathModule.join(osModule.homedir(), 'Library', 'Application Support');
+        } else {
+            basePath = env.XDG_DATA_HOME || pathModule.join(osModule.homedir(), '.local', 'share');
+        }
+    }
+
+    s._ngeNodeDataPath = pathModule.resolve(basePath);
+    return s._ngeNodeDataPath;
+};
+
+const _getNodeFSVFileStore = async (name) => {
+    if (!_isNodeRuntime()) {
+        return null;
+    }
+
+    const s = _s();
+    if (typeof s._ngeNodeFSVFileStores === 'undefined') {
+        s._ngeNodeFSVFileStores = {};
+    }
+    if (s._ngeNodeFSVFileStores[name]) {
+        return s._ngeNodeFSVFileStores[name];
+    }
+
+    const fsModule = await _dynamicImport('node:fs/promises');
+    const pathModule = await _dynamicImport('node:path');
+    const baseDataPath = await _getNodeDataPath();
+    const safeName = _getNodeVStoreSafeName(name);
+    const basePath = pathModule.resolve(baseDataPath, safeName);
+
+    const store = {
+        close() { },
+        async exists(path) {
+            try {
+                const fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                await fsModule.access(fullPath);
+                return true;
+            } catch (_error) {
+                return false;
+            }
+        },
+        async read(path) {
+            try {
+                const fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                const bytes = await fsModule.readFile(fullPath);
+                return new Uint8Array(bytes);
+            } catch (_error) {
+                return null;
+            }
+        },
+        async write(path, data) {
+            const fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+            const parent = pathModule.dirname(fullPath);
+            await fsModule.mkdir(parent, { recursive: true });
+            const tmpPath = pathModule.join(
+                parent,
+                `.vstore-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`
+            );
+            const payload = _u(data);
+            await fsModule.writeFile(tmpPath, payload);
+            try {
+                await fsModule.rename(tmpPath, fullPath);
+            } catch (error) {
+                try {
+                    await fsModule.unlink(tmpPath);
+                } catch (_cleanupError) { }
+                throw error;
+            }
+        },
+        async delete(path) {
+            try {
+                const fullPath = _resolveNodeVStorePath(pathModule, basePath, path);
+                await fsModule.unlink(fullPath);
+            } catch (error) {
+                if (error && error.code === 'ENOENT') {
+                    return;
+                }
+                throw error;
+            }
+        },
+        async listAll() {
+            const out = [];
+            try {
+                await fsModule.mkdir(basePath, { recursive: true });
+            } catch (_mkdirError) { }
+
+            const walk = async (dir) => {
+                const entries = await fsModule.readdir(dir, { withFileTypes: true });
+                for (const entry of entries) {
+                    const full = pathModule.join(dir, entry.name);
+                    if (entry.isDirectory()) {
+                        await walk(full);
+                    } else if (entry.isFile()) {
+                        const rel = pathModule.relative(basePath, full);
+                        out.push(rel);
+                    }
+                }
+            };
+
+            try {
+                await walk(basePath);
+            } catch (error) {
+                if (error && error.code === 'ENOENT') {
+                    return [];
+                }
+                throw error;
+            }
+            return out;
+        }
+    };
+
+    s._ngeNodeFSVFileStores[name] = store;
+    return store;
+};
+
+function _getMemoryVFileStore(name) {
+    const s = _s();
+    if (typeof s._ngeMemoryVFileStores === 'undefined') {
+        s._ngeMemoryVFileStores = {};
+    }
+    if (!s._ngeMemoryVFileStores[name]) {
+        s._ngeMemoryVFileStores[name] = new Map();
+    }
+    const store = s._ngeMemoryVFileStores[name];
+    return {
+        close() { },
+        async exists(path) {
+            return store.has(path);
+        },
+        async read(path) {
+            if (!store.has(path)) {
+                return null;
+            }
+            const data = store.get(path);
+            return data ? new Uint8Array(data) : null;
+        },
+        async write(path, data) {
+            store.set(path, new Uint8Array(_u(data)));
+        },
+        async delete(path) {
+            store.delete(path);
+        },
+        async listAll() {
+            return Array.from(store.keys());
+        }
+    };
+}
+
+function _getRTCPeerConnectionCtor() {
+    const ctor = _s()?.RTCPeerConnection;
+    if (typeof ctor === 'function') {
+        return ctor;
+    }
+    if (_isNodeRuntime()) {
+        throw new Error(
+            'RTCPeerConnection is not available in Node.js. Provide a node-webrtc-compatible implementation in your app and assign it to globalThis.RTCPeerConnection before using TeaVM RTC.'
+        );
+    }
+    throw new Error('RTCPeerConnection is not available in this runtime.');
+}
+
+function _getRTCIceCandidateCtor() {
+    const ctor = _s()?.RTCIceCandidate;
+    if (typeof ctor === 'function') {
+        return ctor;
+    }
+    if (_isNodeRuntime()) {
+        throw new Error(
+            'RTCIceCandidate is not available in Node.js. Provide a node-webrtc-compatible implementation in your app and assign it to globalThis.RTCIceCandidate before using TeaVM RTC.'
+        );
+    }
+    throw new Error('RTCIceCandidate is not available in this runtime.');
+}
+
+const _getNodeClipboard = async () => {
+    if (!_isNodeRuntime()) {
+        return null;
+    }
+
+    const s = _s();
+    if (s._ngeNodeClipboard) {
+        return s._ngeNodeClipboard;
+    }
+
+    s._ngeNodeClipboard = {
+        async readText() {
+            return '';
+        },
+        async writeText(text) {
+            return;
+        }
+    };
+    return s._ngeNodeClipboard;
+};
+
+const _getClipboard = async () => {
+    const injectedClipboard = _s()?.ngeClipboard;
+    if (injectedClipboard) {
+        return injectedClipboard;
+    }
+    if (typeof navigator !== 'undefined' && navigator && navigator.clipboard) {
+        return navigator.clipboard;
+    }
+    if (_isNodeRuntime()) {
+        return _getNodeClipboard();
+    }
+    return null;
+};
  
 const sanitizeBigInts = (obj) => {
     // Base cases for non-objects
@@ -147,26 +443,33 @@ export const setTimeout = (callback, delay) => { //void
 }
 
 export const getClipboardContentAsync = (res,rej) => { //str
-    const clipboard = _s().ngeClipboard || navigator.clipboard;
-    clipboard.readText()
+    _getClipboard()
+        .then(clipboard => {
+            if (!clipboard || typeof clipboard.readText !== 'function') {
+                return '';
+            }
+            return clipboard.readText();
+        })
         .then(text => {
-            res(text);
+            res(text ?? '');
         })
         .catch(err => {
             console.error('Failed to read clipboard contents: ', err);
-            res(null);
+            res('');
         });
 }
 
 export const setClipboardContent = (text) => { //void
-    try {
-        const clipboard = _s().ngeClipboard || navigator.clipboard;
-        clipboard.writeText(text).catch((err) => {
+    _getClipboard()
+        .then(clipboard => {
+            if (!clipboard || typeof clipboard.writeText !== 'function') {
+                return;
+            }
+            return clipboard.writeText(text);
+        })
+        .catch((err) => {
             console.error('Failed to write to clipboard: ', err);
         });
-    } catch (err) {
-        console.error('Failed to write to clipboard: ', err);
-    }
 }
 
 export const hasBundledResource = (path) => { // boolean
@@ -237,15 +540,17 @@ async function getVFileStore(name) {
     const globalObj = _s();
 
     // Check if IndexedDB is available in the current environment
-    if (!globalObj.indexedDB) {
-        console.warn('IndexedDB is not supported in this environment.');
-        return {
-            exists: async (path) => false,
-            read: async (path) => null,
-            write: async (path, data) => { },
-            delete: async (path) => { },
-            listAll: async () => [],
-        };
+    if (!_hasIndexedDB()) {
+        if (_isNodeRuntime()) {
+            try {
+                return await _getNodeFSVFileStore(name);
+            } catch (error) {
+                console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', error);
+                return _getMemoryVFileStore(name);
+            }
+        }
+        console.warn('IndexedDB is not supported in this environment. Falling back to an in-memory VStore.');
+        return _getMemoryVFileStore(name);
     }
     return new Promise((resolve, reject) => {
         const request = globalObj.indexedDB.open('nge-vstore-'+name, 1);
@@ -259,14 +564,16 @@ async function getVFileStore(name) {
 
         request.onerror = (event) => {
             console.error('Error opening IndexedDB:', event.target.error);
-            // Provide fallback implementation when DB can't be opened
-            resolve({
-                exists: async (path) => false,
-                read: async (path) => null,
-                write: async (path, data) => { },
-                delete: async (path) => { },
-                listAll: async () => [],
-            });
+            if (_isNodeRuntime()) {
+                _getNodeFSVFileStore(name)
+                    .then(resolve)
+                    .catch(error => {
+                        console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', error);
+                        resolve(_getMemoryVFileStore(name));
+                    });
+            } else {
+                resolve(_getMemoryVFileStore(name));
+            }
         };
 
         request.onsuccess = (event) => {
@@ -482,6 +789,8 @@ export const getPlatformName = () => { // str
         runtime = "capacitor " + Capacitor.getPlatform();
     } else if(typeof self !== "undefined" && self.origin && self.origin.startsWith("capacitor:")){
         runtime = "capacitor worker";
+    } else if (_isNodeRuntime()) {
+        runtime = "node " + _getNodeVersion();
     } else if (typeof window !== 'undefined') {
         runtime = "browser";
     }
@@ -721,7 +1030,8 @@ export const rtcCreatePeerConnection = (
     const conf = {
         iceServers: urls.map(url => ({ urls: url }))  
     };
-    const conn = new RTCPeerConnection(conf);
+    const RTCPeerConnectionCtor = _getRTCPeerConnectionCtor();
+    const conn = new RTCPeerConnectionCtor(conf);
     return conn;
 }
 
@@ -761,7 +1071,8 @@ export const rtcCreateDataChannel = (
 }
 
 export const rtcCreateIceCandidate = (sdp /*str*/, spdMid /*str*/) => { // RTCIceCandidate
-    return new RTCIceCandidate({ 
+    const RTCIceCandidateCtor = _getRTCIceCandidateCtor();
+    return new RTCIceCandidateCtor({
         candidate: sdp,
         sdpMid: spdMid,
         sdpMLineIndex: null
@@ -959,8 +1270,27 @@ export const rtcSetOnMessageHandler = (channel, callback) => { // void
 }
 
 export const panic = (err) => { // void
-    console.error('PANIC:', err);
-    alert('PANIC: ' + err);
+    const message = 'PANIC: ' + err;
+    if (_isNodeRuntime()) {
+        try {
+            if (process && process.stderr && typeof process.stderr.write === 'function') {
+                process.stderr.write(message + '\n');
+            } else {
+                console.error(message);
+            }
+        } catch (stderrError) {
+            console.error('Failed to write panic message to stderr:', stderrError);
+        }
+        if (process && typeof process.exit === 'function') {
+            process.exit(1);
+            return;
+        }
+        throw new Error(message);
+    }
+    console.error(message);
+    if (typeof alert === 'function') {
+        alert(message);
+    }
     // try to forcefully kill the script
     if (typeof window !== 'undefined' && window.location) {
         window.location.reload();
