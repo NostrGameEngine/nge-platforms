@@ -487,7 +487,7 @@ public final class JVMReachAllMain {
         safeRun(
             "schnorr",
             () -> {
-                byte[] msg = "reach".getBytes(StandardCharsets.UTF_8);
+                byte[] msg = "0123456789abcdef0123456789abcdef".getBytes(StandardCharsets.UTF_8);
                 byte[] sk = Schnorr.generatePrivateKey();
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
