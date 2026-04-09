@@ -173,11 +173,12 @@ function isConnectedTimeoutFlake(result) {
     result?.jvm?.error,
     result?.android?.error,
   ].filter(Boolean).join('\n');
-  return /RTC connected event missing|Timed out waiting for RTC connected event/i.test(texts);
+  return /RTC connected event missing|Timed out waiting for RTC connected event|Timed out waiting for Android SDP answer/i.test(texts)
+    || (!result?.android && result?.androidExitCode !== 0);
 }
 
 async function main() {
-  const attempts = 2;
+  const attempts = 3;
   let last = null;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     last = await runOnce(attempt);

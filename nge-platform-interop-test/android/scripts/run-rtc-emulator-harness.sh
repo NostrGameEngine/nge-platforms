@@ -28,6 +28,7 @@ EMULATOR_SNAPSHOT_FLAGS=("${ANDROID_EMULATOR_SNAPSHOT_FLAGS:-"-no-snapshot"}")
 ANDROID_SIGNAL_BASE="${ANDROID_RTC_SIGNAL_BASE:-}"
 ANDROID_WS_URL="${ANDROID_RTC_WS_URL:-}"
 ANDROID_HTTP_PARITY_URL="${ANDROID_RTC_HTTP_PARITY_URL:-}"
+ANDROID_REUSE_RUNNING_EMULATOR="${ANDROID_REUSE_RUNNING_EMULATOR:-0}"
 
 if [[ ! -x "${EMULATOR_BIN}" ]]; then
   echo "Emulator binary not found: ${EMULATOR_BIN}" >&2
@@ -90,7 +91,26 @@ printf '%s\n' "${AVAILABLE_AVDS[@]}" | grep -Fx "${AVD_NAME}" >/dev/null || {
 
 "${ADB_BIN}" start-server
 
-RUNNING_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+device$/ {print $1; exit}')"
+if [[ "${ANDROID_REUSE_RUNNING_EMULATOR}" != "1" ]]; then
+  mapfile -t STALE_EMULATORS < <("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+(device|offline|unauthorized)$/ {print $1}')
+  if [[ ${#STALE_EMULATORS[@]} -gt 0 ]]; then
+    echo "Stopping existing emulator(s): ${STALE_EMULATORS[*]}"
+    for SERIAL in "${STALE_EMULATORS[@]}"; do
+      "${ADB_BIN}" -s "${SERIAL}" emu kill >/dev/null 2>&1 || true
+    done
+    for _ in $(seq 1 30); do
+      LEFT="$(${ADB_BIN} devices | awk '/^emulator-[0-9]+\s+(device|offline|unauthorized)$/ {print $1}' | wc -l)"
+      [[ "${LEFT}" == "0" ]] && break
+      sleep 1
+    done
+  fi
+fi
+
+RUNNING_SERIAL=""
+if [[ "${ANDROID_REUSE_RUNNING_EMULATOR}" == "1" ]]; then
+  RUNNING_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+device$/ {print $1; exit}')"
+fi
+
 if [[ -n "${RUNNING_SERIAL}" ]]; then
   echo "Reusing running emulator: ${RUNNING_SERIAL}"
   EMULATOR_SERIAL="${RUNNING_SERIAL}"
