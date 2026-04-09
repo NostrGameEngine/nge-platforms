@@ -41,9 +41,11 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -204,23 +206,35 @@ public class JVMRTCTransport implements RTCTransport {
                     });
             });
 
-        this.executor.runLater(
-                () -> {
-                    if (connected) return null;
-                    logger.finer("RTC Connection attempt timed out, closing connection");
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCDisconnected("timeout");
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error sending local candidate", e);
-                        }
-                    }
-                    this.close();
-                    return null;
-                },
-                p2pAttemptTimeout.toMillis(),
-                TimeUnit.MILLISECONDS
-            );
+        final Callable<Object>[] timeoutHolder = new Callable[1];
+        timeoutHolder[0] = () -> {
+            if (connected) return null;
+
+            // If no data channels exist yet or there are pending ready/rejectors,
+            // postpone closing: negotiation may still be starting (avoid race).
+            if (channels.isEmpty() || !pendingReadyRejectors.isEmpty()) {
+                logger.finer("No channels or pending negotiation present, postponing timeout");
+                try {
+                    this.executor.runLater(timeoutHolder[0], p2pAttemptTimeout.toMillis(), TimeUnit.MILLISECONDS);
+                } catch (Throwable t) {
+                    logger.log(Level.FINER, "Failed to reschedule timeout", t);
+                }
+                return null;
+            }
+
+            logger.finer("RTC Connection attempt timed out, closing connection");
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCDisconnected("timeout");
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error sending local candidate", e);
+                }
+            }
+            this.close();
+            return null;
+        };
+
+        this.executor.runLater(timeoutHolder[0], p2pAttemptTimeout.toMillis(), TimeUnit.MILLISECONDS);
     }
 
     AsyncTask<RTCDataChannel> confChannel(DataChannel channel) {
@@ -330,7 +344,12 @@ public class JVMRTCTransport implements RTCTransport {
 
         channels.put(channel, wrapper);
 
+        AtomicBoolean readySettled = new AtomicBoolean(false);
+
         Runnable completeReady = () -> {
+            if (!readySettled.compareAndSet(false, true)) {
+                return;
+            }
             pendingReadyRejectors.remove(rej1);
             res1.accept(wrapper);
             for (RTCTransportListener listener : listeners) {
@@ -343,30 +362,51 @@ public class JVMRTCTransport implements RTCTransport {
         };
 
         Consumer<Exception> failReady = error -> {
+            if (!readySettled.compareAndSet(false, true)) {
+                return;
+            }
             pendingReadyRejectors.remove(rej1);
             rej1.accept(error);
         };
 
-        // timeout for good measure
+        // timeout for good measure; while negotiation is ongoing keep waiting instead of closing early
+        final Callable<Object>[] openTimeoutHolder = new Callable[1];
+        openTimeoutHolder[0] = () -> {
+            if (readySettled.get()) {
+                return null;
+            }
+
+            if (channel.isOpen()) {
+                logger.fine("Data channel is open: " + wrapper.getName());
+                completeReady.run();
+                return null;
+            }
+
+            if (!connected && this.conn != null) {
+                logger.finer("Data channel not open yet while RTC is still negotiating, postponing channel timeout");
+                this.executor.runLater(
+                    openTimeoutHolder[0],
+                    Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
+                    TimeUnit.MILLISECONDS
+                );
+                return null;
+            }
+
+            logger.finer("Data channel failed to open in time, closing channel");
+            try {
+                wrapper.close();
+            } catch (Exception e) {
+                logger.log(Level.FINER, "Error closing channel", e);
+            }
+            failReady.accept(new Exception("Channel open timeout"));
+            return null;
+        };
+
         this.executor.runLater(
-                () -> {
-                    if (!channel.isOpen()) {
-                        logger.finer("Data channel failed to open in time, closing channel");
-                        try {
-                            wrapper.close();
-                        } catch (Exception e) {
-                            logger.log(Level.FINER, "Error closing channel", e);
-                        }
-                        failReady.accept(new Exception("Channel open timeout"));
-                    } else {
-                        logger.fine("Data channel is open: " + wrapper.getName());
-                        completeReady.run();
-                    }
-                    return null;
-                },
-                Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
-                TimeUnit.MILLISECONDS
-            );
+            openTimeoutHolder[0],
+            Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
+            TimeUnit.MILLISECONDS
+        );
 
         channel.onError.register((c, error) -> {
             logger.log(Level.WARNING, "Channel error: " + error);
