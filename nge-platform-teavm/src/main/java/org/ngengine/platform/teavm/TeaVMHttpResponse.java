@@ -30,9 +30,9 @@
  */
 package org.ngengine.platform.teavm;
 
+import org.teavm.jso.JSByRef;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
-import org.teavm.jso.JSByRef;
 
 public interface TeaVMHttpResponse extends JSObject {
     @JSProperty("headers")
