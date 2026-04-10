@@ -10986,7 +10986,7 @@ var aes256cbc = function aes256cbc(key /*byte[]*/, iv /*byte[]*/, data /*byte[]*
   }
   try {
     var cipher = (0,_noble_ciphers_aes__WEBPACK_IMPORTED_MODULE_6__.cbc)(key, iv);
-    return _u(forEncryption ? cipher.seal(data) : cipher.open(data));
+    return _u(forEncryption ? cipher.encrypt(data) : cipher.decrypt(data));
   } catch (error) {
     console.error('AES-256-CBC operation failed:', error);
     throw error;

@@ -527,7 +527,7 @@ export const aes256cbc = (key/*byte[]*/, iv/*byte[]*/, data/*byte[]*/, forEncryp
 
     try {
         const cipher = cbc(key, iv);
-        return _u(forEncryption ? cipher.seal(data) : cipher.open(data));
+        return _u(forEncryption ? cipher.encrypt(data) : cipher.decrypt(data));
     } catch (error) {
         console.error('AES-256-CBC operation failed:', error);
         throw error;
