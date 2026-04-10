@@ -108,6 +108,34 @@ public class TeaVMPlatform extends NGEPlatform {
         return TeaVMJsConverter.toJavaObject(jsObj, claz);
     }
 
+    @SuppressWarnings("unchecked")
+    private Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
+        Map<String, Object> rawHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+        Map<String, List<String>> out = new HashMap<>();
+        if (rawHeaders == null) {
+            return out;
+        }
+        for (Map.Entry<String, Object> entry : rawHeaders.entrySet()) {
+            String key = entry.getKey();
+            if (key == null) {
+                continue;
+            }
+            Object value = entry.getValue();
+            List<String> values = new ArrayList<>();
+            if (value instanceof List) {
+                for (Object item : (List<Object>) value) {
+                    if (item != null) {
+                        values.add(String.valueOf(item));
+                    }
+                }
+            } else if (value != null) {
+                values.add(String.valueOf(value));
+            }
+            out.put(key, values);
+        }
+        return out;
+    }
+
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
         return TeaVMBinds.secp256k1SharedSecret(privKey, pubKey);
@@ -581,7 +609,6 @@ public class TeaVMPlatform extends NGEPlatform {
         );
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
@@ -610,7 +637,7 @@ public class TeaVMPlatform extends NGEPlatform {
                                 String jsonHeaders = r.getHeaders();
                                 int statusCode = r.getStatus();
 
-                                Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+                                Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
                                 boolean status = statusCode >= 200 && statusCode < 300;
                                 byte[] data = status ? r.getBody() : new byte[0];
 
@@ -631,7 +658,6 @@ public class TeaVMPlatform extends NGEPlatform {
         );
     }
 
-    @SuppressWarnings("unchecked")
     @Override
     public AsyncTask<NGEHttpResponseStream> httpRequestStream(
         String method,
@@ -659,7 +685,7 @@ public class TeaVMPlatform extends NGEPlatform {
                             String jsonHeaders = r.getHeaders();
                             int statusCode = r.getStatus();
 
-                            Map<String, List<String>> respHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
+                            Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
                             boolean status = statusCode >= 200 && statusCode < 300;
                             TeaVMReadableStreamWrapperInputStream is = new TeaVMReadableStreamWrapperInputStream(r.getBody());
                             NGEHttpResponseStream ngeResp = new NGEHttpResponseStream(statusCode, respHeaders, is, status);
