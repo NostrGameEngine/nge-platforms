@@ -80,6 +80,7 @@ public final class JVMReachAllMain {
         exerciseStorage(platform);
         exerciseTransports(platform);
         exerciseHttpRequests(platform);
+        exercisePlatformUX(platform);
         exerciseUtilityClasses();
     }
 
@@ -449,6 +450,40 @@ public final class JVMReachAllMain {
                     )
                         .body()
                         .close();
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+    }
+
+    private static void exercisePlatformUX(JVMAsyncPlatform platform) {
+        safeRun(
+            "clipboard-set",
+            () -> {
+                try {
+                    platform.setClipboardContent("reach-all");
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "clipboard-get",
+            () -> {
+                try {
+                    String s = await(platform.getClipboardContent());
+                    return s;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "open-browser",
+            () -> {
+                try {
+                    platform.openInWebBrowser("http://127.0.0.1/");
                 } catch (Throwable ignored) {}
                 return null;
             }
