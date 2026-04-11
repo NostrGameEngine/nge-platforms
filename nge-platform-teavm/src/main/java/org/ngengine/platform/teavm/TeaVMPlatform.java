@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -55,6 +56,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
@@ -139,6 +141,42 @@ public class TeaVMPlatform extends NGEPlatform {
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
         return TeaVMBinds.secp256k1SharedSecret(privKey, pubKey);
+    }
+
+    @Override
+    public boolean secp256k1PrivateKeyVerify(byte[] privateKey) {
+        return TeaVMBinds.secp256k1PrivateKeyVerify(privateKey);
+    }
+
+    @Override
+    public boolean secp256k1PublicKeyVerify(byte[] publicKey) {
+        return TeaVMBinds.secp256k1PublicKeyVerify(publicKey);
+    }
+
+    @Override
+    public byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed) {
+        return TeaVMBinds.secp256k1PublicKeyCreate(privateKey, compressed);
+    }
+
+    @Override
+    public Secp256k1RecoverableSignature secp256k1SignRecoverable(byte[] hash32, byte[] privateKey) {
+        byte[] recovered = TeaVMBinds.secp256k1SignRecoverable(hash32, privateKey);
+        if (recovered == null || recovered.length != 65) {
+            throw new IllegalArgumentException("Recoverable signature must be 65 bytes");
+        }
+
+        int recoveryId = recovered[0] & 0xFF;
+        if (recoveryId < 0 || recoveryId > 3) {
+            throw new IllegalArgumentException("recoveryId must be in [0..3]");
+        }
+
+        byte[] signature64 = Arrays.copyOfRange(recovered, 1, 65);
+        return new Secp256k1RecoverableSignature(signature64, recoveryId);
+    }
+
+    @Override
+    public byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed) {
+        return TeaVMBinds.secp256k1RecoverPublicKey(hash32, signature64, recoveryId, compressed);
     }
 
     @Override

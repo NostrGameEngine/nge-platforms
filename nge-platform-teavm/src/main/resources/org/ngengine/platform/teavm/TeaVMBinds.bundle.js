@@ -10190,7 +10190,12 @@ var __webpack_exports__ = {};
 /* harmony export */   rtcSetOnMessageHandler: () => (/* binding */ rtcSetOnMessageHandler),
 /* harmony export */   rtcSetRemoteDescriptionAsync: () => (/* binding */ rtcSetRemoteDescriptionAsync),
 /* harmony export */   scryptAsync: () => (/* binding */ scryptAsync),
+/* harmony export */   secp256k1PrivateKeyVerify: () => (/* binding */ secp256k1PrivateKeyVerify),
+/* harmony export */   secp256k1PublicKeyCreate: () => (/* binding */ secp256k1PublicKeyCreate),
+/* harmony export */   secp256k1PublicKeyVerify: () => (/* binding */ secp256k1PublicKeyVerify),
+/* harmony export */   secp256k1RecoverPublicKey: () => (/* binding */ secp256k1RecoverPublicKey),
 /* harmony export */   secp256k1SharedSecret: () => (/* binding */ secp256k1SharedSecret),
+/* harmony export */   secp256k1SignRecoverable: () => (/* binding */ secp256k1SignRecoverable),
 /* harmony export */   setClipboardContent: () => (/* binding */ setClipboardContent),
 /* harmony export */   setTimeout: () => (/* binding */ TeaVMBinds_setTimeout),
 /* harmony export */   sha256: () => (/* binding */ sha256),
@@ -10883,6 +10888,51 @@ var verify = function verify(data /*byte[]*/, pub /*byte[]*/, sig /*byte[]*/) {
 var secp256k1SharedSecret = function secp256k1SharedSecret(privKey /*byte[]*/, pubKey /*byte[]*/) {
   // Uint8Array (byte[])
   return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+};
+var secp256k1PrivateKeyVerify = function secp256k1PrivateKeyVerify(privateKey /*byte[]*/) {
+  // bool
+  try {
+    return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.utils.isValidSecretKey(_u(privateKey));
+  } catch (_error) {
+    return false;
+  }
+};
+var secp256k1PublicKeyVerify = function secp256k1PublicKeyVerify(publicKey /*byte[]*/) {
+  // bool
+  try {
+    return _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.utils.isValidPublicKey(_u(publicKey));
+  } catch (_error) {
+    return false;
+  }
+};
+var secp256k1PublicKeyCreate = function secp256k1PublicKeyCreate(privateKey /*byte[]*/, compressed /*bool*/) {
+  // Uint8Array (byte[])
+  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getPublicKey(_u(privateKey), !!compressed));
+};
+var secp256k1SignRecoverable = function secp256k1SignRecoverable(hash32 /*byte[]*/, privateKey /*byte[]*/) {
+  // Uint8Array (byte[])
+  var signature = _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.sign(_u(hash32), _u(privateKey), {
+    prehash: false,
+    lowS: true
+  });
+  var recoveredSig = signature.toBytes('recovered');
+  return _u(recoveredSig);
+};
+var secp256k1RecoverPublicKey = function secp256k1RecoverPublicKey(hash32 /*byte[]*/, signature64 /*byte[]*/, recoveryId /*int*/, compressed /*bool*/) {
+  // Uint8Array (byte[])
+  var sig64 = _u(signature64);
+  if (sig64.length !== 64) {
+    throw new Error('signature64 must be 64 bytes');
+  }
+  if (recoveryId < 0 || recoveryId > 3) {
+    throw new Error('recoveryId must be in [0..3]');
+  }
+  var recoveredSig = new Uint8Array(65);
+  recoveredSig[0] = recoveryId;
+  recoveredSig.set(sig64, 1);
+  var signature = _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.Signature.fromBytes(recoveredSig, 'recovered');
+  var point = signature.recoverPublicKey(_u(hash32));
+  return _u(point.toBytes(!!compressed));
 };
 var hmac = function hmac(key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) {
   // Uint8Array (byte[])
@@ -11932,7 +11982,12 @@ const __webpack_exports__rtcSetLocalDescriptionAsync = __webpack_exports__.rtcSe
 const __webpack_exports__rtcSetOnMessageHandler = __webpack_exports__.rtcSetOnMessageHandler;
 const __webpack_exports__rtcSetRemoteDescriptionAsync = __webpack_exports__.rtcSetRemoteDescriptionAsync;
 const __webpack_exports__scryptAsync = __webpack_exports__.scryptAsync;
+const __webpack_exports__secp256k1PrivateKeyVerify = __webpack_exports__.secp256k1PrivateKeyVerify;
+const __webpack_exports__secp256k1PublicKeyCreate = __webpack_exports__.secp256k1PublicKeyCreate;
+const __webpack_exports__secp256k1PublicKeyVerify = __webpack_exports__.secp256k1PublicKeyVerify;
+const __webpack_exports__secp256k1RecoverPublicKey = __webpack_exports__.secp256k1RecoverPublicKey;
 const __webpack_exports__secp256k1SharedSecret = __webpack_exports__.secp256k1SharedSecret;
+const __webpack_exports__secp256k1SignRecoverable = __webpack_exports__.secp256k1SignRecoverable;
 const __webpack_exports__setClipboardContent = __webpack_exports__.setClipboardContent;
 const __webpack_exports__setTimeout = __webpack_exports__.setTimeout;
 const __webpack_exports__sha256 = __webpack_exports__.sha256;
@@ -11946,4 +12001,4 @@ const __webpack_exports__vfileReadAsync = __webpack_exports__.vfileReadAsync;
 const __webpack_exports__vfileWriteAsync = __webpack_exports__.vfileWriteAsync;
 const __webpack_exports__waitPromiseAsync = __webpack_exports__.waitPromiseAsync;
 const __webpack_exports__xchacha20poly1305 = __webpack_exports__.xchacha20poly1305;
-export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__panic as panic, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateDataChannel as rtcCreateDataChannel, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcDataChannelGetAvailableAmount as rtcDataChannelGetAvailableAmount, __webpack_exports__rtcDataChannelGetBufferedAmount as rtcDataChannelGetBufferedAmount, __webpack_exports__rtcDataChannelGetMaxPacketLifeTime as rtcDataChannelGetMaxPacketLifeTime, __webpack_exports__rtcDataChannelGetMaxRetransmits as rtcDataChannelGetMaxRetransmits, __webpack_exports__rtcDataChannelGetProtocol as rtcDataChannelGetProtocol, __webpack_exports__rtcDataChannelIsOrdered as rtcDataChannelIsOrdered, __webpack_exports__rtcDataChannelIsReliable as rtcDataChannelIsReliable, __webpack_exports__rtcDataChannelSetBufferedAmountLowThreshold as rtcDataChannelSetBufferedAmountLowThreshold, __webpack_exports__rtcGetMaxMessageSize as rtcGetMaxMessageSize, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };
+export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__base64decode as base64decode, __webpack_exports__base64encode as base64encode, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__panic as panic, __webpack_exports__randomBytes as randomBytes, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateDataChannel as rtcCreateDataChannel, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcDataChannelGetAvailableAmount as rtcDataChannelGetAvailableAmount, __webpack_exports__rtcDataChannelGetBufferedAmount as rtcDataChannelGetBufferedAmount, __webpack_exports__rtcDataChannelGetMaxPacketLifeTime as rtcDataChannelGetMaxPacketLifeTime, __webpack_exports__rtcDataChannelGetMaxRetransmits as rtcDataChannelGetMaxRetransmits, __webpack_exports__rtcDataChannelGetProtocol as rtcDataChannelGetProtocol, __webpack_exports__rtcDataChannelIsOrdered as rtcDataChannelIsOrdered, __webpack_exports__rtcDataChannelIsReliable as rtcDataChannelIsReliable, __webpack_exports__rtcDataChannelSetBufferedAmountLowThreshold as rtcDataChannelSetBufferedAmountLowThreshold, __webpack_exports__rtcGetMaxMessageSize as rtcGetMaxMessageSize, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1PrivateKeyVerify as secp256k1PrivateKeyVerify, __webpack_exports__secp256k1PublicKeyCreate as secp256k1PublicKeyCreate, __webpack_exports__secp256k1PublicKeyVerify as secp256k1PublicKeyVerify, __webpack_exports__secp256k1RecoverPublicKey as secp256k1RecoverPublicKey, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__secp256k1SignRecoverable as secp256k1SignRecoverable, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sign as sign, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305 };

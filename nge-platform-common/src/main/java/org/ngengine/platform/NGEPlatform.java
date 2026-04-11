@@ -48,6 +48,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
@@ -112,6 +113,61 @@ public abstract class NGEPlatform {
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);
+
+    /**
+     * Verifies whether a secp256k1 private key is valid.
+     * A key is valid if it is 32 bytes long and its integer value is in [1, n-1],
+     * where n is the secp256k1 curve order.
+     *
+     * @param privateKey raw private key (32 bytes)
+     * @return true if valid, otherwise false
+     */
+    public abstract boolean secp256k1PrivateKeyVerify(byte[] privateKey);
+
+    /**
+     * Verifies whether a secp256k1 public key is valid.
+     * It must be an SEC1 compressed key (33 bytes) or uncompressed key (65 bytes),
+     * decodable on the curve and not at infinity.
+     *
+     * @param publicKey SEC1 compressed or uncompressed public key
+     * @return true if valid, otherwise false
+     */
+    public abstract boolean secp256k1PublicKeyVerify(byte[] publicKey);
+
+    /**
+     * Derives a secp256k1 public key from a private key.
+     *
+     * @param privateKey raw private key (32 bytes), valid
+     * @param compressed true for compressed output (33 bytes), false for uncompressed output (65 bytes)
+     * @return SEC1 public key in the requested format
+     * @throws IllegalArgumentException if the private key is invalid
+     */
+    public abstract byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed);
+
+    /**
+     * Signs a 32-byte hash with ECDSA over secp256k1 and returns a recoverable signature.
+     * The signature must be in compact 64-byte format: r(32) || s(32),
+     * with low-S normalization (BIP-62 style) for cross-platform stability.
+     * recoveryId must be in [0..3].
+     *
+     * @param hash32 message hash (exactly 32 bytes)
+     * @param privateKey raw private key (32 bytes), valid
+     * @return recoverable signature containing signature64 and recoveryId
+     * @throws IllegalArgumentException if inputs are invalid
+     */
+    public abstract Secp256k1RecoverableSignature secp256k1SignRecoverable(byte[] hash32, byte[] privateKey);
+
+    /**
+     * Recovers a secp256k1 public key from hash + recoverable signature.
+     *
+     * @param hash32 message hash (exactly 32 bytes)
+     * @param signature64 compact 64-byte signature: r||s
+     * @param recoveryId recovery id in [0..3]
+     * @param compressed true for compressed output (33 bytes), false for uncompressed output (65 bytes)
+     * @return recovered public key in the requested format
+     * @throws IllegalArgumentException if inputs are invalid or recovery is impossible
+     */
+    public abstract byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed);
 
     public abstract byte[] hmac(byte[] key, byte[] data1, byte[] data2);
 

@@ -57,6 +57,7 @@ import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import org.bouncycastle.crypto.engines.ChaCha7539Engine;
 import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.InvalidCipherTextException;
@@ -67,14 +68,20 @@ import org.bouncycastle.crypto.modes.ChaCha20Poly1305;
 import org.bouncycastle.crypto.paddings.PKCS7Padding;
 import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
 import org.bouncycastle.crypto.params.AEADParameters;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
 import org.bouncycastle.crypto.params.KeyParameter;
 import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.bouncycastle.crypto.signers.ECDSASigner;
+import org.bouncycastle.crypto.signers.HMacDSAKCalculator;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.math.ec.ECAlgorithms;
 import org.bouncycastle.math.ec.ECPoint;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.FailedToSignException;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
@@ -95,6 +102,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     private static SecureRandom secureRandom;
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
+    private static final BigInteger ONE = BigInteger.ONE;
 
     
     private Context androidContext;
@@ -292,6 +300,141 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         BigInteger d = new BigInteger(1, privKey);
         ECPoint sharedPoint = point.multiply(d).normalize();
         return sharedPoint.getEncoded(false);
+    }
+
+    @Override
+    public boolean secp256k1PrivateKeyVerify(byte[] privateKey) {
+        if (privateKey == null || privateKey.length != 32) {
+            return false;
+        }
+        BigInteger d = new BigInteger(1, privateKey);
+        BigInteger n = context.get().secp256k1.getN();
+        return d.compareTo(ONE) >= 0 && d.compareTo(n) < 0;
+    }
+
+    @Override
+    public boolean secp256k1PublicKeyVerify(byte[] publicKey) {
+        if (publicKey == null || !(publicKey.length == 33 || publicKey.length == 65)) {
+            return false;
+        }
+        try {
+            ECPoint point = context.get().secp256k1.getCurve().decodePoint(publicKey).normalize();
+            return !point.isInfinity() && point.isValid();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed) {
+        if (!secp256k1PrivateKeyVerify(privateKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger d = new BigInteger(1, privateKey);
+        ECPoint point = ecSpec.getG().multiply(d).normalize();
+        return point.getEncoded(compressed);
+    }
+
+    @Override
+    public Secp256k1RecoverableSignature secp256k1SignRecoverable(byte[] hash32, byte[] privateKey) {
+        if (hash32 == null || hash32.length != 32) {
+            throw new IllegalArgumentException("hash32 must be exactly 32 bytes");
+        }
+        if (!secp256k1PrivateKeyVerify(privateKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger n = ecSpec.getN();
+        BigInteger halfN = n.shiftRight(1);
+        BigInteger d = new BigInteger(1, privateKey);
+
+        ECDomainParameters domain = new ECDomainParameters(ecSpec.getCurve(), ecSpec.getG(), n, ecSpec.getH());
+        ECDSASigner signer = new ECDSASigner(new HMacDSAKCalculator(new SHA256Digest()));
+        signer.init(true, new ECPrivateKeyParameters(d, domain));
+
+        BigInteger[] rs = signer.generateSignature(hash32);
+        BigInteger r = rs[0];
+        BigInteger s = rs[1];
+        if (s.compareTo(halfN) > 0) {
+            s = n.subtract(s);
+        }
+
+        byte[] signature64 = new byte[64];
+        System.arraycopy(Util.bytesFromBigInteger(r), 0, signature64, 0, 32);
+        System.arraycopy(Util.bytesFromBigInteger(s), 0, signature64, 32, 32);
+
+        ECPoint expectedPub = ecSpec.getG().multiply(d).normalize();
+        for (int recoveryId = 0; recoveryId < 4; recoveryId++) {
+            ECPoint recovered = recoverPublicPoint(ecSpec, hash32, r, s, recoveryId);
+            if (recovered != null && recovered.normalize().equals(expectedPub)) {
+                return new Secp256k1RecoverableSignature(signature64, recoveryId);
+            }
+        }
+
+        throw new IllegalArgumentException("Failed to derive recoveryId for signature");
+    }
+
+    @Override
+    public byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed) {
+        if (hash32 == null || hash32.length != 32) {
+            throw new IllegalArgumentException("hash32 must be exactly 32 bytes");
+        }
+        if (signature64 == null || signature64.length != 64) {
+            throw new IllegalArgumentException("signature64 must be exactly 64 bytes");
+        }
+        if (recoveryId < 0 || recoveryId > 3) {
+            throw new IllegalArgumentException("recoveryId must be in [0..3]");
+        }
+
+        BigInteger r = new BigInteger(1, Arrays.copyOfRange(signature64, 0, 32));
+        BigInteger s = new BigInteger(1, Arrays.copyOfRange(signature64, 32, 64));
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger n = ecSpec.getN();
+        if (r.compareTo(ONE) < 0 || r.compareTo(n) >= 0 || s.compareTo(ONE) < 0 || s.compareTo(n) >= 0) {
+            throw new IllegalArgumentException("Invalid ECDSA signature values");
+        }
+
+        ECPoint recovered = recoverPublicPoint(ecSpec, hash32, r, s, recoveryId);
+        if (recovered == null || recovered.isInfinity()) {
+            throw new IllegalArgumentException("Public key recovery failed");
+        }
+        return recovered.normalize().getEncoded(compressed);
+    }
+
+    private ECPoint recoverPublicPoint(ECParameterSpec ecSpec, byte[] hash32, BigInteger r, BigInteger s, int recoveryId) {
+        BigInteger n = ecSpec.getN();
+        BigInteger i = BigInteger.valueOf(recoveryId / 2L);
+        BigInteger x = r.add(i.multiply(n));
+
+        BigInteger p = ecSpec.getCurve().getField().getCharacteristic();
+        if (x.compareTo(p) >= 0) {
+            return null;
+        }
+
+        byte[] compEnc = new byte[33];
+        compEnc[0] = (byte) ((recoveryId & 1) == 1 ? 0x03 : 0x02);
+        System.arraycopy(Util.bytesFromBigInteger(x), 0, compEnc, 1, 32);
+
+        ECPoint R;
+        try {
+            R = ecSpec.getCurve().decodePoint(compEnc).normalize();
+        } catch (Exception e) {
+            return null;
+        }
+
+        if (!R.multiply(n).isInfinity()) {
+            return null;
+        }
+
+        BigInteger e = new BigInteger(1, hash32).mod(n);
+        BigInteger rInv = r.modInverse(n);
+        BigInteger srInv = s.multiply(rInv).mod(n);
+        BigInteger eNegRInv = n.subtract(e).multiply(rInv).mod(n);
+        ECPoint q = ECAlgorithms.sumOfTwoMultiplies(ecSpec.getG(), eNegRInv, R, srInv);
+        return q.isInfinity() ? null : q;
     }
 
     @Override

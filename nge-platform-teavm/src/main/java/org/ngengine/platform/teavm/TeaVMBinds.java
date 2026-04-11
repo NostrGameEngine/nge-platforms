@@ -97,6 +97,34 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean secp256k1PrivateKeyVerify(@JSByRef byte[] privateKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean secp256k1PublicKeyVerify(@JSByRef byte[] publicKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef
+    public static native byte[] secp256k1PublicKeyCreate(@JSByRef byte[] privateKey, boolean compressed);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef
+    public static native byte[] secp256k1SignRecoverable(@JSByRef byte[] hash32, @JSByRef byte[] privateKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef
+    public static native byte[] secp256k1RecoverPublicKey(
+        @JSByRef byte[] hash32,
+        @JSByRef byte[] signature64,
+        int recoveryId,
+        boolean compressed
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef
     public static native byte[] hmac(@JSByRef byte[] key, @JSByRef byte[] data1, @JSByRef byte[] data2);
 

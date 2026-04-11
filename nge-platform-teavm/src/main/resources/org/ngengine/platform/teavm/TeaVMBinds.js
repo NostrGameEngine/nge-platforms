@@ -413,6 +413,57 @@ export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => 
     return _u(_secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
 };
 
+export const secp256k1PrivateKeyVerify = (privateKey /*byte[]*/) => { // bool
+    try {
+        return _secp256k1.utils.isValidSecretKey(_u(privateKey));
+    } catch (_error) {
+        return false;
+    }
+};
+
+export const secp256k1PublicKeyVerify = (publicKey /*byte[]*/) => { // bool
+    try {
+        return _secp256k1.utils.isValidPublicKey(_u(publicKey));
+    } catch (_error) {
+        return false;
+    }
+};
+
+export const secp256k1PublicKeyCreate = (privateKey /*byte[]*/, compressed /*bool*/) => { // Uint8Array (byte[])
+    return _u(_secp256k1.getPublicKey(_u(privateKey), !!compressed));
+};
+
+export const secp256k1SignRecoverable = (hash32 /*byte[]*/, privateKey /*byte[]*/) => { // Uint8Array (byte[])
+    const signature = _secp256k1.sign(_u(hash32), _u(privateKey), {
+        prehash: false,
+        lowS: true,
+    });
+    const recoveredSig = signature.toBytes('recovered');
+    return _u(recoveredSig);
+};
+
+export const secp256k1RecoverPublicKey = (
+    hash32 /*byte[]*/,
+    signature64 /*byte[]*/,
+    recoveryId /*int*/,
+    compressed /*bool*/
+) => { // Uint8Array (byte[])
+    const sig64 = _u(signature64);
+    if (sig64.length !== 64) {
+        throw new Error('signature64 must be 64 bytes');
+    }
+    if (recoveryId < 0 || recoveryId > 3) {
+        throw new Error('recoveryId must be in [0..3]');
+    }
+
+    const recoveredSig = new Uint8Array(65);
+    recoveredSig[0] = recoveryId;
+    recoveredSig.set(sig64, 1);
+    const signature = _secp256k1.Signature.fromBytes(recoveredSig, 'recovered');
+    const point = signature.recoverPublicKey(_u(hash32));
+    return _u(point.toBytes(!!compressed));
+};
+
 export const hmac = (key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) => { // Uint8Array (byte[])
     const msg = new Uint8Array([..._u(data1), ..._u(data2)]);
     return _u(_hmac(_sha256, _u(key), msg));
