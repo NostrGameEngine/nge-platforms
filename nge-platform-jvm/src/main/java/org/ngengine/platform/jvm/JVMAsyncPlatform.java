@@ -70,10 +70,10 @@ import java.util.logging.Logger;
 import javax.crypto.Mac;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.spec.SecretKeySpec;
-import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.BufferedBlockCipher;
 import org.bouncycastle.crypto.CipherParameters;
 import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.digests.SHA256Digest;
 import org.bouncycastle.crypto.engines.AESEngine;
 import org.bouncycastle.crypto.engines.ChaCha7539Engine;
 import org.bouncycastle.crypto.generators.SCrypt;
@@ -99,9 +99,9 @@ import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
-import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
@@ -315,7 +315,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (privateKey == null) {
             throw new IllegalArgumentException("privateKey is required");
         }
-        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
         if (!secp256k1PrivateKeyVerify(privateKey)) {
             throw new IllegalArgumentException("Invalid secp256k1 private key");
         }
@@ -335,7 +337,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             throw new IllegalArgumentException("privateKey is required");
         }
         if (!getMemoryLimits().checkForData(hash32.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
         if (!secp256k1PrivateKeyVerify(privateKey)) {
             throw new IllegalArgumentException("Invalid secp256k1 private key");
         }
@@ -383,7 +387,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             throw new IllegalArgumentException("recoveryId must be in [0..3]");
         }
         if (!getMemoryLimits().checkForData(hash32.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
-        if (!getMemoryLimits().checkForKeys(signature64.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(signature64.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
 
         BigInteger r = new BigInteger(1, Arrays.copyOfRange(signature64, 0, 32));
         BigInteger s = new BigInteger(1, Arrays.copyOfRange(signature64, 32, 64));

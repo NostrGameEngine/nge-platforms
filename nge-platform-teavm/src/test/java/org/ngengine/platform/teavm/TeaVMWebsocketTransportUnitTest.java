@@ -41,12 +41,12 @@ import org.junit.runner.RunWith;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.ThrowableFunction;
+import org.teavm.jso.JSBody;
+import org.teavm.jso.JSObject;
 import org.teavm.junit.JsModuleTest;
 import org.teavm.junit.ServeJS;
 import org.teavm.junit.SkipJVM;
 import org.teavm.junit.TeaVMTestRunner;
-import org.teavm.jso.JSBody;
-import org.teavm.jso.JSObject;
 
 @RunWith(TeaVMTestRunner.class)
 @JsModuleTest
@@ -56,10 +56,7 @@ public class TeaVMWebsocketTransportUnitTest {
     private static final int STRESS_MESSAGES = 256;
 
     @Test
-    @ServeJS(
-        from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js",
-        as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js"
-    )
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void sendPreservesOrderUnderStressInBothDirections() throws Exception {
         TeaVMPlatform platform = new TeaVMTestPlatform();
         TeaVMWebsocketTransport transportA = new TeaVMWebsocketTransport(platform);
@@ -82,7 +79,9 @@ public class TeaVMWebsocketTransportUnitTest {
         }
     }
 
-    @JSBody(script = "var sent=[]; return {sent: sent, getReadyState:function(){return 1;}, send:function(data){sent.push(String(data));}};")
+    @JSBody(
+        script = "var sent=[]; return {sent: sent, getReadyState:function(){return 1;}, send:function(data){sent.push(String(data));}};"
+    )
     private static native JSObject newBrowserSocketStub();
 
     @JSBody(params = { "socket" }, script = "return socket.sent.length;")
