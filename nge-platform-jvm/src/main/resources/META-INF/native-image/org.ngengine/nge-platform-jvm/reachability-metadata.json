@@ -4912,6 +4912,23 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMSecp256k1Test",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "validatesSecp256k1PublicVectors",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
             "fields": [
                 {
