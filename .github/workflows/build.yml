@@ -54,6 +54,14 @@ jobs:
             echo "Publishing snapshot"
         fi   
         ./gradlew --no-daemon build javadoc
+
+    - name: Run Android Unit Tests
+      run: |
+        ./gradlew --no-daemon :nge-platform-android:testDebugUnitTest  --console=plain
+   
+    - name: Run TeaVM Unit Tests
+      run: |
+        ./gradlew --no-daemon :nge-platform-teavm:test --console=plain
       
     - name: Publish Snapshot
       if: github.event_name != 'pull_request' && github.event_name != 'release'

@@ -11,6 +11,7 @@ repositories {
 
 dependencies {
     testImplementation libs.junit4
+    testImplementation "org.teavm:teavm-junit:0.13.1"
  
     api project(':nge-platform-common')
     testImplementation teavm.libs.jsoApis
@@ -65,6 +66,14 @@ java {
 
 tasks.named('test') {
     useJUnit()
+    // TeaVM JUnit4 runner settings for JS backend tests.
+    systemProperty 'teavm.junit.target', "${buildDir}/js-tests"
+    systemProperty 'teavm.junit.js', 'true'
+    systemProperty 'teavm.junit.js.runner', System.getProperty('teavm.junit.js.runner', 'browser-chrome')
+    doFirst {
+        file("${buildDir}/js-tests/js/org/ngengine/platform/teavm/TeaVMSecp256k1Test/org/ngengine/platform/teavm").mkdirs()
+        file("${buildDir}/js-tests/js/org/ngengine/platform/teavm/TeaVMWebsocketTransportUnitTest/org/ngengine/platform/teavm").mkdirs()
+    }
     testLogging {
         events "passed", "skipped", "failed"
         exceptionFormat "full"

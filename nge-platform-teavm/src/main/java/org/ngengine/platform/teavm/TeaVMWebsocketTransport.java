@@ -68,6 +68,10 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         this.asyncExecutor = platform.newAsyncExecutor();
     }
 
+    void setWs(JSObject socket) {
+        this.ws = (BrowserWebSocket) socket;
+    }
+
     private int getEffectiveMaxMessageSize() {
         if (maxMessageSize != -1) {
             return maxMessageSize;
