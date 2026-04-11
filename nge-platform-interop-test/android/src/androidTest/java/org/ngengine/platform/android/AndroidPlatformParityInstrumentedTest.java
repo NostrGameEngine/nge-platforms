@@ -111,11 +111,11 @@ public class AndroidPlatformParityInstrumentedTest {
 
         byte[] rnd = p.randomBytes(16);
         byte[] genPriv = p.generatePrivateKey();
-        String sig = p.sign(SIGN_DATA_HEX, PRIV_A);
-        boolean verifyOwn = p.verify(SIGN_DATA_HEX, sig, pubA);
-        boolean verifyWrong = p.verify("ff" + SIGN_DATA_HEX.substring(2), sig, pubA);
-        boolean verifyAsync = p.verifyAsync(SIGN_DATA_HEX, sig, pubA).await();
-        String sigAsync = p.signAsync(SIGN_DATA_HEX, PRIV_A).await();
+        String sig = p.schnorrSign(SIGN_DATA_HEX, PRIV_A);
+        boolean verifyOwn = p.schnorrVerify(SIGN_DATA_HEX, sig, pubA);
+        boolean verifyWrong = p.schnorrVerify("ff" + SIGN_DATA_HEX.substring(2), sig, pubA);
+        boolean verifyAsync = p.schnorrVerifyAsync(SIGN_DATA_HEX, sig, pubA).await();
+        String sigAsync = p.schnorrSignAsync(SIGN_DATA_HEX, PRIV_A).await();
         var httpRes = p.httpRequest(
             "POST",
             httpParityUrl,

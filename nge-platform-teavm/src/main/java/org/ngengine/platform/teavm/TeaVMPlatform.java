@@ -222,14 +222,14 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public String sign(String data, byte priv[]) {
+    public String schnorrSign(String data, byte priv[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = TeaVMBinds.sign(dataB, priv);
         return NGEUtils.bytesToHex(sig);
     }
 
     @Override
-    public boolean verify(String data, String sign, byte pub[]) {
+    public boolean schnorrVerify(String data, String sign, byte pub[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = NGEUtils.hexToByteArray(sign);
         return TeaVMBinds.verify(dataB, pub, sig);
@@ -593,11 +593,11 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<String> signAsync(String data, byte privKey[]) {
+    public AsyncTask<String> schnorrSignAsync(String data, byte privKey[]) {
         return promisify(
             (res, rej) -> {
                 try {
-                    res.accept(sign(data, privKey));
+                    res.accept(schnorrSign(data, privKey));
                 } catch (Exception e) {
                     rej.accept(e);
                 }
@@ -607,11 +607,11 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<Boolean> verifyAsync(String data, String sign, byte pubKey[]) {
+    public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
         return promisify(
             (res, rej) -> {
                 try {
-                    res.accept(verify(data, sign, pubKey));
+                    res.accept(schnorrVerify(data, sign, pubKey));
                 } catch (Exception e) {
                     rej.accept(e);
                 }

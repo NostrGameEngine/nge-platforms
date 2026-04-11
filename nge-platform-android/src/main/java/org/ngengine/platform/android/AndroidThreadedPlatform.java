@@ -278,7 +278,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public String sign(String data, byte priv[]) throws FailedToSignException {
+    public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM ? null : randomBytes(32));
         String sig = NGEUtils.bytesToHex(sigB);
@@ -286,7 +286,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public boolean verify(String data, String sign, byte pub[]) {
+    public boolean schnorrVerify(String data, String sign, byte pub[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = NGEUtils.hexToByteArray(sign);
         return Schnorr.verify(dataB, pub, sig);
@@ -854,11 +854,11 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<String> signAsync(String data, byte privKey[]) {
+    public AsyncTask<String> schnorrSignAsync(String data, byte privKey[]) {
         return wrapPromise((res, rej) -> {
             CompletableFuture.runAsync(() -> {
                 try {
-                    String sig = sign(data, privKey);
+                    String sig = schnorrSign(data, privKey);
                     res.accept(sig);
                 } catch (Exception e) {
                     rej.accept(e);
@@ -868,11 +868,11 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<Boolean> verifyAsync(String data, String sign, byte pubKey[]) {
+    public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
         return wrapPromise((res, rej) -> {
             CompletableFuture.runAsync(() -> {
                 try {
-                    boolean verified = verify(data, sign, pubKey);
+                    boolean verified = schnorrVerify(data, sign, pubKey);
                     res.accept(verified);
                 } catch (Exception e) {
                     rej.accept(e);

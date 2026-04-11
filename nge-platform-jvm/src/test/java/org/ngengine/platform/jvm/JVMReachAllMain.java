@@ -105,8 +105,8 @@ public final class JVMReachAllMain {
         safeRun(
             "sign-verify",
             () -> {
-                String sig = platform.sign(messageHex, privateKey);
-                return platform.verify(messageHex, sig, publicKey);
+                String sig = platform.schnorrSign(messageHex, privateKey);
+                return platform.schnorrVerify(messageHex, sig, publicKey);
             }
         );
         safeRun(
@@ -218,8 +218,8 @@ public final class JVMReachAllMain {
                     byte[] pk = platform.genPubKey(sk);
                     byte[] msg = "async".getBytes(StandardCharsets.UTF_8);
                     String msgHex = NGEUtils.bytesToHex(msg);
-                    String sig = await(platform.signAsync(msgHex, sk));
-                    return await(platform.verifyAsync(msgHex, sig, pk));
+                    String sig = await(platform.schnorrSignAsync(msgHex, sk));
+                    return await(platform.schnorrVerifyAsync(msgHex, sig, pk));
                 }
             );
             safeRun(
