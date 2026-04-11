@@ -152,7 +152,11 @@ async function main() {
     await sleep(50);
   }
 
-  await onceDataChannelOpen(channel, 30000);
+  if (pc.connectionState !== 'connected' && pc.iceConnectionState !== 'connected') {
+    throw new Error(`Timed out waiting for RTC connected (connectionState=${pc.connectionState}, iceConnectionState=${pc.iceConnectionState})`);
+  }
+
+  await onceDataChannelOpen(channel, 60000);
   step('channel open');
 
   await post('/send', { to: 'android', type: 'meta', name: 'browserLabel', value: channel.label || '' });

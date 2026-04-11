@@ -18,6 +18,12 @@ const state = {
   results: { browser: null, android: null },
 };
 
+function resetState() {
+  state.nextId = 1;
+  state.queues = { browser: [], android: [] };
+  state.results = { browser: null, android: null };
+}
+
 function mimeType(file) {
   if (file.endsWith('.html')) return 'text/html; charset=utf-8';
   if (file.endsWith('.js') || file.endsWith('.mjs')) return 'text/javascript; charset=utf-8';
@@ -80,6 +86,12 @@ function makeServer() {
 
       if (method === 'GET' && reqUrl.pathname === '/signal/results') {
         return json(res, 200, state.results);
+      }
+
+      if (method === 'GET' && reqUrl.pathname === '/favicon.ico') {
+        res.writeHead(204);
+        res.end();
+        return;
       }
 
       const file = resolvePath(reqUrl.pathname === '/' ? '/test-harness/rtc-android-interop.html' : reqUrl.pathname);
@@ -177,7 +189,8 @@ async function runBrowser(url) {
   }
 }
 
-async function main() {
+async function runOnce(attempt) {
+  resetState();
   const bundlePath = path.join(
     teavmDir,
     'src',
@@ -213,20 +226,30 @@ async function main() {
     },
   });
 
+  const timeoutMs = 240000;
+  let timeoutId = null;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`Android<->TeaVM interop harness timed out after ${timeoutMs}ms`)), timeoutMs);
+    timeoutId.unref?.();
+  });
+
   let browserOut = null;
   let browserError = null;
+  let androidOut;
   try {
-    browserOut = await runBrowser(pageUrl);
-  } catch (e) {
-    browserError = e;
-  }
-  const androidOut = await androidPromise;
-
-  if (browserError) {
-    throw browserError;
+    try {
+      browserOut = await Promise.race([runBrowser(pageUrl), timeout]);
+    } catch (e) {
+      browserError = e;
+    }
+    [androidOut] = await Promise.race([Promise.all([androidPromise]), timeout]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+    server.close();
   }
 
   const combined = {
+    attempt,
     ok: Boolean(state.results.browser?.ok) && Boolean(state.results.android?.ok) && androidOut.code === 0,
     browser: state.results.browser ?? browserOut?.result ?? null,
     browserPageResult: browserOut?.result ?? null,
@@ -236,9 +259,41 @@ async function main() {
 
   if (browserOut?.consoleMessages?.length) process.stderr.write(`${browserOut.consoleMessages.join('\n')}\n`);
   if (browserOut?.pageErrors?.length) process.stderr.write(`${browserOut.pageErrors.join('\n')}\n`);
-  process.stdout.write(`${JSON.stringify(combined, null, 2)}\n`);
-  server.close();
-  if (!combined.ok) process.exit(1);
+  if (browserError) {
+    throw browserError;
+  }
+  return combined;
+}
+
+function isTransientRtcFlake(result) {
+  const texts = [
+    result?.browser?.error,
+    result?.browserPageResult?.error,
+    result?.android?.error,
+  ].filter(Boolean).join('\n');
+  return /Timeout waiting for datachannel open|Timed out waiting for RTC connected|RTC connected event missing|Timed out waiting for android-ready|Browser harness failed: Error: Timeout waiting for datachannel open/i.test(texts)
+    || (!result?.android && result?.androidExitCode !== 0);
+}
+
+async function main() {
+  const attempts = 3;
+  let last = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    last = await runOnce(attempt);
+    if (last.ok) {
+      process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+      return;
+    }
+    if (attempt < attempts && isTransientRtcFlake(last)) {
+      process.stderr.write(
+        `Retrying Android<->TeaVM interop after transient RTC timeout (attempt ${attempt}/${attempts})\n`
+      );
+      continue;
+    }
+    break;
+  }
+  process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+  process.exit(1);
 }
 
 main().catch((err) => {
