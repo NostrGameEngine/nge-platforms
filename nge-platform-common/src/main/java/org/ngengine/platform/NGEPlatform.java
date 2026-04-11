@@ -198,42 +198,41 @@ public abstract class NGEPlatform {
     public abstract AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]);
 
     /**
-     * This generically named method is deprecated in favor of {@link #schnorrSign(String, byte[])} 
+     * This generically named method is deprecated in favor of {@link #schnorrSign(String, byte[])}
      * that does the same
      */
     @Deprecated
-    public String sign(String data, byte privKey[]) throws FailedToSignException{
+    public String sign(String data, byte privKey[]) throws FailedToSignException {
         return schnorrSign(data, privKey);
     }
 
     /**
-     * This generically named method is deprecated in favor of {@link #schnorrVerify(String, String, byte[])} 
+     * This generically named method is deprecated in favor of {@link #schnorrVerify(String, String, byte[])}
      * that does the same
      */
-    @Deprecated    
-    public boolean verify(String data, String sign, byte pubKey[]){
+    @Deprecated
+    public boolean verify(String data, String sign, byte pubKey[]) {
         return schnorrVerify(data, sign, pubKey);
     }
 
     /**
-     * This generically named method is deprecated in favor of {@link #schnorrSignAsync(String, byte[])} 
+     * This generically named method is deprecated in favor of {@link #schnorrSignAsync(String, byte[])}
      * that does the same
      */
     @Deprecated
-    public AsyncTask<String> signAsync(String data, byte privKey[]){
+    public AsyncTask<String> signAsync(String data, byte privKey[]) {
         return schnorrSignAsync(data, privKey);
     }
 
     /**
-     * This generically named method is deprecated in favor of {@link #schnorrVerifyAsync(String, String, byte[])} 
+     * This generically named method is deprecated in favor of {@link #schnorrVerifyAsync(String, String, byte[])}
      * that does the same
      */
     @Deprecated
-    public AsyncTask<Boolean> verifyAsync(String data, String sign, byte pubKey[]){
+    public AsyncTask<Boolean> verifyAsync(String data, String sign, byte pubKey[]) {
         return schnorrVerifyAsync(data, sign, pubKey);
     }
 
-    
     public abstract byte[] randomBytes(int n);
 
     public final AsyncExecutor newAsyncExecutor() {
