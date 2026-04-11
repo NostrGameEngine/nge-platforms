@@ -2699,6 +2699,64 @@
             ]
         },
         {
+            "type": "java.awt.Desktop",
+            "methods": [
+                {
+                    "name": "isDesktopSupported",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.awt.GraphicsEnvironment",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "isHeadless",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.awt.Image"
+        },
+        {
+            "type": "java.awt.Toolkit",
+            "methods": [
+                {
+                    "name": "getDefaultToolkit",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "getSystemClipboard",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.awt.datatransfer.Clipboard"
+        },
+        {
+            "type": "java.awt.datatransfer.DataFlavor"
+        },
+        {
+            "type": "java.awt.datatransfer.StringSelection"
+        },
+        {
+            "type": "java.awt.datatransfer.Transferable"
+        },
+        {
+            "type": "java.io.InputStream"
+        },
+        {
             "type": "java.lang.Boolean",
             "jniAccessible": true,
             "methods": [
@@ -2744,7 +2802,22 @@
             "type": "java.lang.SecurityManager"
         },
         {
+            "type": "java.lang.String"
+        },
+        {
             "type": "java.lang.String[]"
+        },
+        {
+            "type": "java.lang.System",
+            "jniAccessible": true,
+            "methods": [
+                {
+                    "name": "load",
+                    "parameterTypes": [
+                        "java.lang.String"
+                    ]
+                }
+            ]
         },
         {
             "type": "java.lang.invoke.MethodHandle"
@@ -2795,6 +2868,9 @@
         {
             "type": "java.util.LinkedHashSet",
             "serializable": true
+        },
+        {
+            "type": "java.util.List"
         },
         {
             "type": "java.util.concurrent.ArrayBlockingQueue",
@@ -4272,6 +4348,9 @@
             "type": "org.junit.runner.notification.RunListener"
         },
         {
+            "type": "org.lwjgl.glfw.GLFW"
+        },
+        {
             "type": "org.ngengine.platform.ExecutionQueueTest",
             "methods": [
                 {
@@ -4905,6 +4984,23 @@
             "methods": [
                 {
                     "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMSecp256k1Test",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "validatesSecp256k1PublicVectors",
                     "parameterTypes": [
                         
                     ]
@@ -5554,6 +5650,12 @@
             ]
         },
         {
+            "type": "tel.schich.libdatachannel.DataChannel"
+        },
+        {
+            "type": "tel.schich.libdatachannel.DataChannelInitSettings"
+        },
+        {
             "type": "tel.schich.libdatachannel.DataChannelReliability",
             "jniAccessible": true,
             "methods": [
@@ -5611,6 +5713,12 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "tel.schich.libdatachannel.PeerConnection"
+        },
+        {
+            "type": "tel.schich.libdatachannel.PeerConnectionConfiguration"
         },
         {
             "type": "tel.schich.libdatachannel.PeerConnectionListener",
@@ -5821,6 +5929,9 @@
     ],
     "resources": [
         {
+            "bundle": "sun.awt.resources.awt"
+        },
+        {
             "bundle": "sun.util.logging.resources.logging"
         },
         {
@@ -5864,6 +5975,10 @@
         {
             "module": "java.base",
             "glob": "sun/net/idn/uidna.spp"
+        },
+        {
+            "module": "java.desktop",
+            "glob": "sun/awt/resources/awt_en.properties"
         },
         {
             "module": "java.logging",

@@ -79,6 +79,7 @@ public final class JVMReachAllMain {
         exerciseAsyncAndTasks(platform);
         exerciseStorage(platform);
         exerciseTransports(platform);
+        exerciseAdditionalCoverage(platform);
         exerciseHttpRequests(platform);
         exerciseUtilityClasses();
     }
@@ -734,6 +735,56 @@ public final class JVMReachAllMain {
 
     private interface ThrowingSupplier<T> {
         T get() throws Exception;
+    }
+
+    private static void exerciseAdditionalCoverage(JVMAsyncPlatform platform) {
+        safeRun("secp256k1-recoverable", () -> {
+            try {
+                byte[] sk = platform.generatePrivateKey();
+                byte[] hash = platform.sha256("recover-test".getBytes(StandardCharsets.UTF_8));
+                org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature sig = platform.secp256k1SignRecoverable(hash, sk);
+                byte[] recovered = platform.secp256k1RecoverPublicKey(hash, sig.getSignature64(), sig.getRecoveryId(), true);
+                return recovered != null;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        });
+
+        safeRun("clipboard", () -> {
+            try {
+                platform.setClipboardContent("nge-reachall");
+                String content = await(platform.getClipboardContent());
+                return content;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        });
+
+        safeRun("open-browser", () -> {
+            try {
+                platform.openInWebBrowser("https://example.com");
+            } catch (Throwable ignored) {}
+            return null;
+        });
+
+        safeRun("touch-libdatachannel", () -> {
+            try {
+                List<String> names = List.of(
+                    "tel.schich.libdatachannel.LibDataChannel",
+                    "tel.schich.libdatachannel.PeerConnection",
+                    "tel.schich.libdatachannel.PeerConnectionConfiguration",
+                    "tel.schich.libdatachannel.DataChannel",
+                    "tel.schich.libdatachannel.DataChannelInitSettings"
+                );
+                for (String n : names) {
+                    try {
+                        Class<?> c = Class.forName(n);
+                        touchClassReflection(c);
+                    } catch (Throwable ignored) {}
+                }
+            } catch (Throwable ignored) {}
+            return null;
+        });
     }
 
     private static final class ReachDto {
