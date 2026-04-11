@@ -81,6 +81,9 @@ public final class JVMReachAllMain {
         exerciseTransports(platform);
         exerciseHttpRequests(platform);
         exerciseUtilityClasses();
+        exercisePlatformDataStore(platform);
+        exerciseClipboardAndBrowser(platform);
+        exerciseAllocatorTestHooks();
     }
 
     private static void exerciseCryptoAndEncoding(JVMAsyncPlatform platform) {
@@ -492,6 +495,66 @@ public final class JVMReachAllMain {
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
                 return Schnorr.verify(msg, pk, sig);
+            }
+        );
+    }
+
+    private static void exercisePlatformDataStore(JVMAsyncPlatform platform) {
+        safeRun(
+            "platform-datastore",
+            () -> {
+                try {
+                    VStore ds = platform.getDataStore("nge-reachall", "data");
+                    await(ds.writeFully("reach.txt", "hello".getBytes(StandardCharsets.UTF_8)));
+                    await(ds.readFully("reach.txt"));
+                    await(ds.delete("reach.txt"));
+                } catch (Throwable t) {
+                    // best-effort
+                }
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseClipboardAndBrowser(JVMAsyncPlatform platform) {
+        safeRun(
+            "clipboard",
+            () -> {
+                try {
+                    platform.setClipboardContent("nge-reach-all");
+                    await(platform.getClipboardContent());
+                } catch (Throwable t) {
+                    // optional feature
+                }
+                return null;
+            }
+        );
+
+        safeRun(
+            "open-browser",
+            () -> {
+                try {
+                    platform.openInWebBrowser("http://127.0.0.1/");
+                } catch (Throwable t) {
+                    // optional
+                }
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseAllocatorTestHooks() {
+        safeRun(
+            "allocator-test-hooks",
+            () -> {
+                try {
+                    JVMNGEAllocatorGuard.setTestHooks(() -> 0L, () -> System.currentTimeMillis(), () -> {});
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                    JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                } catch (Throwable t) {
+                    // best-effort
+                }
+                return null;
             }
         );
     }
