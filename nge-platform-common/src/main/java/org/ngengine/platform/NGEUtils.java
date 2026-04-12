@@ -30,6 +30,8 @@
  */
 package org.ngengine.platform;
 
+import java.math.BigInteger;
+import java.math.BigDecimal;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -113,6 +115,12 @@ public class NGEUtils {
         if (input == null) return 0L;
         if (input instanceof Number) {
             return ((Number) input).longValue();
+        } else if(input instanceof BigInteger) {
+            BigInteger bi = (BigInteger) input;
+            if(bi.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 || bi.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+                throw new IllegalArgumentException("Input is out of range for long: " + bi);
+            }
+            return bi.longValue();
         } else {
             try {
                 Long l = Long.parseLong(String.valueOf(input));
@@ -123,17 +131,134 @@ public class NGEUtils {
         }
     }
 
-    public static double safeDouble(Object input) {
-        if (input == null) return 0.0;
-        if (input instanceof Number) {
-            return ((Number) input).doubleValue();
+    public static BigInteger safeBigInteger(Object input){
+        if (input == null) return BigInteger.ZERO;
+        if (input instanceof BigInteger) {
+            return (BigInteger) input;
+        } else if (input instanceof Number) {
+            return BigInteger.valueOf(((Number) input).longValue());
         } else {
             try {
-                Double d = Double.parseDouble(String.valueOf(input));
-                return d.doubleValue();
+                return new BigInteger(String.valueOf(input));
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Input is not a number: " + input);
             }
+        }
+    }
+
+    public static BigDecimal safeBigDecimal(Object input) {
+        if (input == null) {
+            return BigDecimal.ZERO;
+        } else if (input instanceof BigDecimal) {
+            return (BigDecimal) input;
+        } else if (input instanceof BigInteger) {
+            return new BigDecimal((BigInteger) input);
+        } else if (input instanceof Number) {
+            if (input instanceof Long || input instanceof Integer || input instanceof Short || input instanceof Byte) {
+                return BigDecimal.valueOf(((Number) input).longValue());
+            } else if (input instanceof Double || input instanceof Float) {
+                return BigDecimal.valueOf(((Number) input).doubleValue());
+            } else {
+                return BigDecimal.valueOf(((Number) input).doubleValue());
+            }
+        }
+        try {
+            return new BigDecimal(String.valueOf(input));
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Input is not a number: " + input);
+        }
+    }
+
+    public static double safeDouble(Object input) {
+        if (input == null) return 0.0;
+
+        if (input instanceof BigInteger) {
+            BigInteger bi = (BigInteger) input;
+            BigDecimal bd = new BigDecimal(bi);
+            BigDecimal abs = bd.abs();
+            BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
+            if (abs.compareTo(max) > 0) {
+                throw new IllegalArgumentException("Input is out of range for double: " + bi);
+            }
+            BigDecimal minNorm = BigDecimal.valueOf(Double.MIN_NORMAL);
+            if (abs.signum() != 0 && abs.compareTo(minNorm) < 0) {
+                throw new IllegalArgumentException("Input underflows double precision: " + bi);
+            }
+            return bd.doubleValue();
+        }
+
+        if (input instanceof Number) {
+            double v = ((Number) input).doubleValue();
+            if (Double.isNaN(v)) {
+                throw new IllegalArgumentException("Input is not a finite double: " + input);
+            }
+            if (!Double.isFinite(v)) {
+                throw new IllegalArgumentException("Input is out of range for double: " + v);
+            }
+            double abs = Math.abs(v);
+            if (abs != 0.0 && abs < Double.MIN_NORMAL) {
+                throw new IllegalArgumentException("Input underflows double precision: " + v);
+            }
+            return v;
+        }
+
+        try {
+            Double d = Double.parseDouble(String.valueOf(input));
+            if (Double.isNaN(d) || !Double.isFinite(d)) {
+                throw new IllegalArgumentException("Input is not a finite double: " + input);
+            }
+            double abs = Math.abs(d);
+            if (abs != 0.0 && abs < Double.MIN_NORMAL) {
+                throw new IllegalArgumentException("Input underflows double precision: " + d);
+            }
+            return d.doubleValue();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Input is not a number: " + input);
+        }
+    }
+
+    public static float safeFloat(Object input) {
+        if (input == null) return 0.0f;
+
+        if (input instanceof BigInteger) {
+            BigInteger bi = (BigInteger) input;
+            BigDecimal bd = new BigDecimal(bi);
+            BigDecimal abs = bd.abs();
+            BigDecimal max = BigDecimal.valueOf((double) Float.MAX_VALUE);
+            if (abs.compareTo(max) > 0) {
+                throw new IllegalArgumentException("Input is out of range for float: " + bi);
+            }
+            BigDecimal minNorm = BigDecimal.valueOf((double) Float.MIN_NORMAL);
+            if (abs.signum() != 0 && abs.compareTo(minNorm) < 0) {
+                throw new IllegalArgumentException("Input underflows float precision: " + bi);
+            }
+            return bd.floatValue();
+        }
+
+        if (input instanceof Number) {
+            double v = ((Number) input).doubleValue();
+            if (Double.isNaN(v)) {
+                throw new IllegalArgumentException("Input is not a finite number: " + input);
+            }
+            if (v < -Float.MAX_VALUE || v > Float.MAX_VALUE) {
+                throw new IllegalArgumentException("Input is out of range for float: " + v);
+            }
+            double abs = Math.abs(v);
+            if (abs != 0.0 && abs < Float.MIN_NORMAL) {
+                throw new IllegalArgumentException("Input underflows float precision: " + v);
+            }
+            return ((Number) input).floatValue();
+        }
+
+        try {
+            Float f = Float.parseFloat(String.valueOf(input));
+            float abs = Math.abs(f);
+            if (abs != 0.0f && abs < Float.MIN_NORMAL) {
+                throw new IllegalArgumentException("Input underflows float precision: " + f);
+            }
+            return f.floatValue();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Input is not a number: " + input);
         }
     }
 
