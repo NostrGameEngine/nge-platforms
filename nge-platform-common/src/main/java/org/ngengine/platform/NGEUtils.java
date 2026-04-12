@@ -113,21 +113,45 @@ public class NGEUtils {
      */
     public static long safeLong(Object input) {
         if (input == null) return 0L;
-        if (input instanceof Number) {
-            return ((Number) input).longValue();
-        } else if(input instanceof BigInteger) {
+
+        if (input instanceof BigInteger) {
             BigInteger bi = (BigInteger) input;
-            if(bi.compareTo(BigInteger.valueOf(Long.MAX_VALUE)) > 0 || bi.compareTo(BigInteger.valueOf(Long.MIN_VALUE)) < 0) {
+            try {
+                return bi.longValueExact();
+            } catch (ArithmeticException e) {
                 throw new IllegalArgumentException("Input is out of range for long: " + bi);
             }
-            return bi.longValue();
-        } else {
-            try {
-                Long l = Long.parseLong(String.valueOf(input));
-                return l.longValue();
-            } catch (NumberFormatException e) {
-                throw new IllegalArgumentException("Input is not a number: " + input);
+        }
+
+        if (input instanceof BigDecimal) {
+            BigDecimal bd = (BigDecimal) input;
+            if (bd.compareTo(BigDecimal.valueOf(Long.MAX_VALUE)) > 0 || bd.compareTo(BigDecimal.valueOf(Long.MIN_VALUE)) < 0) {
+                throw new IllegalArgumentException("Input is out of range for long: " + bd);
             }
+            return bd.longValue();
+        }
+
+        if (input instanceof Number) {
+            Number n = (Number) input;
+            if (n instanceof Double || n instanceof Float) {
+                double d = n.doubleValue();
+                if (Double.isNaN(d)) return 0L;
+                if (d == Double.POSITIVE_INFINITY) return Long.MAX_VALUE;
+                if (d == Double.NEGATIVE_INFINITY) return Long.MIN_VALUE;
+                if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) {
+                    throw new IllegalArgumentException("Input is out of range for long: " + d);
+                }
+                return n.longValue();
+            }
+            // other Number types (Integer, Long, Short, Byte) fit in long range
+            return n.longValue();
+        }
+
+        try {
+            Long l = Long.parseLong(String.valueOf(input));
+            return l.longValue();
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Input is not a number: " + input);
         }
     }
 
@@ -135,8 +159,18 @@ public class NGEUtils {
         if (input == null) return BigInteger.ZERO;
         if (input instanceof BigInteger) {
             return (BigInteger) input;
+        } else if (input instanceof BigDecimal) {
+            return ((BigDecimal) input).toBigInteger();
         } else if (input instanceof Number) {
-            return BigInteger.valueOf(((Number) input).longValue());
+            Number n = (Number) input;
+            if (n instanceof Double || n instanceof Float) {
+                double d = n.doubleValue();
+                if (Double.isNaN(d)) return BigInteger.ZERO;
+                if (d == Double.POSITIVE_INFINITY) return BigInteger.valueOf(Long.MAX_VALUE);
+                if (d == Double.NEGATIVE_INFINITY) return BigInteger.valueOf(Long.MIN_VALUE);
+                return BigDecimal.valueOf(d).toBigInteger();
+            }
+            return BigInteger.valueOf(n.longValue());
         } else {
             try {
                 return new BigInteger(String.valueOf(input));
@@ -154,13 +188,15 @@ public class NGEUtils {
         } else if (input instanceof BigInteger) {
             return new BigDecimal((BigInteger) input);
         } else if (input instanceof Number) {
-            if (input instanceof Long || input instanceof Integer || input instanceof Short || input instanceof Byte) {
-                return BigDecimal.valueOf(((Number) input).longValue());
-            } else if (input instanceof Double || input instanceof Float) {
-                return BigDecimal.valueOf(((Number) input).doubleValue());
-            } else {
-                return BigDecimal.valueOf(((Number) input).doubleValue());
+            Number n = (Number) input;
+            if (n instanceof Long || n instanceof Integer || n instanceof Short || n instanceof Byte) {
+                return BigDecimal.valueOf(n.longValue());
             }
+            double d = n.doubleValue();
+            if (!Double.isFinite(d)) {
+                throw new IllegalArgumentException("Input is not a finite number: " + input);
+            }
+            return BigDecimal.valueOf(d);
         }
         try {
             return new BigDecimal(String.valueOf(input));
@@ -171,47 +207,64 @@ public class NGEUtils {
 
     public static double safeDouble(Object input) {
         if (input == null) return 0.0;
-
-        if (input instanceof BigInteger) {
-            BigInteger bi = (BigInteger) input;
-            BigDecimal bd = new BigDecimal(bi);
+        // BigDecimal/BigInteger inputs: precise range checks
+        if (input instanceof BigDecimal || input instanceof BigInteger) {
+            BigDecimal bd = safeBigDecimal(input);
             BigDecimal abs = bd.abs();
             BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
             if (abs.compareTo(max) > 0) {
-                throw new IllegalArgumentException("Input is out of range for double: " + bi);
+                throw new IllegalArgumentException("Input is out of range for double: " + input);
             }
-            BigDecimal minNorm = BigDecimal.valueOf(Double.MIN_NORMAL);
-            if (abs.signum() != 0 && abs.compareTo(minNorm) < 0) {
-                throw new IllegalArgumentException("Input underflows double precision: " + bi);
-            }
+            
             return bd.doubleValue();
         }
 
         if (input instanceof Number) {
+            // Preserve NaN/+Infinity/-Infinity for float<->double mapping.
+            if (input instanceof Double) {
+                double d = ((Double) input).doubleValue();
+                if (Double.isNaN(d)) return Double.NaN;
+                if (d == Double.POSITIVE_INFINITY) return Double.POSITIVE_INFINITY;
+                if (d == Double.NEGATIVE_INFINITY) return Double.NEGATIVE_INFINITY;
+                return d;
+            }
+            if (input instanceof Float) {
+                float f = ((Float) input).floatValue();
+                if (Float.isNaN(f)) return Double.NaN;
+                if (f == Float.POSITIVE_INFINITY) return Double.POSITIVE_INFINITY;
+                if (f == Float.NEGATIVE_INFINITY) return Double.NEGATIVE_INFINITY;
+                return (double) f;
+            }
             double v = ((Number) input).doubleValue();
-            if (Double.isNaN(v)) {
+            if (!Double.isFinite(v)) {
+                // map infinities/NaN according to Number.longValue semantics is handled by integer safe methods;
+                // for floating target we keep non-finite values if they originate from Double/Float, but
+                // other Number implementations shouldn't produce non-finite values — reject them.
                 throw new IllegalArgumentException("Input is not a finite double: " + input);
             }
-            if (!Double.isFinite(v)) {
-                throw new IllegalArgumentException("Input is out of range for double: " + v);
-            }
-            double abs = Math.abs(v);
-            if (abs != 0.0 && abs < Double.MIN_NORMAL) {
-                throw new IllegalArgumentException("Input underflows double precision: " + v);
-            }
+            
             return v;
         }
 
         try {
-            Double d = Double.parseDouble(String.valueOf(input));
-            if (Double.isNaN(d) || !Double.isFinite(d)) {
-                throw new IllegalArgumentException("Input is not a finite double: " + input);
+            String s = String.valueOf(input);
+            double parsed = Double.parseDouble(s);
+            if (Double.isFinite(parsed)) {
+                return parsed;
             }
-            double abs = Math.abs(d);
-            if (abs != 0.0 && abs < Double.MIN_NORMAL) {
-                throw new IllegalArgumentException("Input underflows double precision: " + d);
+
+            // Non-finite fast parse can be a true literal (NaN/Infinity) or numeric overflow.
+            try {
+                BigDecimal bd = new BigDecimal(s);
+                BigDecimal abs = bd.abs();
+                BigDecimal max = BigDecimal.valueOf(Double.MAX_VALUE);
+                if (abs.compareTo(max) > 0) {
+                    throw new IllegalArgumentException("Input is out of range for double: " + input);
+                }
+                return bd.doubleValue();
+            } catch (NumberFormatException ignored) {
+                return parsed;
             }
-            return d.doubleValue();
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Input is not a number: " + input);
         }
@@ -219,44 +272,64 @@ public class NGEUtils {
 
     public static float safeFloat(Object input) {
         if (input == null) return 0.0f;
-
-        if (input instanceof BigInteger) {
-            BigInteger bi = (BigInteger) input;
-            BigDecimal bd = new BigDecimal(bi);
+        // BigDecimal/BigInteger inputs: precise range checks
+        if (input instanceof BigDecimal || input instanceof BigInteger) {
+            BigDecimal bd = safeBigDecimal(input);
             BigDecimal abs = bd.abs();
             BigDecimal max = BigDecimal.valueOf((double) Float.MAX_VALUE);
             if (abs.compareTo(max) > 0) {
-                throw new IllegalArgumentException("Input is out of range for float: " + bi);
+                throw new IllegalArgumentException("Input is out of range for float: " + input);
             }
-            BigDecimal minNorm = BigDecimal.valueOf((double) Float.MIN_NORMAL);
-            if (abs.signum() != 0 && abs.compareTo(minNorm) < 0) {
-                throw new IllegalArgumentException("Input underflows float precision: " + bi);
-            }
+            
             return bd.floatValue();
         }
 
         if (input instanceof Number) {
+            // Preserve NaN/+Infinity/-Infinity, but reject finite values overflowing to non-finite float.
+            if (input instanceof Double) {
+                double d = ((Double) input).doubleValue();
+                if (Double.isNaN(d)) return Float.NaN;
+                if (d == Double.POSITIVE_INFINITY) return Float.POSITIVE_INFINITY;
+                if (d == Double.NEGATIVE_INFINITY) return Float.NEGATIVE_INFINITY;
+                float f = (float) d;
+                if (Double.isFinite(d) && !Float.isFinite(f)) {
+                    throw new IllegalArgumentException("Input is out of range for float: " + input);
+                }
+                return f;
+            }
+            if (input instanceof Float) {
+                return ((Float) input).floatValue();
+            }
             double v = ((Number) input).doubleValue();
-            if (Double.isNaN(v)) {
-                throw new IllegalArgumentException("Input is not a finite number: " + input);
+            if (!Double.isFinite(v)) {
+                throw new IllegalArgumentException("Input is not a finite float: " + input);
             }
             if (v < -Float.MAX_VALUE || v > Float.MAX_VALUE) {
-                throw new IllegalArgumentException("Input is out of range for float: " + v);
+                throw new IllegalArgumentException("Input is out of range for float: " + input);
             }
-            double abs = Math.abs(v);
-            if (abs != 0.0 && abs < Float.MIN_NORMAL) {
-                throw new IllegalArgumentException("Input underflows float precision: " + v);
-            }
+            
             return ((Number) input).floatValue();
         }
 
         try {
-            Float f = Float.parseFloat(String.valueOf(input));
-            float abs = Math.abs(f);
-            if (abs != 0.0f && abs < Float.MIN_NORMAL) {
-                throw new IllegalArgumentException("Input underflows float precision: " + f);
+            String s = String.valueOf(input);
+            float parsed = Float.parseFloat(s);
+            if (Float.isFinite(parsed)) {
+                return parsed;
             }
-            return f.floatValue();
+
+            // Non-finite fast parse can be a true literal (NaN/Infinity) or numeric overflow.
+            try {
+                BigDecimal bd = new BigDecimal(s);
+                BigDecimal abs = bd.abs();
+                BigDecimal max = BigDecimal.valueOf((double) Float.MAX_VALUE);
+                if (abs.compareTo(max) > 0) {
+                    throw new IllegalArgumentException("Input is out of range for float: " + input);
+                }
+                return bd.floatValue();
+            } catch (NumberFormatException ignored) {
+                return parsed;
+            }
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Input is not a number: " + input);
         }
@@ -316,13 +389,12 @@ public class NGEUtils {
             }
             return list.toArray(new String[0]);
         } else if (tags instanceof String[]) {
-            MemoryLimits limits = getPlatform().getMemoryLimits();
-            for (String o : (String[]) tags) {
-                if (!limits.checkForString(o.length())) {
-                    throw new IllegalArgumentException("Input string is too large: " + o.length());
-                }
+            String[] arr = (String[]) tags;
+            String[] out = new String[arr.length];
+            for (int i = 0; i < arr.length; i++) {
+                out[i] = safeString(arr[i]);
             }
-            return (String[]) tags;
+            return out;
         } else {
             throw new IllegalArgumentException("Input is not a string array: " + tags);
         }
@@ -359,7 +431,7 @@ public class NGEUtils {
             }
             return list;
         } else {
-            throw new IllegalArgumentException("Input is not a string array: " + tags);
+            throw new IllegalArgumentException("Input is not an int array/list: " + tags);
         }
     }
 
@@ -415,20 +487,16 @@ public class NGEUtils {
             if (c.isEmpty()) {
                 return (Collection<String[]>) c;
             }
-            if (c.get(0) instanceof String[]) {
-                return (Collection<String[]>) c;
-            } else {
-                ArrayList<String[]> list = new ArrayList<>();
-                for (Object o : c) {
-                    list.add(safeStringArray(o));
-                }
-                return list;
+            ArrayList<String[]> list = new ArrayList<>(c.size());
+            for (Object o : c) {
+                list.add(safeStringArray(o));
             }
+            return list;
         } else if (tags instanceof String[][]) {
             String[][] arr = (String[][]) tags;
             ArrayList<String[]> list = new ArrayList<>();
             for (String[] o : arr) {
-                list.add(o);
+                list.add(safeStringArray(o));
             }
             return list;
         } else {
@@ -657,7 +725,9 @@ public class NGEUtils {
         if (input instanceof byte[]) {
             out = (byte[]) input;
         } else if (input instanceof ByteBuffer) {
-            out = ((ByteBuffer) input).array();
+            ByteBuffer buffer = ((ByteBuffer) input).slice();
+            out = new byte[buffer.remaining()];
+            buffer.get(out);
         } else if (input instanceof String) {
             out = ((String) input).getBytes(StandardCharsets.UTF_8);
         } else {
@@ -691,7 +761,9 @@ public class NGEUtils {
         if (input instanceof byte[]) {
             out = (byte[]) input;
         } else if (input instanceof ByteBuffer) {
-            out = ((ByteBuffer) input).array();
+            ByteBuffer buffer = ((ByteBuffer) input).slice();
+            out = new byte[buffer.remaining()];
+            buffer.get(out);
         } else if (input instanceof String) {
             out = ((String) input).getBytes(StandardCharsets.UTF_8);
         } else {
