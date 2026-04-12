@@ -4379,6 +4379,59 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.NGEUtilsSafetyTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeByteArraySupportsDirectByteBufferWithoutArray",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeCollectionOfStringArraySanitizesMixedList",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeDoublePreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatPreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatRejectsFiniteDoubleOverflowToInfinity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeLongBigIntegerOutOfRangeThrows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeStringArrayHandlesNullEntries",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.TestAsyncTask",
             "methods": [
                 {
