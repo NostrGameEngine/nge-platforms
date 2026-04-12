@@ -30,8 +30,8 @@
  */
 package org.ngengine.platform;
 
-import java.math.BigInteger;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -155,7 +155,7 @@ public class NGEUtils {
         }
     }
 
-    public static BigInteger safeBigInteger(Object input){
+    public static BigInteger safeBigInteger(Object input) {
         if (input == null) return BigInteger.ZERO;
         if (input instanceof BigInteger) {
             return (BigInteger) input;
@@ -215,7 +215,7 @@ public class NGEUtils {
             if (abs.compareTo(max) > 0) {
                 throw new IllegalArgumentException("Input is out of range for double: " + input);
             }
-            
+
             return bd.doubleValue();
         }
 
@@ -242,7 +242,7 @@ public class NGEUtils {
                 // other Number implementations shouldn't produce non-finite values — reject them.
                 throw new IllegalArgumentException("Input is not a finite double: " + input);
             }
-            
+
             return v;
         }
 
@@ -280,7 +280,7 @@ public class NGEUtils {
             if (abs.compareTo(max) > 0) {
                 throw new IllegalArgumentException("Input is out of range for float: " + input);
             }
-            
+
             return bd.floatValue();
         }
 
@@ -307,7 +307,7 @@ public class NGEUtils {
             if (v < -Float.MAX_VALUE || v > Float.MAX_VALUE) {
                 throw new IllegalArgumentException("Input is out of range for float: " + input);
             }
-            
+
             return ((Number) input).floatValue();
         }
 
