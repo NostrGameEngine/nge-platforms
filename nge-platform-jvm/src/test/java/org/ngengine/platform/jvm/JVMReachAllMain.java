@@ -174,6 +174,21 @@ public final class JVMReachAllMain {
                 }
             }
         );
+
+        // Best-effort clipboard exercise: set and attempt to read clipboard content where supported
+        safeRun(
+            "clipboard",
+            () -> {
+                try {
+                    platform.setClipboardContent("reach-all");
+                    try {
+                        // attempt to read clipboard asynchronously; ignore failures
+                        await(platform.getClipboardContent());
+                    } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
     }
 
     private static void exerciseAllocators(JVMAsyncPlatform platform) {
