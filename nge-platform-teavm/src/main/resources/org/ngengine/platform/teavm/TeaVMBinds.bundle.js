@@ -11795,7 +11795,8 @@ var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, tim
   var options = {
     method: method,
     headers: headers ? JSON.parse(headers) : {},
-    signal: controller.signal
+    signal: controller.signal,
+    redirect: 'error'
   };
   if (body && method !== 'GET' && method !== 'HEAD') {
     options.body = _u(body);

@@ -896,30 +896,44 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             httpExecutor.run(() -> {
                 HttpURLConnection connection = null;
                 try {
-                    connection = (HttpURLConnection) new URL(url).openConnection();
-                    connection.setRequestMethod(method.toUpperCase());
-                    connection.setConnectTimeout(timeoutMs);
-                    connection.setReadTimeout(timeoutMs);
-                    connection.setInstanceFollowRedirects(true);
+                    URI currentUri = URI.create(url);
+                    int statusCode = -1;
+                    for (int redirects = 0; redirects <= 5; redirects++) {
+                        connection = (HttpURLConnection) currentUri.toURL().openConnection();
+                        connection.setRequestMethod(method.toUpperCase());
+                        connection.setConnectTimeout(timeoutMs);
+                        connection.setReadTimeout(timeoutMs);
+                        connection.setInstanceFollowRedirects(false);
 
-                    // Set default User-Agent
-                    connection.setRequestProperty("User-Agent",
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
+                        // Set default User-Agent
+                        connection.setRequestProperty("User-Agent",
+                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
 
-                    // Add custom headers
-                    applyHeaders(headers, connection);
+                        // Add custom headers
+                        applyHeaders(headers, connection);
 
-                    // Handle request body for POST, PUT, etc.
-                    if (body != null && body.length > 0) {
-                        connection.setDoOutput(true);
-                        try (OutputStream os = connection.getOutputStream()) {
-                            os.write(body);
-                            os.flush();
+                        // Handle request body for POST, PUT, etc.
+                        if (body != null && body.length > 0) {
+                            connection.setDoOutput(true);
+                            try (OutputStream os = connection.getOutputStream()) {
+                                os.write(body);
+                                os.flush();
+                            }
                         }
-                    }
 
-                    // Get response
-                    int statusCode = connection.getResponseCode();
+                        // Get response
+                        statusCode = connection.getResponseCode();
+                        String location = connection.getHeaderField("Location");
+                        if (statusCode < 300 || statusCode >= 400 || location == null) {
+                            break;
+                        }
+                        connection.disconnect();
+                        connection = null;
+                        if (redirects == 5) {
+                            throw new IOException("Too many HTTP redirects");
+                        }
+                        currentUri = NGEUtils.safeURI(currentUri.resolve(location)).normalize();
+                    }
 
                     // Read response body
                     InputStream data = statusCode >= 400

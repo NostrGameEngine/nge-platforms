@@ -950,58 +950,66 @@ public class JVMAsyncPlatform extends NGEPlatform {
         HttpClient.Builder b = HttpClient
             .newBuilder()
             .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .executor(executor);
 
         HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
-            try {
-                HttpRequest.Builder requestBuilder = HttpRequest
-                    .newBuilder()
-                    .uri(URI.create(url))
-                    .header(
-                        "User-Agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
-                    );
-                requestBuilder.method(
-                    method.toUpperCase(),
-                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
-                );
+            CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        URI currentUri = URI.create(url);
+                        HttpResponse<InputStream> response = null;
 
-                applyHeaders(headers, requestBuilder);
-                requestBuilder.timeout(timeout);
-
-                HttpRequest request = requestBuilder.build();
-                httpClient
-                    .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-                    .handleAsync(
-                        (response, e) -> {
-                            if (e != null) {
-                                rej.accept(e);
-                                return null;
-                            }
-                            int statusCode = response.statusCode();
-
-                            try {
-                                NGEHttpResponseStream streamResponse = new NGEHttpResponseStream(
-                                    statusCode,
-                                    response.headers().map(),
-                                    response.body(),
-                                    statusCode >= 200 && statusCode < 300
+                        for (int redirects = 0; redirects <= 5; redirects++) {
+                            HttpRequest.Builder requestBuilder = HttpRequest
+                                .newBuilder()
+                                .uri(currentUri)
+                                .header(
+                                    "User-Agent",
+                                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
                                 );
-                                res.accept(streamResponse);
-                            } catch (Exception ex) {
-                                logger.log(Level.WARNING, "Error creating stream response", ex);
-                                rej.accept(ex);
-                            }
+                            requestBuilder.method(
+                                method.toUpperCase(),
+                                body == null
+                                    ? HttpRequest.BodyPublishers.noBody()
+                                    : HttpRequest.BodyPublishers.ofByteArray(body)
+                            );
 
-                            return null;
-                        },
-                        executor
-                    );
-            } catch (Exception e) {
-                rej.accept(e);
-            }
+                            applyHeaders(headers, requestBuilder);
+                            requestBuilder.timeout(timeout);
+
+                            response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofInputStream());
+                            int statusCode = response.statusCode();
+                            String location = response.headers().firstValue("location").orElse(null);
+                            if (statusCode < 300 || statusCode >= 400 || location == null) {
+                                break;
+                            }
+                            response.body().close();
+                            if (redirects == 5) {
+                                throw new IOException("Too many HTTP redirects");
+                            }
+                            currentUri = NGEUtils.safeURI(currentUri.resolve(location)).normalize();
+                        }
+
+                        if (response == null) {
+                            throw new IOException("HTTP request did not produce a response");
+                        }
+
+                        int statusCode = response.statusCode();
+                        NGEHttpResponseStream streamResponse = new NGEHttpResponseStream(
+                            statusCode,
+                            response.headers().map(),
+                            response.body(),
+                            statusCode >= 200 && statusCode < 300
+                        );
+                        res.accept(streamResponse);
+                    } catch (Exception e) {
+                        rej.accept(e);
+                    }
+                },
+                executor
+            );
         });
     }
 
