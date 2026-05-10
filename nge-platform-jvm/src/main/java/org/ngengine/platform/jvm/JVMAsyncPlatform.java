@@ -974,7 +974,14 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                sendWithValidatedRedirects(httpClient, request, body, headers, timeout, HttpResponse.BodyHandlers.ofInputStream())
+                sendWithValidatedRedirects(
+                    httpClient,
+                    request,
+                    body,
+                    headers,
+                    timeout,
+                    HttpResponse.BodyHandlers.ofInputStream()
+                )
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -1077,7 +1084,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
         });
     }
-
 
     private <T> CompletableFuture<HttpResponse<T>> sendWithValidatedRedirects(
         HttpClient httpClient,
