@@ -5,6 +5,7 @@
 package org.ngengine.platform.android;
 
 import java.io.IOException;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
@@ -16,6 +17,7 @@ import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.ngengine.platform.transport.WebsocketTransportListener;
 
@@ -58,8 +60,8 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
                 .connectTimeout(CONNECT_TIMEOUT)
                 .readTimeout(READ_TIMEOUT)
                 .writeTimeout(WRITE_TIMEOUT)
-                .followRedirects(true)
-                .followSslRedirects(true);
+                .followRedirects(false)
+                .followSslRedirects(false);
 
         this.httpClient = builder.build();
     }
@@ -117,6 +119,15 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
         }
     }
 
+    private String safeWebSocketUrl(String url) {
+        URI uri = NGEUtils.safeURI(url);
+        String scheme = uri.getScheme().toLowerCase();
+        if (!scheme.equals("ws") && !scheme.equals("wss")) {
+            throw new IllegalArgumentException("Invalid WebSocket URI scheme: " + uri.getScheme());
+        }
+        return uri.toString();
+    }
+
     @Override
     public AsyncTask<Void> connect(String url) {
         logger.finest("Connecting to WebSocket: " + url);
@@ -130,8 +141,9 @@ public class AndroidWebsocketTransport implements WebsocketTransport {
 
         return platform.wrapPromise((res, rej) -> {
             try {
+                String safeUrl = safeWebSocketUrl(url);
                 Request request = new Request.Builder()
-                        .url(url)
+                        .url(safeUrl)
                         .build();
 
                 WebSocketListener listener = new WebSocketListener() {
