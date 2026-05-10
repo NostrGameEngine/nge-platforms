@@ -1209,10 +1209,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private HttpRequest buildRedirectRequest(HttpRequest originalRequest, URI redirectUri, int statusCode) {
         HttpRequest.Builder redirectBuilder = HttpRequest.newBuilder().uri(redirectUri);
         originalRequest.timeout().ifPresent(redirectBuilder::timeout);
-        originalRequest
-            .headers()
-            .map()
-            .forEach((name, values) -> values.forEach(value -> redirectBuilder.header(name, value)));
+        originalRequest.headers().map().forEach((name, values) -> values.forEach(value -> redirectBuilder.header(name, value)));
 
         String method = originalRequest.method();
         if (statusCode == 303 || ((statusCode == 301 || statusCode == 302) && method.equalsIgnoreCase("POST"))) {
