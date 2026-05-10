@@ -4794,6 +4794,9 @@
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$Context"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$LimitingBodySubscriber"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor",
             "methods": [
                 {
@@ -4852,6 +4855,35 @@
                 },
                 {
                     "name": "notifyGC",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "detectsPrivateAndLocalAddresses",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsLoopbackWebSocketUrls",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsRedirectsToLoopbackUrls",
                     "parameterTypes": [
                         
                     ]
