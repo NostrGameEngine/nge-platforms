@@ -1015,13 +1015,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             .build();
     }
 
-    private HttpRequest newHttpRequest(
-        String method,
-        URI url,
-        byte[] body,
-        Duration timeout,
-        Map<String, String> headers
-    ) {
+    private HttpRequest newHttpRequest(String method, URI url, byte[] body, Duration timeout, Map<String, String> headers) {
         HttpRequest.Builder requestBuilder = HttpRequest
             .newBuilder()
             .uri(url)
@@ -1077,14 +1071,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
                             new IllegalArgumentException("HTTP response exceeds buffer limits")
                         );
                     }
-                    return readLimitedHttpBody(response.body()).thenApply(data ->
-                        new NGEHttpResponse(
-                            response.statusCode(),
-                            response.headers().map(),
-                            data,
-                            response.statusCode() >= 200 && response.statusCode() < 300
-                        )
-                    );
+                    return readLimitedHttpBody(response.body())
+                        .thenApply(data ->
+                            new NGEHttpResponse(
+                                response.statusCode(),
+                                response.headers().map(),
+                                data,
+                                response.statusCode() >= 200 && response.statusCode() < 300
+                            )
+                        );
                 },
                 executor
             );
@@ -1164,9 +1159,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             .headers()
             .firstValueAsLong("content-length")
             .stream()
-            .anyMatch(length ->
-                length > MAX_HTTP_BUFFERED_RESPONSE_BYTES || !getMemoryLimits().checkForData(length)
-            );
+            .anyMatch(length -> length > MAX_HTTP_BUFFERED_RESPONSE_BYTES || !getMemoryLimits().checkForData(length));
     }
 
     private URI redirectUri(URI currentUrl, HttpResponse<?> response) {
