@@ -12,14 +12,14 @@ dependencies {
     testImplementation libs.junit4
     implementation libs.gson
     implementation libs.bcprov
-    implementation libs.libdatachannel.java.arch.detect
-    implementation libs.libdatachannel.java
+    implementation libs.libdatachannelJavaArchDetect
+    implementation libs.libdatachannelJava
     implementation libs.saferalloc
-    implementation libs.saferalloc.natives.linux.x8664
-    implementation libs.saferalloc.natives.linux.aarch64
-    implementation libs.saferalloc.natives.windows.x8664
-    implementation libs.saferalloc.natives.macos.x8664
-    implementation libs.saferalloc.natives.macos.aarch64
+    implementation libs.saferallocNativesLinuxX64
+    implementation libs.saferallocNativesLinuxArm64
+    implementation libs.saferallocNativesWindowsX64
+    implementation libs.saferallocNativesMacosX64
+    implementation libs.saferallocNativesMacosArm64
 
 
 }

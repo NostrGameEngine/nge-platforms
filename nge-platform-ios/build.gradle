@@ -6,10 +6,10 @@ dependencies {
     api project(':nge-platform-common')
     implementation libs.gson
     implementation libs.bcprov
-    implementation libs.libdatachannel.java
-    implementation libs.libjglios.core.ios.snapshot
+    implementation libs.libdatachannelJava
+    implementation libs.libjgliosCoreIos
     implementation libs.saferalloc
-    implementation libs.saferalloc.natives.ios
+    implementation libs.saferallocNativesIos
 }
 
 java {
