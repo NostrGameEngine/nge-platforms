@@ -3,10 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
+const INTEROP_TITLE = 'Interop: JVM <-> TeaVM Browser RTC';
 const rootDirs = [
   path.join(projectDir, 'test-harness'),
   path.join(teavmDir, 'src', 'main', 'resources'),
@@ -252,6 +254,11 @@ async function main() {
     process.stderr.write(`${browserOut.pageErrors.join('\n')}\n`);
   }
   process.stdout.write(`${JSON.stringify(combined, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    combined.ok,
+    combined.ok ? 'JVM <-> TeaVM browser RTC completed successfully.' : firstFailureText(combined.jvm?.error, combined.browser?.error)
+  );
   server.close();
   if (!combined.ok) {
     process.exit(1);
@@ -259,6 +266,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });

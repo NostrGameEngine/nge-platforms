@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
 const STRESS_MESSAGES = 256;
+const INTEROP_TITLE = 'Interop: JVM <-> TeaVM Node RTC';
 
 const state = {
   nextId: 1,
@@ -468,12 +470,18 @@ async function main() {
   };
 
   process.stdout.write(`${JSON.stringify(combined, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    combined.ok,
+    combined.ok ? 'JVM <-> TeaVM Node RTC completed successfully.' : firstFailureText(combined.jvm?.error, combined.node?.error)
+  );
   await new Promise((resolve) => server.close(resolve));
   // Exit immediately to avoid wrtc teardown crashes after successful run.
   process.exit(combined.ok ? 0 : 1);
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${String(err?.stack || err)}\n`);
   process.exit(1);
 });

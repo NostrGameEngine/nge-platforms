@@ -1,7 +1,9 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const repoRoot = new URL('../../', import.meta.url).pathname;
+const INTEROP_TITLE = 'Interop: JVM <-> Android RTC';
 
 const state = {
   nextId: 1,
@@ -184,6 +186,7 @@ async function main() {
     last = await runOnce(attempt);
     if (last.ok) {
       process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+      emitInteropAnnotation(INTEROP_TITLE, true, `JVM <-> Android RTC passed on attempt ${attempt}.`);
       return;
     }
     if (attempt < attempts && isConnectedTimeoutFlake(last)) {
@@ -193,10 +196,16 @@ async function main() {
     break;
   }
   process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    false,
+    `JVM <-> Android RTC failed after ${last?.attempt ?? attempts} attempt(s). ${firstFailureText(last?.jvm?.error, last?.android?.error)}`
+  );
   process.exit(1);
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });

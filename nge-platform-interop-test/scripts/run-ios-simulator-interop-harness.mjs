@@ -1,10 +1,12 @@
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const state = { ios: null };
+const INTEROP_TITLE = 'Interop: iOS Simulator <-> Node Harness';
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -148,10 +150,16 @@ async function main() {
     ],
   };
   process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    out.ok,
+    out.ok ? 'iOS simulator built, launched, and exchanged HTTP data with the Node harness.' : firstFailureText(checks.join('; '), iosResult?.error)
+  );
   if (!out.ok) process.exit(1);
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });
