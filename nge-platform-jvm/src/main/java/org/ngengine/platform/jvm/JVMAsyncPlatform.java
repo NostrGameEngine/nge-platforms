@@ -1274,7 +1274,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private boolean setSdlClipboard(String text) {
         try {
             Class<?> sdlClipboardClass = Class.forName("org.lwjgl.sdl.SDLClipboard");
-            java.lang.reflect.Method sdlSetClipboardText = sdlClipboardClass.getMethod("SDL_SetClipboardText", CharSequence.class);
+            java.lang.reflect.Method sdlSetClipboardText = sdlClipboardClass.getMethod(
+                "SDL_SetClipboardText",
+                CharSequence.class
+            );
             Boolean result = (Boolean) sdlSetClipboardText.invoke(null, text);
             if (Boolean.TRUE.equals(result)) {
                 logger.log(Level.FINE, "Set clipboard content via SDL");
