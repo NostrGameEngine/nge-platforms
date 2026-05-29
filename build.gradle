@@ -29,6 +29,11 @@ ext {
     licenseUrl="https://opensource.org/licenses/BSD-3-Clause"
 }
 
+def spotbugsTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toString().toLowerCase(java.util.Locale.ROOT).contains("spotbugs")
+}
+def enableSpotBugs = spotbugsTaskRequested || (findProperty("enableSpotBugs")?.toString()?.toBoolean() ?: false)
+
 if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername")){
     nexusPublishing {
         repositories {
@@ -80,8 +85,9 @@ def applyConf(proj, isAndroid){
             withJavadocJar()
             withSourcesJar()
         }
-        // SpotBugs still references removed Gradle internals on Gradle 9.
-        // Keep it out of local composite builds so consumers can import sources.
+        if (enableSpotBugs) {
+            proj.apply plugin: "com.github.spotbugs"
+        }
 
 
      
@@ -297,14 +303,15 @@ subprojects { proj ->
             spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0"
         }
         proj.tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach { task ->
+            def reportName = task.path.substring(1).replace(":", "-")
             task.reports {
                 html {
-                    enabled     = true
-                    destination = file("${proj.rootDir}/reports/spotbugs/${task.name}.html")
+                    required.set(true)
+                    outputLocation.set(file("${proj.rootDir}/reports/spotbugs/${reportName}.html"))
                 }
                 sarif {
-                    enabled     = true
-                    destination = file("${proj.rootDir}/reports/spotbugs/${task.name}.sarif")
+                    required.set(true)
+                    outputLocation.set(file("${proj.rootDir}/reports/spotbugs/${reportName}.sarif"))
                 }
             }
         }

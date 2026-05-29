@@ -27,10 +27,8 @@ jobs:
         
     - name: Run SpotBugs with SARIF output
       run: |
-        ./gradlew spotbugsMain --info
-        ./gradlew spotlessCheck
-        
-      continue-on-error: true
+        ./gradlew --no-daemon spotbugsMain --console=plain -PenableSpotBugs=true
+        ./gradlew --no-daemon spotlessCheck --console=plain
     
     - name: Upload reports
       uses: actions/upload-artifact@v4
@@ -44,5 +42,5 @@ jobs:
     - name: Upload SpotBugs SARIF file
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: reports/spotbugs/spotbugsMain.sarif
+        sarif_file: reports/spotbugs
         category: spotbugs
