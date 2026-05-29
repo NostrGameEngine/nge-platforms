@@ -73,7 +73,8 @@ public class JVMAsyncPlatformRedirectTest {
             fail("Expected loopback redirect to be rejected");
         } catch (InvocationTargetException e) {
             assertTrue(e.getCause() instanceof IllegalArgumentException);
-            assertTrue(e.getCause().getMessage().contains("Loopback addresses are not allowed"));
+            String message = e.getCause().getMessage();
+            assertTrue(message.contains("private or local address") || message.contains("Loopback addresses are not allowed"));
         }
     }
 

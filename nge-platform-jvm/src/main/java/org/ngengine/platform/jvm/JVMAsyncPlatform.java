@@ -44,6 +44,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.text.Normalizer;
@@ -59,10 +60,12 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Flow;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -948,21 +951,56 @@ public class JVMAsyncPlatform extends NGEPlatform {
             "Input exceeds buffer limits"
         );
 
-        URI url = NGEUtils.safeURI(inurl);
+        URI url = JVMNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient httpClient = newHttpClient(timeout);
+        HttpClient.Builder b = HttpClient
+            .newBuilder()
+            .connectTimeout(timeout)
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .executor(executor);
+
+        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
-                HttpRequest request = newHttpRequest(method.toUpperCase(), url, body, timeout, headers);
-                sendHttpRequestStream(httpClient, request, body, headers, timeout, 0)
+                HttpRequest.Builder requestBuilder = HttpRequest
+                    .newBuilder()
+                    .uri(url)
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+                    );
+                requestBuilder.method(
+                    method.toUpperCase(),
+                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
+                );
+
+                applyHeaders(headers, requestBuilder);
+                requestBuilder.timeout(timeout);
+
+                HttpRequest request = requestBuilder.build();
+                sendWithValidatedRedirects(httpClient, request, HttpResponse.BodyHandlers.ofInputStream(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
                                 rej.accept(e);
-                            } else {
-                                res.accept(response);
+                                return null;
                             }
+                            int statusCode = response.statusCode();
+
+                            try {
+                                NGEHttpResponseStream streamResponse = new NGEHttpResponseStream(
+                                    statusCode,
+                                    response.headers().map(),
+                                    response.body(),
+                                    statusCode >= 200 && statusCode < 300
+                                );
+                                res.accept(streamResponse);
+                            } catch (Exception ex) {
+                                logger.log(Level.WARNING, "Error creating stream response", ex);
+                                rej.accept(ex);
+                            }
+
                             return null;
                         },
                         executor
@@ -984,20 +1022,59 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
-        URI url = NGEUtils.safeURI(inurl);
+        URI url = JVMNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient httpClient = newHttpClient(timeout);
+        HttpClient.Builder b = HttpClient
+            .newBuilder()
+            .connectTimeout(timeout)
+            .followRedirects(HttpClient.Redirect.NEVER)
+            .executor(executor);
+
+        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
-                HttpRequest request = newHttpRequest(method.toUpperCase(), url, body, timeout, headers);
-                sendHttpRequest(httpClient, request, body, headers, timeout, 0)
+                HttpRequest.Builder requestBuilder = HttpRequest
+                    .newBuilder()
+                    .uri(url)
+                    .header(
+                        "User-Agent",
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+                    );
+                requestBuilder.method(
+                    method.toUpperCase(),
+                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
+                );
+
+                applyHeaders(headers, requestBuilder);
+
+                requestBuilder.timeout(timeout);
+
+                HttpRequest request = requestBuilder.build();
+                sendWithValidatedRedirects(httpClient, request, limitedByteArrayBodyHandler(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
                                 rej.accept(e);
+                                return null;
+                            }
+                            int statusCode = response.statusCode();
+
+                            byte data[] = null;
+                            try {
+                                data = response.body();
+                                if (data != null && !getMemoryLimits().checkForData(data.length)) {
+                                    rej.accept(new IllegalArgumentException("Response body exceeds buffer limits"));
+                                    return null;
+                                }
+                            } catch (Exception ex) {
+                                logger.log(Level.WARNING, "Error reading response body", ex);
+                            }
+
+                            if (statusCode >= 200 && statusCode < 300) {
+                                res.accept(new NGEHttpResponse(statusCode, response.headers().map(), data, true));
                             } else {
-                                res.accept(response);
+                                res.accept(new NGEHttpResponse(statusCode, response.headers().map(), data, false));
                             }
                             return null;
                         },
@@ -1009,149 +1086,108 @@ public class JVMAsyncPlatform extends NGEPlatform {
         });
     }
 
-    private HttpClient newHttpClient(Duration timeout) {
-        return HttpClient
-            .newBuilder()
-            .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor)
-            .build();
+    private HttpResponse.BodyHandler<byte[]> limitedByteArrayBodyHandler() {
+        return responseInfo -> {
+            responseInfo
+                .headers()
+                .firstValueAsLong("content-length")
+                .ifPresent(length -> {
+                    if (!getMemoryLimits().checkForData(length)) {
+                        throw new IllegalArgumentException("Response body exceeds buffer limits");
+                    }
+                });
+            return new LimitingBodySubscriber(HttpResponse.BodySubscribers.ofByteArray());
+        };
     }
 
-    private HttpRequest newHttpRequest(String method, URI url, byte[] body, Duration timeout, Map<String, String> headers) {
-        HttpRequest.Builder requestBuilder = HttpRequest
-            .newBuilder()
-            .uri(url)
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
-            );
-        requestBuilder.method(
-            method,
-            body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
-        );
-        applyHeaders(headers, requestBuilder);
-        requestBuilder.timeout(timeout);
-        return requestBuilder.build();
-    }
+    private class LimitingBodySubscriber implements HttpResponse.BodySubscriber<byte[]> {
 
-    private CompletableFuture<NGEHttpResponse> sendHttpRequest(
-        HttpClient httpClient,
-        HttpRequest request,
-        byte[] originalBody,
-        Map<String, String> headers,
-        Duration timeout,
-        int redirects
-    ) {
-        return httpClient
-            .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-            .thenComposeAsync(
-                response -> {
-                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
-                        request,
-                        response,
-                        originalBody,
-                        headers,
-                        timeout,
-                        redirects
-                    );
-                    if (redirectRequest.isPresent()) {
-                        closeQuietly(response.body());
-                        return sendHttpRequest(httpClient, redirectRequest.get(), originalBody, headers, timeout, redirects + 1);
-                    }
-                    if (isBufferedHttpResponseTooLarge(response)) {
-                        closeQuietly(response.body());
-                        return CompletableFuture.failedFuture(
-                            new IllegalArgumentException("HTTP response exceeds buffer limits")
-                        );
-                    }
-                    return readLimitedHttpBody(response.body())
-                        .thenApply(data ->
-                            new NGEHttpResponse(
-                                response.statusCode(),
-                                response.headers().map(),
-                                data,
-                                response.statusCode() >= 200 && response.statusCode() < 300
-                            )
-                        );
-                },
-                executor
-            );
-    }
+        private final HttpResponse.BodySubscriber<byte[]> downstream;
+        private Flow.Subscription subscription;
+        private long received;
+        private boolean failed;
 
-    private CompletableFuture<NGEHttpResponseStream> sendHttpRequestStream(
-        HttpClient httpClient,
-        HttpRequest request,
-        byte[] originalBody,
-        Map<String, String> headers,
-        Duration timeout,
-        int redirects
-    ) {
-        return httpClient
-            .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
-            .thenComposeAsync(
-                response -> {
-                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
-                        request,
-                        response,
-                        originalBody,
-                        headers,
-                        timeout,
-                        redirects
-                    );
-                    if (redirectRequest.isPresent()) {
-                        closeQuietly(response.body());
-                        return sendHttpRequestStream(
-                            httpClient,
-                            redirectRequest.get(),
-                            originalBody,
-                            headers,
-                            timeout,
-                            redirects + 1
-                        );
-                    }
-                    return CompletableFuture.completedFuture(
-                        new NGEHttpResponseStream(
-                            response.statusCode(),
-                            response.headers().map(),
-                            response.body(),
-                            response.statusCode() >= 200 && response.statusCode() < 300
-                        )
-                    );
-                },
-                executor
-            );
-    }
+        private LimitingBodySubscriber(HttpResponse.BodySubscriber<byte[]> downstream) {
+            this.downstream = downstream;
+        }
 
-    private CompletableFuture<byte[]> readLimitedHttpBody(InputStream body) {
-        return CompletableFuture.supplyAsync(
-            () -> {
-                try (InputStream input = body; ByteArrayOutputStream output = new ByteArrayOutputStream()) {
-                    byte[] buffer = new byte[8192];
-                    long total = 0;
-                    int read;
-                    while ((read = input.read(buffer)) != -1) {
-                        total += read;
-                        if (total > MAX_HTTP_BUFFERED_RESPONSE_BYTES || !getMemoryLimits().checkForData(total)) {
-                            throw new IllegalArgumentException("HTTP response exceeds buffer limits");
-                        }
-                        output.write(buffer, 0, read);
-                    }
-                    return output.toByteArray();
-                } catch (IOException e) {
-                    throw new CompletionException(e);
+        @Override
+        public CompletionStage<byte[]> getBody() {
+            return downstream.getBody();
+        }
+
+        @Override
+        public void onSubscribe(Flow.Subscription subscription) {
+            this.subscription = subscription;
+            downstream.onSubscribe(subscription);
+        }
+
+        @Override
+        public void onNext(List<ByteBuffer> item) {
+            if (failed) {
+                return;
+            }
+            long chunkSize = 0L;
+            for (ByteBuffer buffer : item) {
+                chunkSize += buffer.remaining();
+            }
+            received += chunkSize;
+            if (!getMemoryLimits().checkForData(received)) {
+                failed = true;
+                if (subscription != null) {
+                    subscription.cancel();
                 }
-            },
-            executor
-        );
+                downstream.onError(new IllegalArgumentException("Response body exceeds buffer limits"));
+                return;
+            }
+            downstream.onNext(item);
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+            downstream.onError(throwable);
+        }
+
+        @Override
+        public void onComplete() {
+            downstream.onComplete();
+        }
     }
 
-    private boolean isBufferedHttpResponseTooLarge(HttpResponse<?> response) {
-        return response
-            .headers()
-            .firstValueAsLong("content-length")
-            .stream()
-            .anyMatch(length -> length > MAX_HTTP_BUFFERED_RESPONSE_BYTES || !getMemoryLimits().checkForData(length));
+    private <T> CompletableFuture<HttpResponse<T>> sendWithValidatedRedirects(
+        HttpClient httpClient,
+        HttpRequest request,
+        HttpResponse.BodyHandler<T> bodyHandler,
+        int redirectCount
+    ) {
+        return httpClient
+            .sendAsync(request, bodyHandler)
+            .thenCompose(response -> {
+                try {
+                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
+                        request,
+                        response,
+                        null,
+                        null,
+                        null,
+                        redirectCount
+                    );
+                    if (redirectRequest.isEmpty()) {
+                        return CompletableFuture.completedFuture(response);
+                    }
+                    closeRedirectResponseBody(response);
+                    return sendWithValidatedRedirects(httpClient, redirectRequest.get(), bodyHandler, redirectCount + 1);
+                } catch (Throwable t) {
+                    closeRedirectResponseBody(response);
+                    CompletableFuture<HttpResponse<T>> failed = new CompletableFuture<>();
+                    failed.completeExceptionally(t);
+                    return failed;
+                }
+            });
+    }
+
+    private boolean isRedirect(int statusCode) {
+        return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
     }
 
     private Optional<HttpRequest> buildValidatedRedirectRequest(
@@ -1162,60 +1198,46 @@ public class JVMAsyncPlatform extends NGEPlatform {
         Duration timeout,
         int redirects
     ) {
-        int statusCode = response.statusCode();
-        if (!isRedirectStatus(statusCode)) return Optional.empty();
+        if (!isRedirect(response.statusCode())) {
+            return Optional.empty();
+        }
 
         if (redirects >= MAX_HTTP_REDIRECTS) {
             throw new IllegalArgumentException("Too many HTTP redirects");
         }
 
         Optional<String> location = response.headers().firstValue("location");
-        if (location.isEmpty()) return Optional.empty();
-
-        URI redirectUri = NGEUtils.safeURI(request.uri().resolve(location.get()));
-        if (!isAllowedRedirect(request.uri(), redirectUri)) return Optional.empty();
-
-        String method = redirectMethod(request.method(), statusCode);
-        HttpRequest.BodyPublisher bodyPublisher = method.equals("GET")
-            ? HttpRequest.BodyPublishers.noBody()
-            : originalBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(originalBody);
-
-        HttpRequest.Builder requestBuilder = HttpRequest
-            .newBuilder()
-            .uri(redirectUri)
-            .header(
-                "User-Agent",
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
-            );
-        requestBuilder.method(method, bodyPublisher);
-        applyHeaders(headers, requestBuilder);
-        requestBuilder.timeout(timeout);
-        return Optional.of(requestBuilder.build());
-    }
-
-    private boolean isRedirectStatus(int statusCode) {
-        return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
-    }
-
-    private boolean isAllowedRedirect(URI from, URI to) {
-        return !(from.getScheme().equalsIgnoreCase("https") && to.getScheme().equalsIgnoreCase("http"));
-    }
-
-    private String redirectMethod(String originalMethod, int statusCode) {
-        String method = originalMethod.toUpperCase();
-        if (statusCode == 303 || ((statusCode == 301 || statusCode == 302) && method.equals("POST"))) {
-            return "GET";
+        if (location.isEmpty() || location.get().isEmpty()) {
+            return Optional.empty();
         }
-        return method;
+
+        URI redirectUri = JVMNetworkSecurity.safeRedirectUri(request.uri(), location.get());
+        return Optional.of(buildRedirectRequest(request, redirectUri, response.statusCode()));
     }
 
-    private void closeQuietly(InputStream body) {
-        if (body == null) return;
-        try {
-            body.close();
-        } catch (IOException e) {
-            logger.log(Level.FINEST, "Failed to close HTTP response body", e);
+    private <T> void closeRedirectResponseBody(HttpResponse<T> response) {
+        Object responseBody = response.body();
+        if (responseBody instanceof InputStream) {
+            try {
+                ((InputStream) responseBody).close();
+            } catch (IOException e) {
+                logger.log(Level.FINEST, "Error closing redirect response body", e);
+            }
         }
+    }
+
+    private HttpRequest buildRedirectRequest(HttpRequest originalRequest, URI redirectUri, int statusCode) {
+        HttpRequest.Builder redirectBuilder = HttpRequest.newBuilder().uri(redirectUri);
+        originalRequest.timeout().ifPresent(redirectBuilder::timeout);
+        originalRequest.headers().map().forEach((name, values) -> values.forEach(value -> redirectBuilder.header(name, value)));
+
+        String method = originalRequest.method();
+        if (statusCode == 303 || ((statusCode == 301 || statusCode == 302) && method.equalsIgnoreCase("POST"))) {
+            redirectBuilder.GET();
+        } else {
+            redirectBuilder.method(method, originalRequest.bodyPublisher().orElse(HttpRequest.BodyPublishers.noBody()));
+        }
+        return redirectBuilder.build();
     }
 
     private final List<String> protectedHttpHeaders = List.of("content-length", "host", "transfer-encoding", "connection");

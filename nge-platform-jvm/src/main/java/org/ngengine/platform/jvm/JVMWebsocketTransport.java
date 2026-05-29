@@ -33,7 +33,6 @@ package org.ngengine.platform.jvm;
 import static org.ngengine.platform.NGEUtils.dbg;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
@@ -78,7 +77,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         HttpClient.Builder b = HttpClient
             .newBuilder()
             .connectTimeout(CONNECT_TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NORMAL)
+            .followRedirects(HttpClient.Redirect.NEVER)
             .executor(executor);
         this.httpClient = b.build();
     }
@@ -149,7 +148,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     httpClient
                         .newWebSocketBuilder()
                         .connectTimeout(CONNECT_TIMEOUT)
-                        .buildAsync(URI.create(url), this)
+                        .buildAsync(JVMNetworkSecurity.safeWebSocketUri(url), this)
                         .handle((r, e) -> {
                             if (e != null) {
                                 Throwable cause = (e instanceof CompletionException && e.getCause() != null) ? e.getCause() : e;
