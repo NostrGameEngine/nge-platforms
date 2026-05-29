@@ -32,7 +32,6 @@ package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Cleaner;
