@@ -398,6 +398,56 @@ public final class JVMReachAllMain {
                 RTCTransport rtc = platform.newRTCTransport(p2pAttemptTimeout, "reach-all-conn", stun);
                 rtc.getName();
                 rtc.isConnected();
+
+                // Best-effort: try to exercise internal allocator hook and data-channel APIs when possible.
+                try {
+                    Class<?> rtcClass = rtc.getClass();
+                    // call private static configureLibDataChannelAllocatorIfRequested()
+                    try {
+                        java.lang.reflect.Method conf = rtcClass.getDeclaredMethod("configureLibDataChannelAllocatorIfRequested");
+                        conf.setAccessible(true);
+                        conf.invoke(null);
+                    } catch (NoSuchMethodException ignored) {}
+
+                    // try to add a listener and call addRemoteIceCandidates with empty list
+                    try {
+                        rtc.addListener(new org.ngengine.platform.transport.RTCTransportListener() {
+                            @Override public void onLocalRTCIceCandidate(org.ngengine.platform.transport.RTCTransportIceCandidate candidate) {}
+                            @Override public void onRTCBinaryMessage(org.ngengine.platform.transport.RTCDataChannel channel, java.nio.ByteBuffer msg) {}
+                            @Override public void onRTCChannelError(org.ngengine.platform.transport.RTCDataChannel channel, Throwable e) {}
+                            @Override public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
+                            @Override public void onRTCBufferedAmountLow(org.ngengine.platform.transport.RTCDataChannel channel) {}
+                            @Override public void onRTCChannelClosed(org.ngengine.platform.transport.RTCDataChannel channel) {}
+                            @Override public void onRTCDisconnected(String reason) {}
+                            @Override public void onRTCConnected() {}
+                        });
+                    } catch (Throwable ignored) {}
+
+                    try {
+                        rtc.addRemoteIceCandidates(new ArrayList<>());
+                    } catch (Throwable ignored) {}
+
+                    // Try to create a data channel as best-effort initiator path.
+                    try {
+                        // call listen() to become initiator then create a channel
+                        rtc.listen();
+                        org.ngengine.platform.AsyncTask<org.ngengine.platform.transport.RTCDataChannel> chTask =
+                            rtc.createDataChannel("reach-all", null, true, true, -1, null);
+                        try {
+                            org.ngengine.platform.transport.RTCDataChannel ch = chTask.await();
+                            if (ch != null) {
+                                // write a small message (best-effort)
+                                try {
+                                    ch.write(java.nio.ByteBuffer.wrap(new byte[] { 1, 2, 3 }));
+                                } catch (Throwable ignored) {}
+                                try {
+                                    ch.close();
+                                } catch (Throwable ignored) {}
+                            }
+                        } catch (Throwable ignored) {}
+                    } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
+
                 rtc.close();
                 return null;
             }
@@ -492,6 +542,30 @@ public final class JVMReachAllMain {
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
                 return Schnorr.verify(msg, pk, sig);
+            }
+        );
+
+        safeRun(
+            "clipboard",
+            () -> {
+                try {
+                    NGEUtils.getPlatform().setClipboardContent("nge-reachall");
+                } catch (Throwable ignored) {}
+                try {
+                    // best-effort retrieve
+                    await(NGEUtils.getPlatform().getClipboardContent());
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "open-browser",
+            () -> {
+                try {
+                    NGEUtils.getPlatform().openInWebBrowser("http://127.0.0.1/");
+                } catch (Throwable ignored) {}
+                return null;
             }
         );
     }
