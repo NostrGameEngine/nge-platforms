@@ -4884,6 +4884,9 @@
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$Context"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$RedirectMethod"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor",
             "methods": [
                 {

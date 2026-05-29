@@ -36,6 +36,7 @@ import static org.junit.Assert.fail;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.net.http.HttpClient;
 import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -124,8 +125,8 @@ public class JVMAsyncPlatformRedirectTest {
         }
 
         @Override
-        public Version version() {
-            return Version.HTTP_1_1;
+        public HttpClient.Version version() {
+            return HttpClient.Version.HTTP_1_1;
         }
     }
 }
