@@ -80,8 +80,64 @@ public final class JVMReachAllMain {
         exerciseStorage(platform);
         exerciseTransports(platform);
         exerciseHttpRequests(platform);
+        exerciseNetworkSecurity(platform);
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses();
+    }
+
+    private static void exerciseNetworkSecurity(JVMAsyncPlatform platform) {
+        safeRun(
+            "network-safe-http",
+            () -> {
+                try {
+                    JVMNetworkSecurity.safeHttpUri("http://example.com/");
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "network-safe-ws",
+            () -> {
+                try {
+                    JVMNetworkSecurity.safeWebSocketUri("ws://localhost/");
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "network-safe-redirect",
+            () -> {
+                try {
+                    java.net.URI base = java.net.URI.create("http://example.com/base/");
+                    JVMNetworkSecurity.safeRedirectUri(base, "/other");
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "is-private-address",
+            () -> {
+                try {
+                    java.net.InetAddress a = java.net.InetAddress.getByName("10.0.0.1");
+                    JVMNetworkSecurity.isPrivateOrLocalAddress(a);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "is-loopback-address",
+            () -> {
+                try {
+                    java.net.InetAddress a = java.net.InetAddress.getByName("127.0.0.1");
+                    JVMNetworkSecurity.isPrivateOrLocalAddress(a);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
     }
 
     private static void exerciseCryptoAndEncoding(JVMAsyncPlatform platform) {
