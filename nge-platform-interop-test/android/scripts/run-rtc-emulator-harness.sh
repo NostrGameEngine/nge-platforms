@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SDK_CANDIDATES=()
 if [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then SDK_CANDIDATES+=("${ANDROID_SDK_ROOT}"); fi
 if [[ -n "${ANDROID_HOME:-}" ]]; then SDK_CANDIDATES+=("${ANDROID_HOME}"); fi
-SDK_CANDIDATES+=("$HOME/Android/Sdk" "$HOME/Android")
+SDK_CANDIDATES+=("$HOME/Library/Android/sdk" "$HOME/Android/Sdk" "$HOME/Android")
 
 SDK_DIR=""
 for CANDIDATE in "${SDK_CANDIDATES[@]}"; do
