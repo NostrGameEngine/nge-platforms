@@ -4469,6 +4469,23 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.JVMAsyncPlatformRedirectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "redirectedLoopbackUrlsAreRejected",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.NGEUtilsSafetyTest",
             "methods": [
                 {
@@ -4863,6 +4880,28 @@
                     "parameterTypes": [
                         
                     ]
+                },
+                {
+                    "name": "buildValidatedRedirectRequest",
+                    "parameterTypes": [
+                        "java.net.http.HttpRequest",
+                        "java.net.http.HttpResponse",
+                        "byte[]",
+                        "java.util.Map",
+                        "java.time.Duration",
+                        "int"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
@@ -4950,6 +4989,9 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurity"
         },
         {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",

@@ -79,6 +79,7 @@ public final class JVMReachAllMain {
         exerciseAsyncAndTasks(platform);
         exerciseStorage(platform);
         exerciseTransports(platform);
+        exerciseSeCP256k1AndNetworkSecurity(platform);
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses();
@@ -405,6 +406,63 @@ public final class JVMReachAllMain {
         );
     }
 
+    private static void exerciseSeCP256k1AndNetworkSecurity(JVMAsyncPlatform platform) {
+        safeRun(
+            "secp256k1-priv-verify",
+            () -> {
+                try {
+                    return platform.secp256k1PrivateKeyVerify(platform.generatePrivateKey());
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "secp256k1-pub-create-verify",
+            () -> {
+                try {
+                    byte[] sk = platform.generatePrivateKey();
+                    byte[] pk = platform.secp256k1PublicKeyCreate(sk, true);
+                    return platform.secp256k1PublicKeyVerify(pk);
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "secp256k1-sign-recover",
+            () -> {
+                try {
+                    byte[] hash = platform.sha256("recover".getBytes(StandardCharsets.UTF_8));
+                    org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature sig = platform.secp256k1SignRecoverable(hash, platform.generatePrivateKey());
+                    byte[] compact = sig.getSignature64();
+                    int rid = sig.getRecoveryId();
+                    return platform.secp256k1RecoverPublicKey(hash, compact, rid, true);
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "network-safe-uris",
+            () -> {
+                try {
+                    JVMNetworkSecurity.safeHttpUri("http://example.com/");
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNetworkSecurity.safeWebSocketUri("ws://127.0.0.1:8080/");
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNetworkSecurity.safeRedirectUri(URI.create("http://example.com/"), "/path");
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+    }
+
     private static void exerciseHttpRequests(JVMAsyncPlatform platform) {
         safeRun(
             "http-local-server",
@@ -528,7 +586,8 @@ public final class JVMReachAllMain {
             "org.ngengine.platform.jvm.FileSystemVStore",
             "org.ngengine.platform.jvm.Point",
             "org.ngengine.platform.jvm.Schnorr",
-            "org.ngengine.platform.jvm.Util"
+            "org.ngengine.platform.jvm.Util",
+            "org.ngengine.platform.jvm.JVMNetworkSecurity"
         );
 
         for (String className : classNames) {
