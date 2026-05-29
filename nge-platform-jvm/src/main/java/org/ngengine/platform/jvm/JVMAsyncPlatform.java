@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -953,7 +954,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
         HttpClient httpClient = newHttpClient(timeout);
         return wrapPromise((res, rej) -> {
             try {
-                sendHttpRequestStream(httpClient, method.toUpperCase(), url, body, timeout, headers, 0)
+                HttpRequest request = newHttpRequest(method.toUpperCase(), url, body, timeout, headers);
+                sendHttpRequestStream(httpClient, request, body, headers, timeout, 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -988,7 +990,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
         HttpClient httpClient = newHttpClient(timeout);
         return wrapPromise((res, rej) -> {
             try {
-                sendHttpRequest(httpClient, method.toUpperCase(), url, body, timeout, headers, 0)
+                HttpRequest request = newHttpRequest(method.toUpperCase(), url, body, timeout, headers);
+                sendHttpRequest(httpClient, request, body, headers, timeout, 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -1034,36 +1037,27 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     private CompletableFuture<NGEHttpResponse> sendHttpRequest(
         HttpClient httpClient,
-        String method,
-        URI url,
-        byte[] body,
-        Duration timeout,
+        HttpRequest request,
+        byte[] originalBody,
         Map<String, String> headers,
+        Duration timeout,
         int redirects
     ) {
-        HttpRequest request = newHttpRequest(method, url, body, timeout, headers);
         return httpClient
             .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
             .thenComposeAsync(
                 response -> {
-                    if (isRedirect(response.statusCode())) {
+                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
+                        request,
+                        response,
+                        originalBody,
+                        headers,
+                        timeout,
+                        redirects
+                    );
+                    if (redirectRequest.isPresent()) {
                         closeQuietly(response.body());
-                        URI redirectUri = redirectUri(url, response);
-                        if (redirectUri != null) {
-                            if (redirects >= MAX_HTTP_REDIRECTS) {
-                                return CompletableFuture.failedFuture(new IOException("Too many HTTP redirects"));
-                            }
-                            RedirectMethod redirectMethod = redirectMethod(method, body, response.statusCode());
-                            return sendHttpRequest(
-                                httpClient,
-                                redirectMethod.method,
-                                redirectUri,
-                                redirectMethod.body,
-                                timeout,
-                                headers,
-                                redirects + 1
-                            );
-                        }
+                        return sendHttpRequest(httpClient, redirectRequest.get(), originalBody, headers, timeout, redirects + 1);
                     }
                     if (isBufferedHttpResponseTooLarge(response)) {
                         closeQuietly(response.body());
@@ -1087,36 +1081,34 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     private CompletableFuture<NGEHttpResponseStream> sendHttpRequestStream(
         HttpClient httpClient,
-        String method,
-        URI url,
-        byte[] body,
-        Duration timeout,
+        HttpRequest request,
+        byte[] originalBody,
         Map<String, String> headers,
+        Duration timeout,
         int redirects
     ) {
-        HttpRequest request = newHttpRequest(method, url, body, timeout, headers);
         return httpClient
             .sendAsync(request, HttpResponse.BodyHandlers.ofInputStream())
             .thenComposeAsync(
                 response -> {
-                    if (isRedirect(response.statusCode())) {
+                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
+                        request,
+                        response,
+                        originalBody,
+                        headers,
+                        timeout,
+                        redirects
+                    );
+                    if (redirectRequest.isPresent()) {
                         closeQuietly(response.body());
-                        URI redirectUri = redirectUri(url, response);
-                        if (redirectUri != null) {
-                            if (redirects >= MAX_HTTP_REDIRECTS) {
-                                return CompletableFuture.failedFuture(new IOException("Too many HTTP redirects"));
-                            }
-                            RedirectMethod redirectMethod = redirectMethod(method, body, response.statusCode());
-                            return sendHttpRequestStream(
-                                httpClient,
-                                redirectMethod.method,
-                                redirectUri,
-                                redirectMethod.body,
-                                timeout,
-                                headers,
-                                redirects + 1
-                            );
-                        }
+                        return sendHttpRequestStream(
+                            httpClient,
+                            redirectRequest.get(),
+                            originalBody,
+                            headers,
+                            timeout,
+                            redirects + 1
+                        );
                     }
                     return CompletableFuture.completedFuture(
                         new NGEHttpResponseStream(
@@ -1162,41 +1154,67 @@ public class JVMAsyncPlatform extends NGEPlatform {
             .anyMatch(length -> length > MAX_HTTP_BUFFERED_RESPONSE_BYTES || !getMemoryLimits().checkForData(length));
     }
 
-    private URI redirectUri(URI currentUrl, HttpResponse<?> response) {
-        return response
-            .headers()
-            .firstValue("location")
-            .map(location -> NGEUtils.safeURI(currentUrl.resolve(location)))
-            .orElse(null);
+    private Optional<HttpRequest> buildValidatedRedirectRequest(
+        HttpRequest request,
+        HttpResponse<?> response,
+        byte[] originalBody,
+        Map<String, String> headers,
+        Duration timeout,
+        int redirects
+    ) {
+        int statusCode = response.statusCode();
+        if (!isRedirectStatus(statusCode)) return Optional.empty();
+
+        if (redirects >= MAX_HTTP_REDIRECTS) {
+            throw new IllegalArgumentException("Too many HTTP redirects");
+        }
+
+        Optional<String> location = response.headers().firstValue("location");
+        if (location.isEmpty()) return Optional.empty();
+
+        URI redirectUri = NGEUtils.safeURI(request.uri().resolve(location.get()));
+        if (!isAllowedRedirect(request.uri(), redirectUri)) return Optional.empty();
+
+        String method = redirectMethod(request.method(), statusCode);
+        HttpRequest.BodyPublisher bodyPublisher = method.equals("GET")
+            ? HttpRequest.BodyPublishers.noBody()
+            : originalBody == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(originalBody);
+
+        HttpRequest.Builder requestBuilder = HttpRequest
+            .newBuilder()
+            .uri(redirectUri)
+            .header(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+            );
+        requestBuilder.method(method, bodyPublisher);
+        applyHeaders(headers, requestBuilder);
+        requestBuilder.timeout(timeout);
+        return Optional.of(requestBuilder.build());
     }
 
-    private boolean isRedirect(int statusCode) {
+    private boolean isRedirectStatus(int statusCode) {
         return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
     }
 
-    private RedirectMethod redirectMethod(String method, byte[] body, int statusCode) {
-        if (statusCode == 303 && !method.equals("GET") && !method.equals("HEAD")) {
-            return new RedirectMethod("GET", null);
+    private boolean isAllowedRedirect(URI from, URI to) {
+        return !(from.getScheme().equalsIgnoreCase("https") && to.getScheme().equalsIgnoreCase("http"));
+    }
+
+    private String redirectMethod(String originalMethod, int statusCode) {
+        String method = originalMethod.toUpperCase();
+        if (statusCode == 303 || ((statusCode == 301 || statusCode == 302) && method.equals("POST"))) {
+            return "GET";
         }
-        return new RedirectMethod(method, body);
+        return method;
     }
 
     private void closeQuietly(InputStream body) {
+        if (body == null) return;
         try {
             body.close();
         } catch (IOException e) {
             logger.log(Level.FINEST, "Failed to close HTTP response body", e);
-        }
-    }
-
-    private static final class RedirectMethod {
-
-        private final String method;
-        private final byte[] body;
-
-        private RedirectMethod(String method, byte[] body) {
-            this.method = method;
-            this.body = body;
         }
     }
 
