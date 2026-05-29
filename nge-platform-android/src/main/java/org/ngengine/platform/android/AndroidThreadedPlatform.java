@@ -111,6 +111,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     private final AsyncExecutor rtcExecutor = newAsyncExecutor();
     private final ScheduledExecutorService websocketExecutor = Executors.newScheduledThreadPool(4);
     private static final NGEAllocator allocator = new AndroidNGEAllocator();
+    private static final int MAX_HTTP_REDIRECTS = 20;
 
     @Override
     public NGEAllocator getNativeAllocator() {
@@ -881,6 +882,77 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         });
     }
 
+    private boolean isHttpRedirect(int statusCode) {
+        return statusCode == HttpURLConnection.HTTP_MOVED_PERM
+                || statusCode == HttpURLConnection.HTTP_MOVED_TEMP
+                || statusCode == HttpURLConnection.HTTP_SEE_OTHER
+                || statusCode == 307
+                || statusCode == 308;
+    }
+
+    private String getSafeRedirectUrl(URL requestUrl, HttpURLConnection connection) throws Exception {
+        String location = connection.getHeaderField("Location");
+        if (location == null || location.isEmpty()) {
+            return null;
+        }
+        URI redirectUri = NGEUtils.safeURI(new URL(requestUrl, location).toURI());
+        String scheme = redirectUri.getScheme().toLowerCase();
+        if (!scheme.equals("http") && !scheme.equals("https")) {
+            throw new IllegalArgumentException("Invalid HTTP redirect URI scheme: " + redirectUri.getScheme());
+        }
+        return redirectUri.toString();
+    }
+
+    private HttpURLConnection openHttpConnection(
+            String url,
+            String method,
+            byte[] body,
+            int timeoutMs,
+            Map<String, String> headers) throws Exception {
+        String currentUrl = url;
+        int redirects = 0;
+        while (true) {
+            URL requestUrl = new URL(currentUrl);
+            HttpURLConnection connection = (HttpURLConnection) requestUrl.openConnection();
+            connection.setRequestMethod(method.toUpperCase());
+            connection.setConnectTimeout(timeoutMs);
+            connection.setReadTimeout(timeoutMs);
+            connection.setInstanceFollowRedirects(false);
+
+            // Set default User-Agent
+            connection.setRequestProperty("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
+
+            // Add custom headers
+            applyHeaders(headers, connection);
+
+            // Handle request body for POST, PUT, etc.
+            if (body != null && body.length > 0) {
+                connection.setDoOutput(true);
+                try (OutputStream os = connection.getOutputStream()) {
+                    os.write(body);
+                    os.flush();
+                }
+            }
+
+            int statusCode = connection.getResponseCode();
+            if (!isHttpRedirect(statusCode)) {
+                return connection;
+            }
+
+            String redirectUrl = getSafeRedirectUrl(requestUrl, connection);
+            if (redirectUrl == null) {
+                return connection;
+            }
+            connection.disconnect();
+            redirects++;
+            if (redirects > MAX_HTTP_REDIRECTS) {
+                throw new IOException("Too many HTTP redirects");
+            }
+            currentUrl = redirectUrl;
+        }
+    }
+
     @Override
     public AsyncTask<NGEHttpResponseStream> httpRequestStream(
             String method,
@@ -896,44 +968,10 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             httpExecutor.run(() -> {
                 HttpURLConnection connection = null;
                 try {
-                    URI currentUri = URI.create(url);
-                    int statusCode = -1;
-                    for (int redirects = 0; redirects <= 5; redirects++) {
-                        connection = (HttpURLConnection) currentUri.toURL().openConnection();
-                        connection.setRequestMethod(method.toUpperCase());
-                        connection.setConnectTimeout(timeoutMs);
-                        connection.setReadTimeout(timeoutMs);
-                        connection.setInstanceFollowRedirects(false);
+                    connection = openHttpConnection(url, method, body, timeoutMs, headers);
 
-                        // Set default User-Agent
-                        connection.setRequestProperty("User-Agent",
-                                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
-
-                        // Add custom headers
-                        applyHeaders(headers, connection);
-
-                        // Handle request body for POST, PUT, etc.
-                        if (body != null && body.length > 0) {
-                            connection.setDoOutput(true);
-                            try (OutputStream os = connection.getOutputStream()) {
-                                os.write(body);
-                                os.flush();
-                            }
-                        }
-
-                        // Get response
-                        statusCode = connection.getResponseCode();
-                        String location = connection.getHeaderField("Location");
-                        if (statusCode < 300 || statusCode >= 400 || location == null) {
-                            break;
-                        }
-                        connection.disconnect();
-                        connection = null;
-                        if (redirects == 5) {
-                            throw new IOException("Too many HTTP redirects");
-                        }
-                        currentUri = NGEUtils.safeURI(currentUri.resolve(location)).normalize();
-                    }
+                    // Get response
+                    int statusCode = connection.getResponseCode();
 
                     // Read response body
                     InputStream data = statusCode >= 400
@@ -980,27 +1018,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             httpExecutor.run(() -> {
                 HttpURLConnection connection = null;
                 try {
-                    connection = (HttpURLConnection) new URL(url).openConnection();
-                    connection.setRequestMethod(method.toUpperCase());
-                    connection.setConnectTimeout(timeoutMs);
-                    connection.setReadTimeout(timeoutMs);
-                    connection.setInstanceFollowRedirects(true);
-
-                    // Set default User-Agent
-                    connection.setRequestProperty("User-Agent",
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0");
-
-                    // Add custom headers
-                    applyHeaders(headers, connection);
-
-                    // Handle request body for POST, PUT, etc.
-                    if (body != null && body.length > 0) {
-                        connection.setDoOutput(true);
-                        try (OutputStream os = connection.getOutputStream()) {
-                            os.write(body);
-                            os.flush();
-                        }
-                    }
+                    connection = openHttpConnection(url, method, body, timeoutMs, headers);
 
                     // Get response
                     int statusCode = connection.getResponseCode();
