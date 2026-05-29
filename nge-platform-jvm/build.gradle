@@ -60,7 +60,13 @@ def nativeImageConfigDir = layout.projectDirectory.dir("src/main/resources/META-
 def nativeImageReachabilityMetadataFile = nativeImageConfigDir.file('reachability-metadata.json')
 def nativeImageLegacyReflectConfigFile = nativeImageConfigDir.file('reflect-config.json')
 def forcedReachabilityReflectionTypes = [
-        'org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi$ECDSA'
+        'org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi$ECDSA',
+        // Ensure key internal JVM platform nested classes are always available to native-image
+        'org.ngengine.platform.jvm.JVMAsyncPlatform$Context',
+        'org.ngengine.platform.jvm.JVMNGEAllocator$AllocationRef',
+        'org.ngengine.platform.jvm.Point$JacobianPoint',
+        'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
+        'org.ngengine.platform.jvm.JVMReachAllMain$ReachDto'
 ]
 
 def ensureJavaExecutableAvailable = { File executable, String taskName ->
