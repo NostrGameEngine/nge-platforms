@@ -79,6 +79,7 @@ tasks.register('jvmWebsocketParityJvmSide', JavaExec) {
     dependsOn classes
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.ngengine.platform.jvm.JVMWebsocketParityMain'
+    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true'
     doFirst {
         args = []
         if (project.hasProperty('interopSignalBase')) {
