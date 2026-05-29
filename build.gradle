@@ -80,7 +80,8 @@ def applyConf(proj, isAndroid){
             withJavadocJar()
             withSourcesJar()
         }
-        proj.apply plugin: "com.github.spotbugs"
+        // SpotBugs still references removed Gradle internals on Gradle 9.
+        // Keep it out of local composite builds so consumers can import sources.
 
 
      
@@ -146,7 +147,7 @@ def applyConf(proj, isAndroid){
                         if (proj.plugins.hasPlugin("java-library")) {
                             from(proj.components.java)
                         }
-                        else if (proj.plugins.hasPlugin("com.android.library")) {
+                        else if (proj.plugins.hasPlugin("com.android.library") && proj.components.findByName("release") != null) {
                             from(proj.components["release"])
                         }
 
