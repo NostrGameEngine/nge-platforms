@@ -81,6 +81,7 @@ public final class JVMReachAllMain {
         exerciseTransports(platform);
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
+        exerciseNetworkSecurity();
         exerciseUtilityClasses();
     }
 
@@ -514,6 +515,69 @@ public final class JVMReachAllMain {
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
                 return Schnorr.verify(msg, pk, sig);
+            }
+        );
+    }
+
+    private static void exerciseNetworkSecurity() {
+        safeRun(
+            "network-safe-http",
+            () -> {
+                try {
+                    java.net.URI u = JVMNetworkSecurity.safeHttpUri("http://example.com");
+                    return u != null;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "network-safe-ws",
+            () -> {
+                try {
+                    java.net.URI u = JVMNetworkSecurity.safeWebSocketUri("ws://example.com");
+                    return u != null;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "network-safe-redirect",
+            () -> {
+                try {
+                    java.net.URI base = java.net.URI.create("http://example.com/path/");
+                    java.net.URI r = JVMNetworkSecurity.safeRedirectUri(base, "/new");
+                    return r != null;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "network-is-private-loopback",
+            () -> {
+                try {
+                    java.net.InetAddress loop = java.net.InetAddress.getByName("127.0.0.1");
+                    return JVMNetworkSecurity.isPrivateOrLocalAddress(loop);
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "network-is-private-public",
+            () -> {
+                try {
+                    java.net.InetAddress pub = java.net.InetAddress.getByName("8.8.8.8");
+                    return JVMNetworkSecurity.isPrivateOrLocalAddress(pub) == false;
+                } catch (Throwable ignored) {
+                    return null;
+                }
             }
         );
     }
