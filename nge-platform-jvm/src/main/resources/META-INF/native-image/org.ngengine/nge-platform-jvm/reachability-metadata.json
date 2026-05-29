@@ -4930,6 +4930,43 @@
                     ]
                 },
                 {
+                    "name": "getSoftBudgetForTests",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "notifyGC",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "resetStateForTests",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setTestHooks",
+                    "parameterTypes": [
+                        "java.util.function.LongSupplier",
+                        "java.util.function.LongSupplier",
+                        "java.lang.Runnable"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNGEAllocatorGuard",
+            "methods": [
+                {
+                    "name": "beforeAlloc",
+                    "parameterTypes": [
+                        "long"
+                    ]
+                },
+                {
                     "name": "notifyGC",
                     "parameterTypes": [
                         
@@ -5111,6 +5148,53 @@
                     "name": "getG",
                     "parameterTypes": [
                         
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.Point$JacobianPoint",
+            "methods": [
+                {
+                    "name": "add",
+                    "parameterTypes": [
+                        "org.ngengine.platform.jvm.Point$JacobianPoint",
+                        "org.ngengine.platform.jvm.Point$JacobianPoint"
+                    ]
+                },
+                {
+                    "name": "computeWNAF",
+                    "parameterTypes": [
+                        "java.math.BigInteger",
+                        "int"
+                    ]
+                },
+                {
+                    "name": "doubleScalarWNAF",
+                    "parameterTypes": [
+                        "org.ngengine.platform.jvm.Point$JacobianPoint",
+                        "java.math.BigInteger",
+                        "org.ngengine.platform.jvm.Point$JacobianPoint",
+                        "java.math.BigInteger"
+                    ]
+                },
+                {
+                    "name": "precomputeG",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "wNAFScalarMul",
+                    "parameterTypes": [
+                        "org.ngengine.platform.jvm.Point$JacobianPoint",
+                        "java.math.BigInteger"
+                    ]
+                },
+                {
+                    "name": "wNAFScalarMulPrecomputed",
+                    "parameterTypes": [
+                        "java.math.BigInteger"
                     ]
                 }
             ]

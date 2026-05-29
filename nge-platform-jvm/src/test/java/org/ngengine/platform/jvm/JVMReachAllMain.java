@@ -82,6 +82,7 @@ public final class JVMReachAllMain {
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses();
+        exerciseDeepInternals(platform);
     }
 
     private static void exerciseCryptoAndEncoding(JVMAsyncPlatform platform) {
@@ -544,6 +545,64 @@ public final class JVMReachAllMain {
                 }
             );
         }
+    }
+
+    private static void exerciseDeepInternals(JVMAsyncPlatform platform) {
+        // Best-effort invocation of internal/private helpers to improve reachability.
+        safeRun(
+            "deep-internals-allocator-guard",
+            () -> {
+                try {
+                    // Access test hooks and internal reset paths
+                    Class<?> guard = Class.forName("org.ngengine.platform.jvm.JVMNGEAllocatorGuard");
+                    try {
+                        java.lang.reflect.Method setHooks = guard.getDeclaredMethod("setTestHooks", java.util.function.LongSupplier.class, java.util.function.LongSupplier.class, Runnable.class);
+                        setHooks.setAccessible(true);
+                        java.util.function.LongSupplier ls = new java.util.function.LongSupplier() { public long getAsLong() { return 0L; } };
+                        java.util.function.LongSupplier now = new java.util.function.LongSupplier() { public long getAsLong() { return System.currentTimeMillis(); } };
+                        Runnable r = new Runnable() { public void run() {} };
+                        setHooks.invoke(null, ls, now, r);
+                    } catch (NoSuchMethodException ignored) {}
+
+                    try {
+                        java.lang.reflect.Method getSoft = guard.getDeclaredMethod("getSoftBudgetForTests");
+                        getSoft.setAccessible(true);
+                        Object v = getSoft.invoke(null);
+                    } catch (NoSuchMethodException ignored) {}
+
+                    try {
+                        java.lang.reflect.Method reset = guard.getDeclaredMethod("resetStateForTests");
+                        reset.setAccessible(true);
+                        reset.invoke(null);
+                    } catch (NoSuchMethodException ignored) {}
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+
+        safeRun(
+            "deep-internals-point-jacobian",
+            () -> {
+                try {
+                    Class<?> jac = Class.forName("org.ngengine.platform.jvm.Point$JacobianPoint");
+                    for (java.lang.reflect.Method m : jac.getDeclaredMethods()) {
+                        m.setAccessible(true);
+                        // invoke static methods with guess of args where possible
+                        if ((m.getModifiers() & java.lang.reflect.Modifier.STATIC) != 0) {
+                            Class<?>[] p = m.getParameterTypes();
+                            Object[] args = new Object[p.length];
+                            for (int i = 0; i < p.length; i++) {
+                                if (p[i] == int.class) args[i] = 0;
+                                else if (p[i] == java.math.BigInteger.class) args[i] = java.math.BigInteger.ONE;
+                                else args[i] = null;
+                            }
+                            try { m.invoke(null, args); } catch (Throwable ignored) {}
+                        }
+                    }
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
     }
 
     private static void exerciseDirectReflectionInvocations(JVMAsyncPlatform platform) {
