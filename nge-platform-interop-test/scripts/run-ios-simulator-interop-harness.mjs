@@ -7,6 +7,10 @@ const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname),
 const repoRoot = path.resolve(projectDir, '..');
 const state = { ios: null };
 const INTEROP_TITLE = 'Interop: iOS Simulator <-> Node Harness';
+const buildTask = ':nge-platform-interop-test:ios:buildIosSimulatorApp';
+const runTask = ':nge-platform-interop-test:ios:runIosSimulatorInteropHarness';
+const iosSimulatorDevice = process.env.IOS_SIMULATOR_DEVICE || process.env.IOS_SIMULATOR_UDID || '';
+const iosResultTimeoutMs = Number.parseInt(process.env.IOS_INTEROP_RESULT_TIMEOUT_MS || `${8 * 60 * 1000}`, 10);
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -66,17 +70,35 @@ function createLinePrefixWriter(target, prefix) {
   };
 }
 
-function spawnCapture(cmd, args, { cwd, env, label } = {}) {
+function spawnCapture(cmd, args, { cwd, env, label, timeoutMs } = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, { cwd, env: { ...process.env, ...(env || {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
+    let killTimer = null;
+    const timeoutTimer = timeoutMs
+      ? setTimeout(() => {
+          timedOut = true;
+          stderr += `\nTimed out after ${timeoutMs}ms; terminating ${cmd} ${args.join(' ')}\n`;
+          child.kill('SIGTERM');
+          killTimer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+          killTimer.unref?.();
+        }, timeoutMs)
+      : null;
+    timeoutTimer?.unref?.();
     const outWriter = label ? createLinePrefixWriter(process.stderr, `[${label} stdout] `) : null;
     const errWriter = label ? createLinePrefixWriter(process.stderr, `[${label} stderr] `) : null;
     child.stdout.on('data', (d) => { const s = d.toString(); stdout += s; outWriter?.push(s); });
     child.stderr.on('data', (d) => { const s = d.toString(); stderr += s; errWriter?.push(s); });
     child.on('error', reject);
-    child.on('exit', (code) => { outWriter?.flush(); errWriter?.flush(); resolve({ code: code ?? -1, stdout, stderr }); });
+    child.on('exit', (code) => {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      if (killTimer) clearTimeout(killTimer);
+      outWriter?.flush();
+      errWriter?.flush();
+      resolve({ code: timedOut ? -1 : (code ?? -1), stdout, stderr });
+    });
   });
 }
 
@@ -98,6 +120,15 @@ function waitForIosResult(timeoutMs) {
 }
 
 async function main() {
+  const simulatorArgs = iosSimulatorDevice ? [`-PiosSimulatorDevice=${iosSimulatorDevice}`] : [];
+  const buildOut = await spawnCapture('./gradlew', [buildTask, '--console=plain', ...simulatorArgs], {
+    cwd: repoRoot,
+    label: 'ios-build',
+  });
+  if (buildOut.code !== 0) {
+    throw new Error(`iOS simulator app build failed with exit code ${buildOut.code}\n${buildOut.stderr || buildOut.stdout}`);
+  }
+
   const server = makeServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
@@ -105,7 +136,7 @@ async function main() {
 
   const gradlePromise = spawnCapture(
     './gradlew',
-    [':nge-platform-interop-test:ios:runIosSimulatorInteropHarness', '--console=plain'],
+    [runTask, '-x', buildTask, '--console=plain', ...simulatorArgs],
     {
       cwd: repoRoot,
       label: 'ios',
@@ -113,13 +144,24 @@ async function main() {
         IOS_INTEROP_SIGNAL_BASE: signalBase,
         IOS_INTEROP_KIND: 'smoke',
       },
+      timeoutMs: iosResultTimeoutMs + 30_000,
     }
   );
 
   let iosResult = null;
   let resultError = null;
   try {
-    iosResult = await waitForIosResult(20 * 60 * 1000);
+    iosResult = await Promise.race([
+      waitForIosResult(iosResultTimeoutMs),
+      gradlePromise.then((out) => {
+        if (!state.ios) {
+          throw new Error(
+            `iOS simulator Gradle task exited before publishing a result (exit code ${out.code}).\n${out.stderr || out.stdout}`
+          );
+        }
+        return state.ios;
+      }),
+    ]);
   } catch (e) {
     resultError = e;
   }
