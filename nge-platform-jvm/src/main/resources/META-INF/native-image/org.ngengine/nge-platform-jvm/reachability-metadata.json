@@ -12,6 +12,9 @@
             "type": "org.ngengine.platform.jvm.JVMRTCTransport"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurity"
+        },
+        {
             "fields": [
                 {
                     "name": "classLoaderValueMap"

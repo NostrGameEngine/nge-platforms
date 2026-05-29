@@ -662,6 +662,7 @@ public final class JVMReachAllMain {
             "org.ngengine.platform.jvm.FileSystemVStore",
             "org.ngengine.platform.jvm.Point",
             "org.ngengine.platform.jvm.Schnorr",
+            "org.ngengine.platform.jvm.JVMNetworkSecurity",
             "org.ngengine.platform.jvm.Util"
         );
 

@@ -66,6 +66,7 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.JVMNGEAllocator$AllocationRef',
         'org.ngengine.platform.jvm.Point$JacobianPoint',
         'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
+        'org.ngengine.platform.jvm.JVMNetworkSecurity',
         'org.ngengine.platform.jvm.JVMReachAllMain$ReachDto'
 ]
 
