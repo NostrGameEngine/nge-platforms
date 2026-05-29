@@ -383,28 +383,34 @@ public final class JVMReachAllMain {
 
                         // Reflectively touch private fields and methods of JVMWebsocketTransport to force metadata
                         try {
-                            safeRun("ws-reflect-fields", () -> {
-                                try {
-                                    Class<?> wcls = JVMWebsocketTransport.class;
-                                    java.lang.reflect.Field f1 = wcls.getDeclaredField("messageBuffer");
-                                    f1.setAccessible(true);
-                                    Object mb = f1.get(jws);
-                                    java.lang.reflect.Field f2 = wcls.getDeclaredField("binaryBuffer");
-                                    f2.setAccessible(true);
-                                    Object bb = f2.get(jws);
-                                    java.lang.reflect.Field f3 = wcls.getDeclaredField("openWebSocket");
-                                    f3.setAccessible(true);
-                                    f3.get(jws);
+                            safeRun(
+                                "ws-reflect-fields",
+                                () -> {
                                     try {
-                                        java.lang.reflect.Method m = wcls.getDeclaredMethod("ensureBinaryCapacity", int.class);
-                                        m.setAccessible(true);
+                                        Class<?> wcls = JVMWebsocketTransport.class;
+                                        java.lang.reflect.Field f1 = wcls.getDeclaredField("messageBuffer");
+                                        f1.setAccessible(true);
+                                        Object mb = f1.get(jws);
+                                        java.lang.reflect.Field f2 = wcls.getDeclaredField("binaryBuffer");
+                                        f2.setAccessible(true);
+                                        Object bb = f2.get(jws);
+                                        java.lang.reflect.Field f3 = wcls.getDeclaredField("openWebSocket");
+                                        f3.setAccessible(true);
+                                        f3.get(jws);
                                         try {
-                                            m.invoke(jws, 1024);
+                                            java.lang.reflect.Method m = wcls.getDeclaredMethod(
+                                                "ensureBinaryCapacity",
+                                                int.class
+                                            );
+                                            m.setAccessible(true);
+                                            try {
+                                                m.invoke(jws, 1024);
+                                            } catch (Throwable ignored2) {}
                                         } catch (Throwable ignored2) {}
                                     } catch (Throwable ignored2) {}
-                                } catch (Throwable ignored2) {}
-                                return null;
-                            });
+                                    return null;
+                                }
+                            );
                         } catch (Throwable ignored) {}
                     }
                 } catch (Throwable ignored) {}
@@ -884,7 +890,10 @@ public final class JVMReachAllMain {
                     // Reflectively touch private helpers to force metadata
                     try {
                         Class<?> cls = JVMNetworkSecurity.class;
-                        java.lang.reflect.Method m1 = cls.getDeclaredMethod("isPrivateNetworkAddress", java.net.InetAddress.class);
+                        java.lang.reflect.Method m1 = cls.getDeclaredMethod(
+                            "isPrivateNetworkAddress",
+                            java.net.InetAddress.class
+                        );
                         m1.setAccessible(true);
                         m1.invoke(null, java.net.InetAddress.getByName("127.0.0.1"));
                     } catch (Throwable ignored) {}
