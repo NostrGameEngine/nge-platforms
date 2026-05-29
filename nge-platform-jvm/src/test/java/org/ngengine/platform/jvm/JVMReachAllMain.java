@@ -203,6 +203,33 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        // Exercise test hooks and deterministic guard operations
+        safeRun(
+            "allocator-test-hooks",
+            () -> {
+                try {
+                    // Install test hooks that don't call real GC or native allocator
+                    JVMNGEAllocatorGuard.setTestHooks(() -> 0L, () -> System.currentTimeMillis(), () -> {});
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                    long soft = JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                    return soft;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+
+        safeRun(
+            "new-secure-random",
+            () -> {
+                try {
+                    return JVMAsyncPlatform.newSecureRandom() != null;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
     }
 
     private static void exerciseAsyncAndTasks(JVMAsyncPlatform platform) {
@@ -286,6 +313,11 @@ public final class JVMReachAllMain {
                 WebsocketTransport ws = platform.newTransport();
                 // Basic connected state check
                 ws.isConnected();
+                // touch set/get max message size
+                try {
+                    ws.setMaxMessageSize(1024);
+                    ws.getMaxMessageSize();
+                } catch (Throwable ignored) {}
 
                 // If we have the JVM implementation, inject a mock java.net.http.WebSocket to exercise send/receive code paths
                 try {
@@ -359,6 +391,29 @@ public final class JVMReachAllMain {
                             f.set(jws, mock);
                         } catch (Throwable ignored) {}
 
+                        // add a listener to exercise listener callbacks
+                        org.ngengine.platform.transport.WebsocketTransportListener listener = new org.ngengine.platform.transport.WebsocketTransportListener() {
+                            @Override
+                            public void onConnectionOpen() {}
+
+                            @Override
+                            public void onConnectionClosedByClient(String reason) {}
+
+                            @Override
+                            public void onConnectionClosedByServer(String reason) {}
+
+                            @Override
+                            public void onConnectionMessage(String message) {}
+
+                            @Override
+                            public void onConnectionBinaryMessage(java.nio.ByteBuffer message) {}
+
+                            @Override
+                            public void onConnectionError(Throwable error) {}
+                        };
+
+                        ws.addListener(listener);
+
                         // Trigger lifecycle callbacks directly
                         try {
                             jws.onOpen(mock);
@@ -378,6 +433,11 @@ public final class JVMReachAllMain {
                             for (int i = 0; i < 70_000; i++) bigBuf.put((byte) (i & 0xFF));
                             bigBuf.flip();
                             await(ws.sendBinary(bigBuf));
+                        } catch (Throwable ignored) {}
+
+                        // remove listener
+                        try {
+                            ws.removeListener(listener);
                         } catch (Throwable ignored) {}
                     }
                 } catch (Throwable ignored) {}
