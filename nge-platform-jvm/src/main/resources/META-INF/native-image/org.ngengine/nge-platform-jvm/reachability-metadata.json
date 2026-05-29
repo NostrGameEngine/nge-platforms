@@ -1,6 +1,24 @@
 {
     "reflection": [
         {
+            "type": "org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi$ECDSA"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$Context"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNGEAllocator$AllocationRef"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.Point$JacobianPoint"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMReachAllMain$ReachDto"
+        },
+        {
             "fields": [
                 {
                     "name": "channels"

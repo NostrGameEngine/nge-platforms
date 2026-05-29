@@ -130,6 +130,18 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        safeRun(
+            "new-secure-random",
+            () -> {
+                try {
+                    java.security.SecureRandom r = JVMAsyncPlatform.newSecureRandom();
+                    return r != null;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
         safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
         safeRun(
