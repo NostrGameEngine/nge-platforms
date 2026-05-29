@@ -32,7 +32,7 @@ ext {
 def spotbugsTaskRequested = gradle.startParameter.taskNames.any { taskName ->
     taskName.toString().toLowerCase(java.util.Locale.ROOT).contains("spotbugs")
 }
-def enableSpotBugs = spotbugsTaskRequested || (findProperty("enableSpotBugs")?.toString()?.toBoolean() ?: false)
+ext.enableSpotBugs = spotbugsTaskRequested || (findProperty("enableSpotBugs")?.toString()?.toBoolean() ?: false)
 
 if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername")){
     nexusPublishing {
@@ -85,7 +85,7 @@ def applyConf(proj, isAndroid){
             withJavadocJar()
             withSourcesJar()
         }
-        if (enableSpotBugs) {
+        if (rootProject.ext.enableSpotBugs) {
             proj.apply plugin: "com.github.spotbugs"
         }
 

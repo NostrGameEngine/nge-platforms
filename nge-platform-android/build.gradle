@@ -46,19 +46,19 @@ dependencies {
     implementation libs.gson
     implementation libs.bcprov
     testImplementation libs.junit4
-    androidTestImplementation libs.androidxTestRunner
-    androidTestImplementation libs.androidxTestCore
-    androidTestImplementation libs.androidxTestExtJunit
+    androidTestImplementation libs.androidx.test.runner
+    androidTestImplementation libs.androidx.test.core
+    androidTestImplementation libs.androidx.test.ext.junit
     androidTestImplementation libs.junit4
     androidTestImplementation libs.saferalloc
-    androidTestImplementation libs.saferallocNativesAndroid
-    implementation libs.libdatachannelJavaArchDetect
-    implementation libs.libdatachannelJava
+    androidTestImplementation libs.saferalloc.natives.android
+    implementation libs.libdatachannel.java.arch.detect
+    implementation libs.libdatachannel.java
     
     implementation libs.okhttp
 
     implementation libs.saferalloc
-    implementation libs.saferallocNativesAndroid
+    implementation libs.saferalloc.natives.android
 
 
 
