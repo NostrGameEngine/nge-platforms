@@ -32,6 +32,7 @@ package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Cleaner;
@@ -54,6 +55,7 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -130,6 +132,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
+    private static final int MAX_HTTP_REDIRECTS = 5;
+    private static final long MAX_HTTP_BUFFERED_RESPONSE_BYTES = 10L * 1024L * 1024L;
 
     static {
         secureRandom = newSecureRandom();
@@ -1072,7 +1076,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
                             } else {
                                 res.accept(new NGEHttpResponse(statusCode, response.headers().map(), data, false));
                             }
-
                             return null;
                         },
                         executor
@@ -1151,8 +1154,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
         }
     }
 
-    private static final int MAX_HTTP_REDIRECTS = 5;
-
     private <T> CompletableFuture<HttpResponse<T>> sendWithValidatedRedirects(
         HttpClient httpClient,
         HttpRequest request,
@@ -1162,28 +1163,22 @@ public class JVMAsyncPlatform extends NGEPlatform {
         return httpClient
             .sendAsync(request, bodyHandler)
             .thenCompose(response -> {
-                if (!isRedirect(response.statusCode())) {
-                    return CompletableFuture.completedFuture(response);
-                }
-
-                if (redirectCount >= MAX_HTTP_REDIRECTS) {
-                    closeRedirectResponseBody(response);
-                    CompletableFuture<HttpResponse<T>> failed = new CompletableFuture<>();
-                    failed.completeExceptionally(new IOException("Too many HTTP redirects"));
-                    return failed;
-                }
-
-                String location = response.headers().firstValue("location").orElse(null);
-                if (location == null || location.isEmpty()) {
-                    return CompletableFuture.completedFuture(response);
-                }
-
-                closeRedirectResponseBody(response);
                 try {
-                    URI redirectUri = JVMNetworkSecurity.safeRedirectUri(request.uri(), location);
-                    HttpRequest redirectRequest = buildRedirectRequest(request, redirectUri, response.statusCode());
-                    return sendWithValidatedRedirects(httpClient, redirectRequest, bodyHandler, redirectCount + 1);
+                    Optional<HttpRequest> redirectRequest = buildValidatedRedirectRequest(
+                        request,
+                        response,
+                        null,
+                        null,
+                        null,
+                        redirectCount
+                    );
+                    if (redirectRequest.isEmpty()) {
+                        return CompletableFuture.completedFuture(response);
+                    }
+                    closeRedirectResponseBody(response);
+                    return sendWithValidatedRedirects(httpClient, redirectRequest.get(), bodyHandler, redirectCount + 1);
                 } catch (Throwable t) {
+                    closeRedirectResponseBody(response);
                     CompletableFuture<HttpResponse<T>> failed = new CompletableFuture<>();
                     failed.completeExceptionally(t);
                     return failed;
@@ -1193,6 +1188,31 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     private boolean isRedirect(int statusCode) {
         return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
+    }
+
+    private Optional<HttpRequest> buildValidatedRedirectRequest(
+        HttpRequest request,
+        HttpResponse<?> response,
+        byte[] originalBody,
+        Map<String, String> headers,
+        Duration timeout,
+        int redirects
+    ) {
+        if (!isRedirect(response.statusCode())) {
+            return Optional.empty();
+        }
+
+        if (redirects >= MAX_HTTP_REDIRECTS) {
+            throw new IllegalArgumentException("Too many HTTP redirects");
+        }
+
+        Optional<String> location = response.headers().firstValue("location");
+        if (location.isEmpty() || location.get().isEmpty()) {
+            return Optional.empty();
+        }
+
+        URI redirectUri = JVMNetworkSecurity.safeRedirectUri(request.uri(), location.get());
+        return Optional.of(buildRedirectRequest(request, redirectUri, response.statusCode()));
     }
 
     private <T> void closeRedirectResponseBody(HttpResponse<T> response) {
@@ -1564,9 +1584,15 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public boolean isLoopbackAddress(URI uri) {
         try {
-            // 1. Loopback and Any Local
+            // 1. Loopback, private, and any-local addresses
             InetAddress address = InetAddress.getByName(uri.getHost());
-            if (address.isLoopbackAddress() || address.isAnyLocalAddress()) return true;
+            if (
+                address.isLoopbackAddress() ||
+                address.isAnyLocalAddress() ||
+                address.isLinkLocalAddress() ||
+                address.isSiteLocalAddress() ||
+                isPrivateAddress(address)
+            ) return true;
 
             // 2. any ip of the local machine
             Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
@@ -1586,6 +1612,21 @@ public class JVMAsyncPlatform extends NGEPlatform {
             logger.log(Level.WARNING, "Error checking loopback address", e);
             return super.isLoopbackAddress(uri);
         }
+    }
+
+    private boolean isPrivateAddress(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        if (bytes.length == 4) {
+            int first = bytes[0] & 0xff;
+            int second = bytes[1] & 0xff;
+            return (
+                first == 10 ||
+                (first == 172 && second >= 16 && second <= 31) ||
+                (first == 192 && second == 168) ||
+                (first == 100 && second >= 64 && second <= 127)
+            );
+        }
+        return bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc;
     }
 
     @Override

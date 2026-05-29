@@ -1220,6 +1220,7 @@ export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej)
         method: method,
         headers: headers ? JSON.parse(headers) : {},
         signal: controller.signal,
+        redirect: 'error',
 
     };
 
