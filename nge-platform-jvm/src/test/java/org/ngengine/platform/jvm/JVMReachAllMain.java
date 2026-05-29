@@ -405,23 +405,50 @@ public final class JVMReachAllMain {
                     Class<?> rtcClass = rtc.getClass();
                     // call private static configureLibDataChannelAllocatorIfRequested()
                     try {
-                        java.lang.reflect.Method conf = rtcClass.getDeclaredMethod("configureLibDataChannelAllocatorIfRequested");
+                        java.lang.reflect.Method conf = rtcClass.getDeclaredMethod(
+                            "configureLibDataChannelAllocatorIfRequested"
+                        );
                         conf.setAccessible(true);
                         conf.invoke(null);
                     } catch (NoSuchMethodException ignored) {}
 
                     // try to add a listener and call addRemoteIceCandidates with empty list
                     try {
-                        rtc.addListener(new org.ngengine.platform.transport.RTCTransportListener() {
-                            @Override public void onLocalRTCIceCandidate(org.ngengine.platform.transport.RTCTransportIceCandidate candidate) {}
-                            @Override public void onRTCBinaryMessage(org.ngengine.platform.transport.RTCDataChannel channel, java.nio.ByteBuffer msg) {}
-                            @Override public void onRTCChannelError(org.ngengine.platform.transport.RTCDataChannel channel, Throwable e) {}
-                            @Override public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
-                            @Override public void onRTCBufferedAmountLow(org.ngengine.platform.transport.RTCDataChannel channel) {}
-                            @Override public void onRTCChannelClosed(org.ngengine.platform.transport.RTCDataChannel channel) {}
-                            @Override public void onRTCDisconnected(String reason) {}
-                            @Override public void onRTCConnected() {}
-                        });
+                        rtc.addListener(
+                            new org.ngengine.platform.transport.RTCTransportListener() {
+                                @Override
+                                public void onLocalRTCIceCandidate(
+                                    org.ngengine.platform.transport.RTCTransportIceCandidate candidate
+                                ) {}
+
+                                @Override
+                                public void onRTCBinaryMessage(
+                                    org.ngengine.platform.transport.RTCDataChannel channel,
+                                    java.nio.ByteBuffer msg
+                                ) {}
+
+                                @Override
+                                public void onRTCChannelError(
+                                    org.ngengine.platform.transport.RTCDataChannel channel,
+                                    Throwable e
+                                ) {}
+
+                                @Override
+                                public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                                @Override
+                                public void onRTCBufferedAmountLow(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                                @Override
+                                public void onRTCChannelClosed(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                                @Override
+                                public void onRTCDisconnected(String reason) {}
+
+                                @Override
+                                public void onRTCConnected() {}
+                            }
+                        );
                     } catch (Throwable ignored) {}
 
                     try {
