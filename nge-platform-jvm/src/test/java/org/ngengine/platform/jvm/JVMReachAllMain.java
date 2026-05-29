@@ -82,6 +82,7 @@ public final class JVMReachAllMain {
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses();
+        exerciseNetworkSecurity(platform);
     }
 
     private static void exerciseCryptoAndEncoding(JVMAsyncPlatform platform) {
@@ -378,6 +379,32 @@ public final class JVMReachAllMain {
                             for (int i = 0; i < 70_000; i++) bigBuf.put((byte) (i & 0xFF));
                             bigBuf.flip();
                             await(ws.sendBinary(bigBuf));
+                        } catch (Throwable ignored) {}
+
+                        // Reflectively touch private fields and methods of JVMWebsocketTransport to force metadata
+                        try {
+                            safeRun("ws-reflect-fields", () -> {
+                                try {
+                                    Class<?> wcls = JVMWebsocketTransport.class;
+                                    java.lang.reflect.Field f1 = wcls.getDeclaredField("messageBuffer");
+                                    f1.setAccessible(true);
+                                    Object mb = f1.get(jws);
+                                    java.lang.reflect.Field f2 = wcls.getDeclaredField("binaryBuffer");
+                                    f2.setAccessible(true);
+                                    Object bb = f2.get(jws);
+                                    java.lang.reflect.Field f3 = wcls.getDeclaredField("openWebSocket");
+                                    f3.setAccessible(true);
+                                    f3.get(jws);
+                                    try {
+                                        java.lang.reflect.Method m = wcls.getDeclaredMethod("ensureBinaryCapacity", int.class);
+                                        m.setAccessible(true);
+                                        try {
+                                            m.invoke(jws, 1024);
+                                        } catch (Throwable ignored2) {}
+                                    } catch (Throwable ignored2) {}
+                                } catch (Throwable ignored2) {}
+                                return null;
+                            });
                         } catch (Throwable ignored) {}
                     }
                 } catch (Throwable ignored) {}
@@ -798,6 +825,48 @@ public final class JVMReachAllMain {
                     byte[] sk = Schnorr.generatePrivateKey();
                     byte[] pk = Schnorr.genPubKey(sk);
                     Schnorr.sign("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8), sk, new byte[32]);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseNetworkSecurity(JVMAsyncPlatform platform) {
+        safeRun(
+            "network-security",
+            () -> {
+                try {
+                    // Basic URI validation paths
+                    try {
+                        JVMNetworkSecurity.safeHttpUri("http://127.0.0.1:80/");
+                    } catch (Throwable ignored) {}
+                    try {
+                        JVMNetworkSecurity.safeWebSocketUri("ws://127.0.0.1:80/");
+                    } catch (Throwable ignored) {}
+                    try {
+                        java.net.URI u = new java.net.URI("http://127.0.0.1/");
+                        JVMNetworkSecurity.safeRedirectUri(u, "/redirect");
+                    } catch (Throwable ignored) {}
+
+                    // Address classification helpers
+                    try {
+                        java.net.InetAddress a = java.net.InetAddress.getByName("127.0.0.1");
+                        JVMNetworkSecurity.isPrivateOrLocalAddress(a);
+                    } catch (Throwable ignored) {}
+
+                    // Reflectively touch private helpers to force metadata
+                    try {
+                        Class<?> cls = JVMNetworkSecurity.class;
+                        java.lang.reflect.Method m1 = cls.getDeclaredMethod("isPrivateNetworkAddress", java.net.InetAddress.class);
+                        m1.setAccessible(true);
+                        m1.invoke(null, java.net.InetAddress.getByName("127.0.0.1"));
+                    } catch (Throwable ignored) {}
+                    try {
+                        Class<?> cls = JVMNetworkSecurity.class;
+                        java.lang.reflect.Method m2 = cls.getDeclaredMethod("isLoopbackOrAnyLocal", java.net.InetAddress.class);
+                        m2.setAccessible(true);
+                        m2.invoke(null, java.net.InetAddress.getByName("127.0.0.1"));
+                    } catch (Throwable ignored) {}
                 } catch (Throwable ignored) {}
                 return null;
             }
