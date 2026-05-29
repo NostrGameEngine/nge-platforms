@@ -206,7 +206,7 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public String sha256(String data) {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
 
@@ -246,7 +246,7 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
@@ -259,10 +259,10 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public boolean schnorrVerify(String data, String sign, byte pub[]) {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
-        if (!getMemoryLimits().checkForKeys(sign.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForKeys(((long) sign.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         if (!getMemoryLimits().checkForKeys(pub.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
@@ -540,7 +540,7 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public byte[] base64decode(String data) {
-        if (!getMemoryLimits().checkForBase64(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForBase64(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         try {
@@ -552,17 +552,20 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public byte[] chacha20(byte[] key, byte[] nonce, byte[] padded, boolean forEncryption) {
+        if (key == null || key.length != 32) {
+            throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
+        }
+        if (nonce == null || nonce.length != 12) {
+            throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
+        }
+        if (padded == null) {
+            throw new IllegalArgumentException("ChaCha20 input cannot be null");
+        }
         if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         if (!getMemoryLimits().checkForKeys(nonce.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         if (!getMemoryLimits().checkForData(padded.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         try {
-            if (key == null || key.length != 32) {
-                throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
-            }
-            if (nonce == null || nonce.length != 12) {
-                throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
-            }
             ChaCha7539Engine engine = new ChaCha7539Engine();
             ParametersWithIV params = new ParametersWithIV(new KeyParameter(key), nonce);
             engine.init(forEncryption, params);
@@ -840,6 +843,12 @@ public class IosPlatform extends NGEPlatform {
     }
 
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final HttpClient httpClient = HttpClient
+        .newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NEVER)
+        .executor(executor)
+        .build();
 
     {
         Thread shutdownHook = new Thread(
@@ -954,13 +963,6 @@ public class IosPlatform extends NGEPlatform {
         URI url = IosNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient.Builder b = HttpClient
-            .newBuilder()
-            .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor);
-
-        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
                 HttpRequest.Builder requestBuilder = HttpRequest
@@ -979,7 +981,7 @@ public class IosPlatform extends NGEPlatform {
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                sendWithValidatedRedirects(httpClient, request, HttpResponse.BodyHandlers.ofInputStream(), 0)
+                sendWithValidatedRedirects(this.httpClient, request, HttpResponse.BodyHandlers.ofInputStream(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -1025,13 +1027,6 @@ public class IosPlatform extends NGEPlatform {
         URI url = IosNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient.Builder b = HttpClient
-            .newBuilder()
-            .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor);
-
-        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
                 HttpRequest.Builder requestBuilder = HttpRequest
@@ -1051,7 +1046,7 @@ public class IosPlatform extends NGEPlatform {
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                sendWithValidatedRedirects(httpClient, request, limitedByteArrayBodyHandler(), 0)
+                sendWithValidatedRedirects(this.httpClient, request, limitedByteArrayBodyHandler(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {

@@ -84,7 +84,7 @@ public class IosRTCTransport implements RTCTransport {
     private final List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private PeerConnectionConfiguration config;
     private String connId;
-    private PeerConnection conn;
+    private volatile PeerConnection conn;
     private final Map<DataChannel, RTCDataChannel> channels = new ConcurrentHashMap<>();
     private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private volatile boolean isInitiator;

@@ -115,27 +115,30 @@ public class IosWebsocketTransport implements WebsocketTransport, WebSocket.List
         return platform.wrapPromise((res, rej) -> {
             synchronized (queueMonitor) {
                 futureQueue =
-                    futureQueue.thenComposeAsync(
-                        r -> {
-                            CompletableFuture<T> future = new CompletableFuture<>();
-                            try {
-                                task.accept(
-                                    r0 -> {
-                                        future.complete(r0);
-                                        res.accept(r0);
-                                    },
-                                    e -> {
-                                        future.completeExceptionally(e);
-                                        rej.accept(e);
-                                    }
-                                );
-                            } catch (Exception e) {
-                                future.completeExceptionally(e);
-                            }
-                            return future;
-                        },
-                        executor
-                    );
+                    futureQueue
+                        .handle((r, ex) -> null)
+                        .thenComposeAsync(
+                            r -> {
+                                CompletableFuture<T> future = new CompletableFuture<>();
+                                try {
+                                    task.accept(
+                                        r0 -> {
+                                            future.complete(r0);
+                                            res.accept(r0);
+                                        },
+                                        e -> {
+                                            future.completeExceptionally(e);
+                                            rej.accept(e);
+                                        }
+                                    );
+                                } catch (Exception e) {
+                                    future.completeExceptionally(e);
+                                    rej.accept(e);
+                                }
+                                return future;
+                            },
+                            executor
+                        );
             }
         });
     }

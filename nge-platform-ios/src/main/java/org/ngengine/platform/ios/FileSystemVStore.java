@@ -30,7 +30,6 @@
  */
 package org.ngengine.platform.ios;
 
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,7 +62,7 @@ public class FileSystemVStore implements VStoreBackend {
                 (res, rej) -> {
                     try {
                         Path fullPath = Util.safePath(basePath, path, false);
-                        FileInputStream is = new FileInputStream(fullPath.toFile());
+                        InputStream is = Files.newInputStream(fullPath);
                         res.accept(is);
                     } catch (IOException e) {
                         rej.accept(e);
@@ -82,8 +81,19 @@ public class FileSystemVStore implements VStoreBackend {
                     try {
                         Path fullPath = Util.safePath(basePath, path, true);
                         SafeFileOutputStream os = new SafeFileOutputStream(fullPath);
-                        res.accept(os);
+                        try {
+                            res.accept(os);
+                        } catch (RuntimeException e) {
+                            try {
+                                os.close();
+                            } catch (IOException closeError) {
+                                e.addSuppressed(closeError);
+                            }
+                            throw e;
+                        }
                     } catch (IOException e) {
+                        rej.accept(e);
+                    } catch (RuntimeException e) {
                         rej.accept(e);
                     }
                 },
@@ -134,9 +144,8 @@ public class FileSystemVStore implements VStoreBackend {
             .get()
             .promisify(
                 (res, rej) -> {
-                    try {
-                        List<String> files = Files
-                            .walk(basePath)
+                    try (var walk = Files.walk(basePath)) {
+                        List<String> files = walk
                             .filter(Files::isRegularFile)
                             .map(basePath::relativize)
                             .map(Path::toString)

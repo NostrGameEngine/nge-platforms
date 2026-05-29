@@ -60,9 +60,13 @@ final class IosNetworkSecurity {
 
     private static URI validateUri(Object input, List<String> allowedSchemes, String purpose) {
         URI uri = NGEUtils.safeURI(input);
-        String scheme = uri.getScheme().toLowerCase();
+        String rawScheme = uri.getScheme();
+        if (rawScheme == null) {
+            throw new IllegalArgumentException(purpose + " URI scheme is not allowed: null");
+        }
+        String scheme = rawScheme.toLowerCase();
         if (!allowedSchemes.contains(scheme)) {
-            throw new IllegalArgumentException(purpose + " URI scheme is not allowed: " + uri.getScheme());
+            throw new IllegalArgumentException(purpose + " URI scheme is not allowed: " + rawScheme);
         }
         validateHost(uri, purpose);
         return uri;

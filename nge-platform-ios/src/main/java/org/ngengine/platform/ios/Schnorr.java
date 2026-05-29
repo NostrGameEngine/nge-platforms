@@ -112,10 +112,10 @@ class Schnorr {
                 // We have a valid nonce
                 break;
             }
+        }
 
-            if (attempt == 21 - 1) {
-                throw new RuntimeException("Failed due to bad luck.");
-            }
+        if (k0 == null || k0.compareTo(BigInteger.ZERO) == 0) {
+            throw new RuntimeException("Failed due to bad luck.");
         }
 
         // Compute R = k0*G

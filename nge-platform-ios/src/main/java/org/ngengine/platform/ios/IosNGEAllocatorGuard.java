@@ -258,21 +258,19 @@ public class IosNGEAllocatorGuard {
     }
 
     private static void requestGC(long now) {
-        if (now - lastGCRun.get() >= gcIntervalMillis) {
-            if (LOGGER.isLoggable(Level.FINER)) {
-                LOGGER.log(Level.FINER, "!!! Requesting GC...");
-            }
-
-            // Calling gc() twice is a common heuristic to increase the likelihood of a full
-            // garbage collection cycle, which is important for timely release of native memory.
-            gcInvoker.run();
-            gcInvoker.run();
-
-            lastGCRun.updateAndGet(v -> {
-                if (v < now) return now;
-                return v;
-            });
+        long last = lastGCRun.get();
+        if (now - last < gcIntervalMillis || !lastGCRun.compareAndSet(last, now)) {
+            return;
         }
+
+        if (LOGGER.isLoggable(Level.FINER)) {
+            LOGGER.log(Level.FINER, "!!! Requesting GC...");
+        }
+
+        // Calling gc() twice is a common heuristic to increase the likelihood of a full
+        // garbage collection cycle, which is important for timely release of native memory.
+        gcInvoker.run();
+        gcInvoker.run();
     }
 
     // Test-only hooks to keep unit tests deterministic without real native allocations or GC calls.
