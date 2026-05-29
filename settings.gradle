@@ -4,6 +4,7 @@ pluginManagement {
         mavenCentral()
         gradlePluginPortal()
         mavenLocal()
+        maven { url = uri("https://central.sonatype.com/repository/maven-snapshots") }
         maven { url = uri("https://teavm.org/maven/repository") }
     }
     plugins {
@@ -28,13 +29,74 @@ toolchainManagement {
 
 rootProject.name = "nge-platforms"
 
+def requestedTasks = gradle.startParameter.taskNames.collect { it.toString() }
+def projectProperties = gradle.startParameter.projectProperties
+def enabledFlag = { String name ->
+    def value = projectProperties[name]
+    value != null && value.toString().toBoolean()
+}
+def directTaskFor = { String pathPrefix ->
+    requestedTasks.any { taskName ->
+        taskName == pathPrefix || taskName.startsWith(pathPrefix + ":")
+    }
+}
+def androidSdkCandidates = [
+    System.getProperty("android.home"),
+    System.getenv("ANDROID_SDK_ROOT"),
+    System.getenv("ANDROID_HOME"),
+    new File(System.getProperty("user.home"), "Library/Android/sdk").absolutePath,
+    new File(System.getProperty("user.home"), "Android/Sdk").absolutePath
+].findAll { it != null && it.toString().trim() }
+def androidSdkDir = androidSdkCandidates.collect { file(it) }.find { candidate ->
+    new File(candidate, "platforms").isDirectory()
+}
+def hasAndroidSdk = androidSdkDir != null
+if (hasAndroidSdk && System.getProperty("android.home") == null) {
+    System.setProperty("android.home", androidSdkDir.absolutePath)
+}
+def osName = System.getProperty("os.name", "").toLowerCase(Locale.ROOT)
+def isMacOs = osName.contains("mac")
+def hasIosSimulatorToolchain = isMacOs && file("/usr/bin/xcrun").isFile()
+
+def forceAndroid = enabledFlag("forceAndroid") || enabledFlag("forceAndroidInterop") || enabledFlag("includeAndroid")
+def forceIosInterop = enabledFlag("forceIos") || enabledFlag("forceIosInterop") || enabledFlag("includeIosInterop")
+def directAndroidTask = directTaskFor(":nge-platform-android") || directTaskFor(":nge-platform-interop-test:android")
+def directIosInteropTask = directTaskFor(":nge-platform-interop-test:ios")
+def requestedInteropMatrix = requestedTasks.any { taskName ->
+    taskName == "interopMatrix" || taskName.endsWith(":interopMatrix")
+}
+def includeAndroidProjects = hasAndroidSdk || forceAndroid || directAndroidTask
+def includeIosInteropProject = (hasIosSimulatorToolchain && requestedInteropMatrix) || forceIosInterop || directIosInteropTask
+
+if ((forceAndroid || directAndroidTask) && !hasAndroidSdk) {
+    throw new GradleException("Android SDK not found. Set ANDROID_SDK_ROOT, ANDROID_HOME, or -Dandroid.home, or remove the forced/direct Android task.")
+}
+if ((forceIosInterop || directIosInteropTask) && !hasIosSimulatorToolchain) {
+    throw new GradleException("iOS simulator toolchain is available only on macOS with xcrun. Remove the forced/direct iOS interop request or run it on macOS.")
+}
+
 include("nge-platform-common")
 include("nge-platform-jvm")
+include("nge-platform-ios")
 include("nge-platform-teavm")
-include("nge-platform-android")
 include("nge-platform-interop-test")
 include("nge-platform-interop-test:jvm")
-include("nge-platform-interop-test:android")
 
 project(":nge-platform-interop-test:jvm").projectDir = file("nge-platform-interop-test/jvm")
-project(":nge-platform-interop-test:android").projectDir = file("nge-platform-interop-test/android")
+
+if (includeAndroidProjects) {
+    include("nge-platform-android")
+    include("nge-platform-interop-test:android")
+    project(":nge-platform-interop-test:android").projectDir = file("nge-platform-interop-test/android")
+    println "Android platform enabled using SDK at: ${androidSdkDir}"
+} else {
+    println "Android platform/interoperability projects skipped: Android SDK not found. Pass -PforceAndroid=true to require them."
+}
+
+if (includeIosInteropProject) {
+    include("nge-platform-interop-test:ios")
+    project(":nge-platform-interop-test:ios").projectDir = file("nge-platform-interop-test/ios")
+    println "iOS simulator interoperability enabled."
+} else {
+    println "iOS simulator interoperability skipped: not requested for this invocation or macOS xcrun simulator toolchain not available. Pass -PforceIosInterop=true to require it."
+}

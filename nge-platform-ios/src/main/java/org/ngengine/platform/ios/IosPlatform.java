@@ -28,7 +28,7 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-package org.ngengine.platform.jvm;
+package org.ngengine.platform.ios;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -96,6 +96,7 @@ import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.spec.ECParameterSpec;
 import org.bouncycastle.math.ec.ECAlgorithms;
 import org.bouncycastle.math.ec.ECPoint;
+import org.ngengine.libjglios.core.LibJGLIOSPlatformBridge;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.BrowserInterceptor;
@@ -112,21 +113,21 @@ import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 
 // thread-safe
-public class JVMAsyncPlatform extends NGEPlatform {
+public class IosPlatform extends NGEPlatform {
     static {
         if (Security.getProvider("BC") == null) {
             Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
         }
     }
 
-    private static final NGEAllocator allocator = new JVMNGEAllocator();
+    private static final NGEAllocator allocator = new IosNGEAllocator();
 
     @Override
     public NGEAllocator getNativeAllocator() {
         return allocator;
     }
 
-    private static final Logger logger = Logger.getLogger(JVMAsyncPlatform.class.getName());
+    private static final Logger logger = Logger.getLogger(IosPlatform.class.getName());
     private static SecureRandom secureRandom;
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
@@ -205,7 +206,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String sha256(String data) {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
 
@@ -245,7 +246,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
@@ -258,10 +259,10 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public boolean schnorrVerify(String data, String sign, byte pub[]) {
-        if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
-        if (!getMemoryLimits().checkForKeys(sign.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForKeys(((long) sign.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         if (!getMemoryLimits().checkForKeys(pub.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
@@ -539,7 +540,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] base64decode(String data) {
-        if (!getMemoryLimits().checkForBase64(data.length() * 2)) throw new IllegalArgumentException(
+        if (!getMemoryLimits().checkForBase64(((long) data.length()) * 2L)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         try {
@@ -551,17 +552,20 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] chacha20(byte[] key, byte[] nonce, byte[] padded, boolean forEncryption) {
+        if (key == null || key.length != 32) {
+            throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
+        }
+        if (nonce == null || nonce.length != 12) {
+            throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
+        }
+        if (padded == null) {
+            throw new IllegalArgumentException("ChaCha20 input cannot be null");
+        }
         if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         if (!getMemoryLimits().checkForKeys(nonce.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         if (!getMemoryLimits().checkForData(padded.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         try {
-            if (key == null || key.length != 32) {
-                throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
-            }
-            if (nonce == null || nonce.length != 12) {
-                throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
-            }
             ChaCha7539Engine engine = new ChaCha7539Engine();
             ParametersWithIV params = new ParametersWithIV(new KeyParameter(key), nonce);
             engine.init(forEncryption, params);
@@ -614,7 +618,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public WebsocketTransport newTransport() {
-        return new JVMWebsocketTransport(this, executor);
+        return new IosWebsocketTransport(this, executor);
     }
 
     @Override
@@ -839,6 +843,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final HttpClient httpClient = HttpClient
+        .newBuilder()
+        .connectTimeout(Duration.ofSeconds(15))
+        .followRedirects(HttpClient.Redirect.NEVER)
+        .executor(executor)
+        .build();
 
     {
         Thread shutdownHook = new Thread(
@@ -846,7 +856,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 logger.fine("Shutting down executor service...");
                 executor.shutdownNow();
             },
-            "nge-jvm-async-shutdown-hook"
+            "nge-ios-async-shutdown-hook"
         );
         shutdownHook.setDaemon(true);
         Runtime.getRuntime().addShutdownHook(shutdownHook);
@@ -950,16 +960,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             "Input exceeds buffer limits"
         );
 
-        URI url = JVMNetworkSecurity.safeHttpUri(inurl);
+        URI url = IosNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient.Builder b = HttpClient
-            .newBuilder()
-            .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor);
-
-        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
                 HttpRequest.Builder requestBuilder = HttpRequest
@@ -978,7 +981,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                sendWithValidatedRedirects(httpClient, request, HttpResponse.BodyHandlers.ofInputStream(), 0)
+                sendWithValidatedRedirects(this.httpClient, request, HttpResponse.BodyHandlers.ofInputStream(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -1021,16 +1024,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
-        URI url = JVMNetworkSecurity.safeHttpUri(inurl);
+        URI url = IosNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
-        HttpClient.Builder b = HttpClient
-            .newBuilder()
-            .connectTimeout(timeout)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor);
-
-        HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
             try {
                 HttpRequest.Builder requestBuilder = HttpRequest
@@ -1050,7 +1046,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 requestBuilder.timeout(timeout);
 
                 HttpRequest request = requestBuilder.build();
-                sendWithValidatedRedirects(httpClient, request, limitedByteArrayBodyHandler(), 0)
+                sendWithValidatedRedirects(this.httpClient, request, limitedByteArrayBodyHandler(), 0)
                     .handleAsync(
                         (response, e) -> {
                             if (e != null) {
@@ -1210,7 +1206,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
             return Optional.empty();
         }
 
-        URI redirectUri = JVMNetworkSecurity.safeRedirectUri(request.uri(), location.get());
+        URI redirectUri = IosNetworkSecurity.safeRedirectUri(request.uri(), location.get());
         return Optional.of(buildRedirectRequest(request, redirectUri, response.statusCode()));
     }
 
@@ -1266,151 +1262,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (connId != null && !getMemoryLimits().checkForString(connId.length())) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
-        JVMRTCTransport transport = new JVMRTCTransport();
+        IosRTCTransport transport = new IosRTCTransport();
         transport.start(p2pAttemptTimeout, newAsyncExecutor(RTCTransport.class), connId, stunServers);
         return transport;
-    }
-
-    private boolean setSdlClipboard(String text) {
-        try {
-            Class<?> sdlClipboardClass = Class.forName("org.lwjgl.sdl.SDLClipboard");
-            java.lang.reflect.Method sdlSetClipboardText = sdlClipboardClass.getMethod(
-                "SDL_SetClipboardText",
-                CharSequence.class
-            );
-            Boolean result = (Boolean) sdlSetClipboardText.invoke(null, text);
-            if (Boolean.TRUE.equals(result)) {
-                logger.log(Level.FINE, "Set clipboard content via SDL");
-                return true;
-            }
-        } catch (ClassNotFoundException e) {
-            logger.log(Level.FINE, "SDL clipboard is not available", e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to set SDL clipboard content", e);
-        }
-        return false;
-    }
-
-    private String getSdlClipboard() {
-        try {
-            Class<?> sdlClipboardClass = Class.forName("org.lwjgl.sdl.SDLClipboard");
-            java.lang.reflect.Method sdlGetClipboardText = sdlClipboardClass.getMethod("SDL_GetClipboardText");
-            String result = (String) sdlGetClipboardText.invoke(null);
-            logger.log(Level.FINE, "Retrieved clipboard content via SDL");
-            return result != null ? result : "";
-        } catch (ClassNotFoundException e) {
-            logger.log(Level.FINE, "SDL clipboard is not available", e);
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to get SDL clipboard content", e);
-        }
-        return null;
-    }
-
-    private boolean isSdlClipboardAvailable() {
-        try {
-            Class.forName("org.lwjgl.sdl.SDLClipboard");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    private boolean setGlfwClipboard(String text) {
-        try {
-            Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
-            java.lang.reflect.Method glfwSetClipboardString = glfwClass.getMethod(
-                "glfwSetClipboardString",
-                long.class,
-                CharSequence.class
-            );
-            java.lang.reflect.Method glfwGetCurrentContext = glfwClass.getMethod("glfwGetCurrentContext");
-
-            long window = (Long) glfwGetCurrentContext.invoke(null);
-            if (window != 0L) {
-                glfwSetClipboardString.invoke(null, window, text);
-                logger.log(Level.FINE, "Set clipboard content via GLFW");
-                return true;
-            }
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to set GLFW clipboard content", e);
-        }
-        return false;
-    }
-
-    private String getGlfwClipboard() {
-        try {
-            Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
-            java.lang.reflect.Method glfwGetClipboardString = glfwClass.getMethod("glfwGetClipboardString", long.class);
-            java.lang.reflect.Method glfwGetCurrentContext = glfwClass.getMethod("glfwGetCurrentContext");
-
-            long window = (Long) glfwGetCurrentContext.invoke(null);
-            if (window != 0L) {
-                String result = (String) glfwGetClipboardString.invoke(null, window);
-                logger.log(Level.FINE, "Retrieved clipboard content via GLFW");
-                return result != null ? result : "";
-            }
-        } catch (Exception e) {
-            logger.log(Level.WARNING, "Failed to get GLFW clipboard content", e);
-        }
-        return null;
-    }
-
-    private boolean isGlfwAvailable() {
-        try {
-            Class.forName("org.lwjgl.glfw.GLFW");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
-    private boolean setAWTClipboard(String data) {
-        try {
-            Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
-            Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
-            Class<?> transferableClass = Class.forName("java.awt.datatransfer.Transferable");
-            Class<?> stringSelectionClass = Class.forName("java.awt.datatransfer.StringSelection");
-            Object toolkit = toolkitClass.getMethod("getDefaultToolkit").invoke(null);
-            Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
-            Object contents = stringSelectionClass.getConstructor(String.class).newInstance(data);
-            clipboardClass
-                .getMethod("setContents", transferableClass, Class.forName("java.awt.datatransfer.ClipboardOwner"))
-                .invoke(clipboard, contents, null);
-            return true;
-        } catch (Exception e) {
-            logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
-        }
-        return false;
-    }
-
-    private String getAWTClipboard() {
-        try {
-            Class<?> toolkitClass = Class.forName("java.awt.Toolkit");
-            Class<?> clipboardClass = Class.forName("java.awt.datatransfer.Clipboard");
-            Class<?> dataFlavorClass = Class.forName("java.awt.datatransfer.DataFlavor");
-            Object toolkit = toolkitClass.getMethod("getDefaultToolkit").invoke(null);
-            Object clipboard = toolkitClass.getMethod("getSystemClipboard").invoke(toolkit);
-            Object stringFlavor = dataFlavorClass.getField("stringFlavor").get(null);
-            Boolean isAvailable = (Boolean) clipboardClass
-                .getMethod("isDataFlavorAvailable", dataFlavorClass)
-                .invoke(clipboard, stringFlavor);
-            if (isAvailable) {
-                Object data = clipboardClass.getMethod("getData", dataFlavorClass).invoke(clipboard, stringFlavor);
-                return data.toString();
-            }
-        } catch (Exception e) {
-            logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
-        }
-        return null;
-    }
-
-    private boolean isAWTAvailable() {
-        try {
-            Class.forName("java.awt.Toolkit");
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
     }
 
     @Override
@@ -1418,36 +1272,21 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (data == null) data = "";
         if (!getMemoryLimits().checkForString(data.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
         try {
-            if (isSdlClipboardAvailable() && setSdlClipboard(data)) {
-                return;
-            }
-            if (isGlfwAvailable() && setGlfwClipboard(data)) {
-                return;
-            }
-            if (isAWTAvailable()) {
-                setAWTClipboard(data);
-            }
+            LibJGLIOSPlatformBridge.setClipboardString(data);
         } catch (Exception e) {
-            logger.log(Level.FINE, "Could not set clipboard content", e);
+            logger.log(Level.WARNING, "Could not set iOS clipboard content", e);
         }
     }
 
     @Override
     public AsyncTask<String> getClipboardContent() {
         return wrapPromise((res, rej) -> {
-            String content = null;
+            String content;
             try {
-                if (content == null && isSdlClipboardAvailable()) {
-                    content = getSdlClipboard();
-                }
-                if (content == null && isGlfwAvailable()) {
-                    content = getGlfwClipboard();
-                }
-                if (content == null && isAWTAvailable()) {
-                    content = getAWTClipboard();
-                }
+                content = LibJGLIOSPlatformBridge.getClipboardString();
             } catch (Exception e) {
-                logger.log(Level.FINE, "Could not get clipboard content", e);
+                logger.log(Level.WARNING, "Could not get iOS clipboard content", e);
+                content = "";
             }
             content = content != null ? content : "";
             if (!getMemoryLimits().checkForString(content.length())) {
@@ -1470,35 +1309,11 @@ public class JVMAsyncPlatform extends NGEPlatform {
             interceptor.openLink(url);
         } else {
             try {
-                Class<?> desktopClass = Class.forName("java.awt.Desktop");
-                Boolean isSupported = (Boolean) desktopClass.getMethod("isDesktopSupported").invoke(null);
-                if (isSupported) {
-                    Object desktop = desktopClass.getMethod("getDesktop").invoke(null);
-                    Boolean browseSupported = (Boolean) desktopClass
-                        .getMethod("isSupported", Class.forName("java.awt.Desktop$Action"))
-                        .invoke(desktop, Enum.valueOf((Class<Enum>) Class.forName("java.awt.Desktop$Action"), "BROWSE"));
-                    if (browseSupported) {
-                        URI uri = new URI(url);
-                        desktopClass.getMethod("browse", URI.class).invoke(desktop, uri);
-                        return;
-                    }
-                }
-                String os = System.getProperty("os.name").toLowerCase();
-                if (os.contains("win")) {
-                    Runtime.getRuntime().exec(new String[] { "rundll32", "url.dll,FileProtocolHandler", url });
-                } else if (os.contains("mac")) {
-                    Runtime.getRuntime().exec(new String[] { "open", url });
-                } else if (os.contains("nix") || os.contains("nux")) {
-                    String[] browsers = { "xdg-open", "google-chrome", "firefox", "mozilla", "opera" };
-                    for (String browser : browsers) {
-                        try {
-                            Runtime.getRuntime().exec(new String[] { browser, url });
-                            return;
-                        } catch (Exception e) {}
-                    }
+                if (!LibJGLIOSPlatformBridge.openURL(url)) {
+                    logger.log(Level.WARNING, "iOS rejected browser URL: " + url);
                 }
             } catch (Exception e) {
-                logger.log(Level.WARNING, "Failed to open URL in browser", e);
+                logger.log(Level.WARNING, "Failed to open URL in iOS browser", e);
             }
         }
     }
@@ -1690,7 +1505,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
         }
         InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fullpath);
         if (is == null) {
-            is = JVMAsyncPlatform.class.getClassLoader().getResourceAsStream(fullpath);
+            is = IosPlatform.class.getClassLoader().getResourceAsStream(fullpath);
         }
 
         if (is == null) {
@@ -1734,7 +1549,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String getPlatformName() {
-        return "JVM";
+        return "iOS";
     }
 
     public void panic(String err) {
@@ -1743,7 +1558,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     private static void panicImpl(String err) {
         System.err.println(err);
-        System.exit(1);
         throw new RuntimeException("PANIC: " + err);
     }
 }

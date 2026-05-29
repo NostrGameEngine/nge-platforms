@@ -9,8 +9,8 @@ on:
       - master
 
 jobs:
-  interop-matrix:
-    name: Interop Matrix
+  interop-matrix-linux:
+    name: Interop Matrix (Linux + Android)
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
@@ -56,4 +56,56 @@ jobs:
         avd-name: ci-interop
         emulator-options: -no-window -no-boot-anim -noaudio -gpu swiftshader_indirect -no-snapshot
         disable-animations: true
-        script: ./gradlew --no-daemon interopMatrix --console=plain
+        script: ./gradlew --no-daemon interopMatrix --console=plain -PforceAndroidInterop=true
+
+  interop-matrix-macos:
+    name: Interop Matrix (macOS + Android + iOS)
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'gradle'
+
+    - name: Install Google Chrome
+      id: chrome
+      uses: browser-actions/setup-chrome@v1
+
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+    - name: Boot iOS simulator runtime
+      run: |
+        xcrun simctl list runtimes
+        xcrun simctl boot "iPhone 16" || true
+        xcrun simctl bootstatus "iPhone 16" -b
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Run interoperability matrix
+      uses: reactivecircus/android-emulator-runner@v2
+      env:
+        CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
+        ANDROID_AVD_NAME: ci-interop
+      with:
+        api-level: 33
+        target: google_apis
+        arch: x86_64
+        profile: pixel_6
+        avd-name: ci-interop
+        emulator-options: -no-window -no-boot-anim -noaudio -gpu swiftshader_indirect -no-snapshot
+        disable-animations: true
+        script: ./gradlew --no-daemon interopMatrix --console=plain -PforceAndroidInterop=true -PforceIosInterop=true

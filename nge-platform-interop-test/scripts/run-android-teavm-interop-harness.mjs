@@ -3,10 +3,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
+const INTEROP_TITLE = 'Interop: Android <-> TeaVM Browser RTC';
 const rootDirs = [
   path.join(projectDir, 'test-harness'),
   path.join(teavmDir, 'src', 'main', 'resources'),
@@ -282,6 +284,7 @@ async function main() {
     last = await runOnce(attempt);
     if (last.ok) {
       process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+      emitInteropAnnotation(INTEROP_TITLE, true, `Android <-> TeaVM browser RTC passed on attempt ${attempt}.`);
       return;
     }
     if (attempt < attempts && isTransientRtcFlake(last)) {
@@ -293,10 +296,16 @@ async function main() {
     break;
   }
   process.stdout.write(`${JSON.stringify(last, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    false,
+    `Android <-> TeaVM browser RTC failed after ${last?.attempt ?? attempts} attempt(s). ${firstFailureText(last?.browser?.error, last?.browserPageResult?.error, last?.android?.error)}`
+  );
   process.exit(1);
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });

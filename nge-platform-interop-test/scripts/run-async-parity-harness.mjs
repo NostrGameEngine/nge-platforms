@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
 const rootDirs = [path.join(projectDir, 'test-harness'), path.join(teavmDir, 'src', 'main', 'resources')];
 const state = { results: { jvm: null, android: null, browser: null } };
+const INTEROP_TITLE = 'Interop: JVM <-> Android <-> TeaVM Async Parity';
 
 const json = (res, s, b) => { res.writeHead(s, {'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(b)); };
 const mime = (f) => f.endsWith('.html') ? 'text/html; charset=utf-8' : (f.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'application/octet-stream');
@@ -97,6 +99,12 @@ async function main(){
   if (browserErr) throw browserErr;
   const cmp = compare(state.results);
   const out = { ok: cmp.ok && jvmOut.code===0 && androidOut.code===0 && Boolean(browserOut?.result?.ok), compare: cmp, results: state.results, jvmExitCode:jvmOut.code, androidExitCode:androidOut.code, exclusions:['TeaVM browser side is a JS Promise semantic baseline, not direct TeaVMPlatform AsyncTask Java execution'] };
-  process.stdout.write(JSON.stringify(out,null,2)+'\n'); if(!out.ok) process.exit(1);
+  process.stdout.write(JSON.stringify(out,null,2)+'\n');
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    out.ok,
+    out.ok ? 'Async/executor snapshots match across JVM, Android, and TeaVM browser baseline.' : firstFailureText(cmp.mismatches?.join('; '), state.results.jvm?.error, state.results.android?.error, state.results.browser?.error)
+  );
+  if(!out.ok) process.exit(1);
 }
-main().catch(e=>{ process.stderr.write(`${e.stack||e.message||String(e)}\n`); process.exit(1); });
+main().catch(e=>{ emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(e?.stack||e?.message||e)); process.stderr.write(`${e.stack||e.message||String(e)}\n`); process.exit(1); });

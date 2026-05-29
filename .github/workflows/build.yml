@@ -60,7 +60,11 @@ jobs:
 
     - name: Run Android Unit Tests
       run: |
-        ./gradlew --no-daemon :nge-platform-android:testDebugUnitTest  --console=plain
+        if [[ -n "${ANDROID_SDK_ROOT:-}" || -n "${ANDROID_HOME:-}" ]]; then
+          ./gradlew --no-daemon :nge-platform-android:testDebugUnitTest --console=plain -PforceAndroid=true
+        else
+          echo "Android SDK not found; skipping Android unit tests in the generic build job."
+        fi
    
     - name: Run TeaVM Unit Tests
       run: |
