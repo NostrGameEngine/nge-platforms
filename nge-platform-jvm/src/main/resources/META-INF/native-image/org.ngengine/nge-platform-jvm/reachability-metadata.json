@@ -5031,6 +5031,17 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMRTCTransport",
+            "methods": [
+                {
+                    "name": "configureLibDataChannelAllocatorIfRequested",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMRTCTransport"
         },
         {
@@ -5138,6 +5149,28 @@
                     "name": "validatesSecp256k1PublicVectors",
                     "parameterTypes": [
                         
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
+            "fields": [
+                {
+                    "name": "binaryBuffer"
+                },
+                {
+                    "name": "messageBuffer"
+                },
+                {
+                    "name": "openWebSocket"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "ensureBinaryCapacity",
+                    "parameterTypes": [
+                        "int"
                     ]
                 }
             ]
