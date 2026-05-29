@@ -1,0 +1,1456 @@
+/**
+ * BSD 3-Clause License
+ * 
+ * Copyright (c) 2025, Riccardo Balbo
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1. Redistributions of source code must retain the above copyright notice, this
+ *    list of conditions and the following disclaimer.
+ * 
+ * 2. Redistributions in binary form must reproduce the above copyright notice,
+ *    this list of conditions and the following disclaimer in the documentation
+ *    and/or other materials provided with the distribution.
+ * 
+ * 3. Neither the name of the copyright holder nor the names of its
+ *    contributors may be used to endorse or promote products derived from
+ *    this software without specific prior written permission.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+ * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+package org.ngengine.platform.ios;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.lang.ref.Cleaner;
+import java.lang.ref.Cleaner.Cleanable;
+import java.math.BigInteger;
+import java.net.HttpURLConnection;
+import java.net.InetAddress;
+import java.net.NetworkInterface;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
+import java.text.Normalizer;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.Base64;
+import java.util.Collection;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.crypto.Mac;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.spec.SecretKeySpec;
+import org.bouncycastle.crypto.BufferedBlockCipher;
+import org.bouncycastle.crypto.CipherParameters;
+import org.bouncycastle.crypto.InvalidCipherTextException;
+import org.bouncycastle.crypto.digests.SHA256Digest;
+import org.bouncycastle.crypto.engines.AESEngine;
+import org.bouncycastle.crypto.engines.ChaCha7539Engine;
+import org.bouncycastle.crypto.generators.SCrypt;
+import org.bouncycastle.crypto.modes.CBCBlockCipher;
+import org.bouncycastle.crypto.modes.ChaCha20Poly1305;
+import org.bouncycastle.crypto.paddings.PKCS7Padding;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
+import org.bouncycastle.crypto.params.AEADParameters;
+import org.bouncycastle.crypto.params.ECDomainParameters;
+import org.bouncycastle.crypto.params.ECPrivateKeyParameters;
+import org.bouncycastle.crypto.params.KeyParameter;
+import org.bouncycastle.crypto.params.ParametersWithIV;
+import org.bouncycastle.crypto.signers.ECDSASigner;
+import org.bouncycastle.crypto.signers.HMacDSAKCalculator;
+import org.bouncycastle.jce.ECNamedCurveTable;
+import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.math.ec.ECAlgorithms;
+import org.bouncycastle.math.ec.ECPoint;
+import org.ngengine.libjglios.core.LibJGLIOSPlatformBridge;
+import org.ngengine.platform.AsyncExecutor;
+import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.BrowserInterceptor;
+import org.ngengine.platform.FailedToSignException;
+import org.ngengine.platform.NGEAllocator;
+import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.ThrowableFunction;
+import org.ngengine.platform.VStore;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
+import org.ngengine.platform.transport.NGEHttpResponse;
+import org.ngengine.platform.transport.NGEHttpResponseStream;
+import org.ngengine.platform.transport.RTCTransport;
+import org.ngengine.platform.transport.WebsocketTransport;
+
+// thread-safe
+public class IosPlatform extends NGEPlatform {
+    static {
+        if (Security.getProvider("BC") == null) {
+            Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+        }
+    }
+
+    private static final NGEAllocator allocator = new IosNGEAllocator();
+
+    @Override
+    public NGEAllocator getNativeAllocator() {
+        return allocator;
+    }
+
+    private static final Logger logger = Logger.getLogger(IosPlatform.class.getName());
+    private static SecureRandom secureRandom;
+    private static final byte EMPTY32[] = new byte[32];
+    private static final byte EMPTY0[] = new byte[0];
+    private static final BigInteger ONE = BigInteger.ONE;
+    private static final int MAX_HTTP_REDIRECTS = 5;
+    private static final long MAX_HTTP_BUFFERED_RESPONSE_BYTES = 10L * 1024L * 1024L;
+
+    static {
+        secureRandom = newSecureRandom();
+    }
+
+    public static SecureRandom newSecureRandom() {
+        try {
+            return SecureRandom.getInstanceStrong();
+        } catch (NoSuchAlgorithmException e) {
+            panicImpl("No strong secure random available: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    // used for unit tests
+    public static boolean _NO_AUX_RANDOM = false;
+    public static boolean _EMPTY_NONCE = false;
+
+    ///
+    ///
+
+    private static final class Context {
+
+        MessageDigest sha256;
+        Gson json;
+        ECParameterSpec secp256k1;
+
+        Context() throws NoSuchAlgorithmException, NoSuchPaddingException {
+            sha256 = MessageDigest.getInstance("SHA-256");
+            json = new GsonBuilder().disableHtmlEscaping().serializeNulls().create();
+            secp256k1 = ECNamedCurveTable.getParameterSpec("secp256k1");
+        }
+    }
+
+    private static final ThreadLocal<Context> context = ThreadLocal.withInitial(() -> {
+        try {
+            return new Context();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    });
+
+    @Override
+    public byte[] randomBytes(int n) {
+        try {
+            if (!getMemoryLimits().checkForRandomData(n)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+            synchronized (secureRandom) {
+                byte[] bytes = new byte[n];
+                secureRandom.nextBytes(bytes);
+                return bytes;
+            }
+        } catch (Exception e) {
+            panic("Failed to generate random bytes: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public byte[] generatePrivateKey() {
+        for (int i = 0; i < 1024; i++) {
+            byte[] key = randomBytes(32);
+            if (secp256k1PrivateKeyVerify(key)) {
+                return key;
+            }
+        }
+        throw new IllegalStateException("Could not generate a valid secp256k1 private key");
+    }
+
+    @Override
+    public byte[] genPubKey(byte[] secKey) {
+        if (!getMemoryLimits().checkForData(secKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        return Schnorr.genPubKey(secKey);
+    }
+
+    @Override
+    public String sha256(String data) {
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
+        return NGEUtils.bytesToHex(sha256(bytes));
+    }
+
+    @Override
+    public byte[] sha256(byte data[]) {
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        Context ctx = context.get();
+        MessageDigest digest = ctx.sha256;
+        byte[] hash = digest.digest(data);
+        return hash;
+    }
+
+    @Override
+    public String toJSON(Collection obj) {
+        Context ctx = context.get();
+        return ctx.json.toJson(obj);
+    }
+
+    @Override
+    public String toJSON(Map obj) {
+        Context ctx = context.get();
+        return ctx.json.toJson(obj);
+    }
+
+    @Override
+    public <T> T fromJSON(String json, Class<T> claz) {
+        if (!getMemoryLimits().checkForJSON(json.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        Context ctx = context.get();
+        return ctx.json.fromJson(json, claz);
+    }
+
+    @Override
+    public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        byte dataB[] = NGEUtils.hexToByteArray(data);
+        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM ? null : randomBytes(32));
+        String sig = NGEUtils.bytesToHex(sigB);
+        return sig;
+    }
+
+    @Override
+    public boolean schnorrVerify(String data, String sign, byte pub[]) {
+        if (!getMemoryLimits().checkForData(((long) data.length()) * 2L)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(((long) sign.length()) * 2L)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForKeys(pub.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        byte dataB[] = NGEUtils.hexToByteArray(data);
+        byte sig[] = NGEUtils.hexToByteArray(sign);
+        return Schnorr.verify(dataB, pub, sig);
+    }
+
+    @Override
+    public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
+        if (!getMemoryLimits().checkForKeys(pubKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(privKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        Context ctx = context.get();
+        ECParameterSpec ecSpec = ctx.secp256k1;
+        ECPoint point = ecSpec.getCurve().decodePoint(pubKey).normalize();
+        BigInteger d = new BigInteger(1, privKey);
+        ECPoint sharedPoint = point.multiply(d).normalize();
+        return sharedPoint.getEncoded(false);
+    }
+
+    @Override
+    public boolean secp256k1PrivateKeyVerify(byte[] privateKey) {
+        if (privateKey == null || privateKey.length != 32) {
+            return false;
+        }
+        if (!getMemoryLimits().checkForKeys(privateKey.length)) {
+            return false;
+        }
+
+        BigInteger d = new BigInteger(1, privateKey);
+        BigInteger n = context.get().secp256k1.getN();
+        return d.compareTo(ONE) >= 0 && d.compareTo(n) < 0;
+    }
+
+    @Override
+    public boolean secp256k1PublicKeyVerify(byte[] publicKey) {
+        if (publicKey == null || !(publicKey.length == 33 || publicKey.length == 65)) {
+            return false;
+        }
+        if (!getMemoryLimits().checkForKeys(publicKey.length)) {
+            return false;
+        }
+
+        try {
+            ECParameterSpec ecSpec = context.get().secp256k1;
+            ECPoint point = ecSpec.getCurve().decodePoint(publicKey).normalize();
+            return !point.isInfinity() && point.isValid();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed) {
+        if (privateKey == null) {
+            throw new IllegalArgumentException("privateKey is required");
+        }
+        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!secp256k1PrivateKeyVerify(privateKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger d = new BigInteger(1, privateKey);
+        ECPoint point = ecSpec.getG().multiply(d).normalize();
+        return point.getEncoded(compressed);
+    }
+
+    @Override
+    public Secp256k1RecoverableSignature secp256k1SignRecoverable(byte[] hash32, byte[] privateKey) {
+        if (hash32 == null || hash32.length != 32) {
+            throw new IllegalArgumentException("hash32 must be exactly 32 bytes");
+        }
+        if (privateKey == null) {
+            throw new IllegalArgumentException("privateKey is required");
+        }
+        if (!getMemoryLimits().checkForData(hash32.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(privateKey.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!secp256k1PrivateKeyVerify(privateKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger n = ecSpec.getN();
+        BigInteger halfN = n.shiftRight(1);
+        BigInteger d = new BigInteger(1, privateKey);
+
+        ECDomainParameters domain = new ECDomainParameters(ecSpec.getCurve(), ecSpec.getG(), n, ecSpec.getH());
+        ECDSASigner signer = new ECDSASigner(new HMacDSAKCalculator(new SHA256Digest()));
+        signer.init(true, new ECPrivateKeyParameters(d, domain));
+
+        BigInteger[] rs = signer.generateSignature(hash32);
+        BigInteger r = rs[0];
+        BigInteger s = rs[1];
+        if (s.compareTo(halfN) > 0) {
+            s = n.subtract(s);
+        }
+
+        byte[] signature64 = new byte[64];
+        System.arraycopy(Util.bytesFromBigInteger(r), 0, signature64, 0, 32);
+        System.arraycopy(Util.bytesFromBigInteger(s), 0, signature64, 32, 32);
+
+        ECPoint expectedPub = ecSpec.getG().multiply(d).normalize();
+        for (int recoveryId = 0; recoveryId < 4; recoveryId++) {
+            ECPoint recovered = recoverPublicPoint(ecSpec, hash32, r, s, recoveryId);
+            if (recovered != null && recovered.normalize().equals(expectedPub)) {
+                return new Secp256k1RecoverableSignature(signature64, recoveryId);
+            }
+        }
+
+        throw new IllegalArgumentException("Failed to derive recoveryId for signature");
+    }
+
+    @Override
+    public byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed) {
+        if (hash32 == null || hash32.length != 32) {
+            throw new IllegalArgumentException("hash32 must be exactly 32 bytes");
+        }
+        if (signature64 == null || signature64.length != 64) {
+            throw new IllegalArgumentException("signature64 must be exactly 64 bytes");
+        }
+        if (recoveryId < 0 || recoveryId > 3) {
+            throw new IllegalArgumentException("recoveryId must be in [0..3]");
+        }
+        if (!getMemoryLimits().checkForData(hash32.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(signature64.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        BigInteger r = new BigInteger(1, Arrays.copyOfRange(signature64, 0, 32));
+        BigInteger s = new BigInteger(1, Arrays.copyOfRange(signature64, 32, 64));
+        ECParameterSpec ecSpec = context.get().secp256k1;
+        BigInteger n = ecSpec.getN();
+        if (r.compareTo(ONE) < 0 || r.compareTo(n) >= 0 || s.compareTo(ONE) < 0 || s.compareTo(n) >= 0) {
+            throw new IllegalArgumentException("Invalid ECDSA signature values");
+        }
+
+        ECPoint recovered = recoverPublicPoint(ecSpec, hash32, r, s, recoveryId);
+        if (recovered == null || recovered.isInfinity()) {
+            throw new IllegalArgumentException("Public key recovery failed");
+        }
+        return recovered.normalize().getEncoded(compressed);
+    }
+
+    private ECPoint recoverPublicPoint(ECParameterSpec ecSpec, byte[] hash32, BigInteger r, BigInteger s, int recoveryId) {
+        BigInteger n = ecSpec.getN();
+        BigInteger i = BigInteger.valueOf(recoveryId / 2L);
+        BigInteger x = r.add(i.multiply(n));
+
+        BigInteger p = ecSpec.getCurve().getField().getCharacteristic();
+        if (x.compareTo(p) >= 0) {
+            return null;
+        }
+
+        byte[] compEnc = new byte[33];
+        compEnc[0] = (byte) ((recoveryId & 1) == 1 ? 0x03 : 0x02);
+        System.arraycopy(Util.bytesFromBigInteger(x), 0, compEnc, 1, 32);
+
+        ECPoint R;
+        try {
+            R = ecSpec.getCurve().decodePoint(compEnc).normalize();
+        } catch (Exception e) {
+            return null;
+        }
+
+        if (!R.multiply(n).isInfinity()) {
+            return null;
+        }
+
+        BigInteger e = new BigInteger(1, hash32).mod(n);
+        BigInteger rInv = r.modInverse(n);
+        BigInteger srInv = s.multiply(rInv).mod(n);
+        BigInteger eNegRInv = n.subtract(e).multiply(rInv).mod(n);
+        ECPoint q = ECAlgorithms.sumOfTwoMultiplies(ecSpec.getG(), eNegRInv, R, srInv);
+        return q.isInfinity() ? null : q;
+    }
+
+    @Override
+    public byte[] hmac(byte[] key, byte[] data1, byte[] data2) {
+        try {
+            if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+            if (!getMemoryLimits().checkForData(data1.length)) throw new IllegalArgumentException(
+                "Input exceeds buffer limits"
+            );
+            if (data2 != null && !getMemoryLimits().checkForData(data2.length)) throw new IllegalArgumentException(
+                "Input exceeds buffer limits"
+            );
+
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(key, "HmacSHA256"));
+            mac.update(data1, 0, data1.length);
+            if (data2 != null) {
+                mac.update(data2, 0, data2.length);
+            }
+            return mac.doFinal();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public byte[] hkdf_extract(byte[] salt, byte[] ikm) {
+        if (!getMemoryLimits().checkForData(ikm.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (salt != null && !getMemoryLimits().checkForData(salt.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        assert NGEUtils.allZeroes(EMPTY32);
+        if (salt == null || salt.length == 0) salt = EMPTY32;
+        return hmac(salt, ikm, null);
+    }
+
+    @Override
+    public byte[] hkdf_expand(byte[] prk, byte[] info, int length) {
+        if (!getMemoryLimits().checkForData(prk.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (info != null && !getMemoryLimits().checkForData(info.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForData(length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        try {
+            int hashLen = 32; // SHA-256 output length
+
+            if (length > 255 * hashLen) {
+                throw new IllegalArgumentException("Length should be <= 255*HashLen");
+            }
+
+            int blocks = (int) Math.ceil((double) length / hashLen);
+
+            if (info == null) {
+                info = EMPTY0; // empty buffer
+            }
+
+            byte[] okm = new byte[blocks * hashLen];
+            byte[] t = EMPTY0; // T(0) = empty string (zero length)
+            byte[] counter = new byte[1]; // single byte counter
+
+            // Use existing hmac functionality
+            for (int i = 0; i < blocks; i++) {
+                assert EMPTY0.length == 0;
+
+                counter[0] = (byte) (i + 1); // N = counter + 1
+
+                // T(N) = HMAC-Hash(PRK, T(N-1) | info | N)
+                Mac mac = Mac.getInstance("HmacSHA256");
+                mac.init(new SecretKeySpec(prk, "HmacSHA256"));
+
+                // Concatenate T(N-1) + info + counter
+                byte[] combined = new byte[t.length + info.length + counter.length];
+                System.arraycopy(t, 0, combined, 0, t.length);
+                System.arraycopy(info, 0, combined, t.length, info.length);
+                System.arraycopy(counter, 0, combined, t.length + info.length, counter.length);
+
+                t = mac.doFinal(combined);
+                System.arraycopy(t, 0, okm, hashLen * i, hashLen);
+            }
+
+            return Arrays.copyOf(okm, length);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public String base64encode(byte[] data) {
+        if (!getMemoryLimits().checkForBase64(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        return Base64.getEncoder().encodeToString(data);
+    }
+
+    @Override
+    public byte[] base64decode(String data) {
+        if (!getMemoryLimits().checkForBase64(((long) data.length()) * 2L)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        try {
+            return Base64.getDecoder().decode(data);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("invalid base64 " + e.getMessage());
+        }
+    }
+
+    @Override
+    public byte[] chacha20(byte[] key, byte[] nonce, byte[] padded, boolean forEncryption) {
+        if (key == null || key.length != 32) {
+            throw new IllegalArgumentException("ChaCha20 key must be 32 bytes");
+        }
+        if (nonce == null || nonce.length != 12) {
+            throw new IllegalArgumentException("ChaCha20 nonce must be 12 bytes");
+        }
+        if (padded == null) {
+            throw new IllegalArgumentException("ChaCha20 input cannot be null");
+        }
+        if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(nonce.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(padded.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        try {
+            ChaCha7539Engine engine = new ChaCha7539Engine();
+            ParametersWithIV params = new ParametersWithIV(new KeyParameter(key), nonce);
+            engine.init(forEncryption, params);
+
+            byte[] out = new byte[padded.length];
+            int n = engine.processBytes(padded, 0, padded.length, out, 0);
+            if (n != out.length) {
+                return Arrays.copyOf(out, n);
+            }
+            return out;
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public byte[] xchacha20poly1305(byte[] key, byte[] nonce24, byte[] data, byte[] associatedData, boolean forEncryption) {
+        if (!getMemoryLimits().checkForKeys(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForKeys(nonce24.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (
+            associatedData != null && !getMemoryLimits().checkForData(associatedData.length)
+        ) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        try {
+            if (key.length != 32) {
+                throw new IllegalArgumentException("Key must be 32 bytes");
+            }
+            if (nonce24.length != 24) {
+                throw new IllegalArgumentException("Nonce must be 24 bytes for XChaCha20");
+            }
+
+            byte[] subKey = Util.hchacha20(key, Arrays.copyOfRange(nonce24, 0, 16));
+
+            byte[] chachaNonce = new byte[12];
+            System.arraycopy(nonce24, 16, chachaNonce, 4, 8);
+
+            CipherParameters params = new AEADParameters(new KeyParameter(subKey), 128, chachaNonce, associatedData);
+
+            ChaCha20Poly1305 cipher = new ChaCha20Poly1305();
+            cipher.init(forEncryption, params);
+            byte[] out = new byte[cipher.getOutputSize(data.length)];
+            int len = cipher.processBytes(data, 0, data.length, out, 0);
+            cipher.doFinal(out, len);
+            return out;
+        } catch (InvalidCipherTextException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public WebsocketTransport newTransport() {
+        return new IosWebsocketTransport(this, executor);
+    }
+
+    @Override
+    public <T> AsyncTask<T> promisify(BiConsumer<Consumer<T>, Consumer<Throwable>> func, AsyncExecutor executor) {
+        CompletableFuture<T> fut = new CompletableFuture<>();
+        if (executor != null && executor instanceof VtExecutor) {
+            try {
+                ((VtExecutor) executor).executor.submit(() -> {
+                        try {
+                            func.accept(
+                                r -> {
+                                    fut.complete(r);
+                                },
+                                err -> {
+                                    fut.completeExceptionally(err);
+                                }
+                            );
+                        } catch (Throwable e) {
+                            fut.completeExceptionally(e);
+                        }
+                    });
+            } catch (RejectedExecutionException e) {
+                fut.completeExceptionally(e);
+            }
+        } else {
+            try {
+                func.accept(
+                    r -> {
+                        fut.complete(r);
+                    },
+                    err -> {
+                        fut.completeExceptionally(err);
+                    }
+                );
+            } catch (Throwable e) {
+                fut.completeExceptionally(e);
+            }
+        }
+        return new AsyncTask<T>() {
+            private volatile boolean cancelled = false;
+
+            private Throwable normalize(Throwable throwable) {
+                Throwable current = throwable;
+                while (current instanceof CompletionException || current instanceof ExecutionException) {
+                    if (current.getCause() == null) {
+                        break;
+                    }
+                    current = current.getCause();
+                }
+                return current;
+            }
+
+            @Override
+            public T await() throws Exception {
+                try {
+                    return fut.get();
+                } catch (Exception e) {
+                    if (e instanceof ExecutionException) {
+                        ExecutionException excEx = (ExecutionException) e;
+                        Throwable cause = excEx.getCause();
+                        if (cause != null && cause instanceof Exception) {
+                            throw (Exception) cause;
+                        } else {
+                            throw excEx;
+                        }
+                    } else {
+                        throw e;
+                    }
+                }
+            }
+
+            @Override
+            public boolean isDone() {
+                return fut.isDone();
+            }
+
+            @Override
+            public boolean isFailed() {
+                return fut.isDone() && (fut.isCompletedExceptionally() || fut.isCancelled());
+            }
+
+            @Override
+            public boolean isSuccess() {
+                return fut.isDone() && !fut.isCompletedExceptionally() && !fut.isCancelled();
+            }
+
+            @Override
+            public <R> AsyncTask<R> then(ThrowableFunction<T, R> func2) {
+                return promisify(
+                    (res, rej) -> {
+                        if (executor != null && executor instanceof VtExecutor) {
+                            fut.handleAsync(
+                                (result, exception) -> {
+                                    if (exception != null) {
+                                        rej.accept(normalize(exception));
+                                        return null;
+                                    }
+
+                                    try {
+                                        res.accept(func2.apply(result));
+                                    } catch (Throwable e) {
+                                        rej.accept(e);
+                                    }
+                                    return null;
+                                },
+                                ((VtExecutor) executor).executor
+                            );
+                        } else {
+                            fut.handle((result, exception) -> {
+                                if (exception != null) {
+                                    rej.accept(normalize(exception));
+                                    return null;
+                                }
+
+                                try {
+                                    res.accept(func2.apply(result));
+                                } catch (Throwable e) {
+                                    rej.accept(e);
+                                }
+                                return null;
+                            });
+                        }
+                    },
+                    executor
+                );
+            }
+
+            @Override
+            public <R> AsyncTask<R> compose(ThrowableFunction<T, AsyncTask<R>> func2) {
+                return promisify(
+                    (res, rej) -> {
+                        if (executor != null && executor instanceof VtExecutor) {
+                            fut.handleAsync(
+                                (result, exception) -> {
+                                    if (exception != null) {
+                                        rej.accept(normalize(exception));
+                                        return null;
+                                    }
+
+                                    try {
+                                        AsyncTask<R> task2 = func2.apply(result);
+                                        task2.catchException(exc -> {
+                                            rej.accept(exc);
+                                        });
+                                        task2.then(r -> {
+                                            res.accept(r);
+                                            return null;
+                                        });
+                                    } catch (Throwable e) {
+                                        rej.accept(e);
+                                    }
+                                    return null;
+                                },
+                                ((VtExecutor) executor).executor
+                            );
+                        } else {
+                            fut.handle((result, exception) -> {
+                                if (exception != null) {
+                                    rej.accept(normalize(exception));
+                                    return null;
+                                }
+
+                                try {
+                                    AsyncTask<R> task2 = func2.apply(result);
+                                    task2.catchException(exc -> {
+                                        rej.accept(exc);
+                                    });
+                                    task2.then(r -> {
+                                        res.accept(r);
+                                        return null;
+                                    });
+                                } catch (Throwable e) {
+                                    rej.accept(e);
+                                }
+                                return null;
+                            });
+                        }
+                    },
+                    executor
+                );
+            }
+
+            @Override
+            public AsyncTask<T> catchException(Consumer<Throwable> func2) {
+                // synchronized (fut) {
+                if (executor != null && executor instanceof VtExecutor) {
+                    fut.handleAsync(
+                        (result, exception) -> {
+                            if (exception != null) {
+                                func2.accept(normalize(exception));
+                            }
+                            return null;
+                        },
+                        ((VtExecutor) executor).executor
+                    );
+                } else {
+                    fut.handle((result, exception) -> {
+                        if (exception != null) {
+                            func2.accept(normalize(exception));
+                        }
+                        return null;
+                    });
+                }
+                // }
+                return this;
+            }
+
+            @Override
+            public void cancel() {
+                if (cancelled) {
+                    return;
+                }
+                cancelled = true;
+                fut.cancel(true);
+            }
+        };
+    }
+
+    @Override
+    public <T> AsyncTask<T> wrapPromise(BiConsumer<Consumer<T>, Consumer<Throwable>> func) {
+        return (AsyncTask<T>) promisify(func, null);
+    }
+
+    protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+    {
+        Thread shutdownHook = new Thread(
+            () -> {
+                logger.fine("Shutting down executor service...");
+                executor.shutdownNow();
+            },
+            "nge-ios-async-shutdown-hook"
+        );
+        shutdownHook.setDaemon(true);
+        Runtime.getRuntime().addShutdownHook(shutdownHook);
+    }
+
+    protected class VtExecutor implements AsyncExecutor {
+
+        protected final ExecutorService executor;
+
+        public VtExecutor(ExecutorService executor) {
+            this.executor = executor;
+        }
+
+        @Override
+        public <T> AsyncTask<T> run(Callable<T> r) {
+            return wrapPromise((res, rej) -> {
+                executor.submit(() -> {
+                    try {
+                        res.accept(r.call());
+                    } catch (Exception e) {
+                        rej.accept(e);
+                    }
+                });
+            });
+        }
+
+        @Override
+        public <T> AsyncTask<T> runLater(Callable<T> r, long delay, TimeUnit unit) {
+            long delayMs = unit.toMillis(delay);
+            if (delayMs == 0) {
+                return run(r);
+            }
+            return wrapPromise((res, rej) -> {
+                executor.submit(() -> {
+                    try {
+                        Thread.sleep(delayMs);
+                        res.accept(r.call());
+                    } catch (Exception e) {
+                        rej.accept(e);
+                    }
+                });
+            });
+        }
+
+        @Override
+        public void close() {}
+    }
+
+    @Override
+    public AsyncExecutor newAsyncExecutor(Object hint) {
+        return new VtExecutor(executor);
+    }
+
+    @Override
+    public long getTimestampSeconds() {
+        return System.currentTimeMillis() / 1000;
+    }
+
+    @Override
+    public <T> Queue<T> newConcurrentQueue(Class<T> claz) {
+        return new ConcurrentLinkedQueue<T>();
+    }
+
+    @Override
+    public AsyncTask<String> schnorrSignAsync(String data, byte privKey[]) {
+        return wrapPromise((res, rej) -> {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    String sig = schnorrSign(data, privKey);
+                    res.accept(sig);
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            });
+        });
+    }
+
+    @Override
+    public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
+        return wrapPromise((res, rej) -> {
+            CompletableFuture.runAsync(() -> {
+                try {
+                    boolean verified = schnorrVerify(data, sign, pubKey);
+                    res.accept(verified);
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            });
+        });
+    }
+
+    @Override
+    public AsyncTask<NGEHttpResponseStream> httpRequestStream(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
+        if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        String url = IosNetworkSecurity.safeHttpUri(inurl).toString();
+        int timeoutMs = timeoutMillis(itimeout);
+
+        return wrapPromise((res, rej) -> {
+            executor.submit(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    connection = openHttpConnection(url, method, body, timeoutMs, headers);
+                    int statusCode = connection.getResponseCode();
+                    InputStream data = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
+                    NGEHttpResponseStream response = new NGEHttpResponseStream(
+                        statusCode,
+                        responseHeaders(connection),
+                        data,
+                        statusCode >= 200 && statusCode < 300
+                    );
+                    res.accept(response);
+                } catch (Exception e) {
+                    rej.accept(e);
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+            });
+        });
+    }
+
+    @Override
+    public AsyncTask<NGEHttpResponse> httpRequest(
+        String method,
+        String inurl,
+        byte[] body,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
+        if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        String url = IosNetworkSecurity.safeHttpUri(inurl).toString();
+        int timeoutMs = timeoutMillis(itimeout);
+
+        return wrapPromise((res, rej) -> {
+            executor.submit(() -> {
+                HttpURLConnection connection = null;
+                try {
+                    connection = openHttpConnection(url, method, body, timeoutMs, headers);
+                    int statusCode = connection.getResponseCode();
+                    byte[] data = readHttpResponseBody(connection, statusCode);
+                    NGEHttpResponse response = new NGEHttpResponse(
+                        statusCode,
+                        responseHeaders(connection),
+                        data,
+                        statusCode >= 200 && statusCode < 300
+                    );
+                    res.accept(response);
+                } catch (Exception e) {
+                    rej.accept(e);
+                } finally {
+                    if (connection != null) {
+                        connection.disconnect();
+                    }
+                }
+            });
+        });
+    }
+
+    private int timeoutMillis(Duration timeout) {
+        Duration effective = timeout != null ? timeout : Duration.ofSeconds(5);
+        long millis = effective.toMillis();
+        return millis > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) millis;
+    }
+
+    private HttpURLConnection openHttpConnection(
+        String url,
+        String method,
+        byte[] body,
+        int timeoutMs,
+        Map<String, String> headers
+    ) throws Exception {
+        String currentUrl = url;
+        int redirects = 0;
+        while (true) {
+            URL requestUrl = URI.create(currentUrl).toURL();
+            HttpURLConnection connection = (HttpURLConnection) requestUrl.openConnection();
+            connection.setRequestMethod(method.toUpperCase());
+            connection.setConnectTimeout(timeoutMs);
+            connection.setReadTimeout(timeoutMs);
+            connection.setInstanceFollowRedirects(false);
+            connection.setRequestProperty(
+                "User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
+            );
+            applyHeaders(headers, connection);
+
+            if (body != null && body.length > 0) {
+                connection.setDoOutput(true);
+                try (OutputStream os = connection.getOutputStream()) {
+                    os.write(body);
+                    os.flush();
+                }
+            }
+
+            int statusCode = connection.getResponseCode();
+            if (!isRedirect(statusCode)) {
+                return connection;
+            }
+
+            String location = connection.getHeaderField("Location");
+            if (location == null || location.isEmpty()) {
+                return connection;
+            }
+            URI redirectUri = IosNetworkSecurity.safeRedirectUri(requestUrl.toURI(), location);
+            connection.disconnect();
+            redirects++;
+            if (redirects > MAX_HTTP_REDIRECTS) {
+                throw new IOException("Too many HTTP redirects");
+            }
+            currentUrl = redirectUri.toString();
+        }
+    }
+
+    private byte[] readHttpResponseBody(HttpURLConnection connection, int statusCode) {
+        InputStream inputStream = null;
+        try {
+            inputStream = statusCode >= 400 ? connection.getErrorStream() : connection.getInputStream();
+            if (inputStream == null) {
+                return new byte[0];
+            }
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            long total = 0;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                total += bytesRead;
+                if (!getMemoryLimits().checkForData(total)) {
+                    throw new IllegalArgumentException("Response body exceeds buffer limits");
+                }
+                baos.write(buffer, 0, bytesRead);
+            }
+            return baos.toByteArray();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Error reading response body", e);
+            return new byte[0];
+        } finally {
+            try {
+                if (inputStream != null) {
+                    inputStream.close();
+                }
+            } catch (IOException e) {
+                logger.log(Level.FINEST, "Error closing HTTP response body", e);
+            }
+        }
+    }
+
+    private Map<String, List<String>> responseHeaders(HttpURLConnection connection) {
+        Map<String, List<String>> responseHeaders = new HashMap<>();
+        for (Map.Entry<String, List<String>> entry : connection.getHeaderFields().entrySet()) {
+            if (entry.getKey() != null) {
+                responseHeaders.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return responseHeaders;
+    }
+
+    private void applyHeaders(Map<String, String> headers, HttpURLConnection connection) {
+        if (headers != null) {
+            for (Map.Entry<String, String> entry : headers.entrySet()) {
+                if (!getMemoryLimits().checkForString(entry.getKey().length())) throw new IllegalArgumentException(
+                    "Input exceeds buffer limits"
+                );
+                if (!getMemoryLimits().checkForString(entry.getValue().length())) throw new IllegalArgumentException(
+                    "Input exceeds buffer limits"
+                );
+
+                String key = entry.getKey().toLowerCase();
+                if (protectedHttpHeaders.contains(key)) {
+                    logger.log(Level.FINEST, "Skipping protected HTTP header: " + key);
+                    continue;
+                }
+                connection.setRequestProperty(entry.getKey(), entry.getValue());
+            }
+        }
+    }
+
+    private boolean isRedirect(int statusCode) {
+        return statusCode == 301 || statusCode == 302 || statusCode == 303 || statusCode == 307 || statusCode == 308;
+    }
+
+    private final List<String> protectedHttpHeaders = List.of("content-length", "host", "transfer-encoding", "connection");
+
+    @Override
+    public RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers) {
+        if (connId != null && !getMemoryLimits().checkForString(connId.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        IosRTCTransport transport = new IosRTCTransport();
+        transport.start(p2pAttemptTimeout, newAsyncExecutor(RTCTransport.class), connId, stunServers);
+        return transport;
+    }
+
+    @Override
+    public void setClipboardContent(String data) {
+        if (data == null) data = "";
+        if (!getMemoryLimits().checkForString(data.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
+        try {
+            LibJGLIOSPlatformBridge.setClipboardString(data);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Could not set iOS clipboard content", e);
+        }
+    }
+
+    @Override
+    public AsyncTask<String> getClipboardContent() {
+        return wrapPromise((res, rej) -> {
+            String content;
+            try {
+                content = LibJGLIOSPlatformBridge.getClipboardString();
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Could not get iOS clipboard content", e);
+                content = "";
+            }
+            content = content != null ? content : "";
+            if (!getMemoryLimits().checkForString(content.length())) {
+                rej.accept(new IllegalArgumentException("Clipboard content exceeds buffer limits"));
+                return;
+            }
+            res.accept(content);
+        });
+    }
+
+    @Override
+    public void openInWebBrowser(String url) {
+        if (!isValidBrowserUrl(url)) {
+            logger.log(Level.WARNING, "Invalid or unsafe URL: " + url);
+            return;
+        }
+
+        BrowserInterceptor interceptor = NGEPlatform.getBrowserInterceptor();
+        if (interceptor != null) {
+            interceptor.openLink(url);
+        } else {
+            try {
+                if (!LibJGLIOSPlatformBridge.openURL(url)) {
+                    logger.log(Level.WARNING, "iOS rejected browser URL: " + url);
+                }
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Failed to open URL in iOS browser", e);
+            }
+        }
+    }
+
+    private boolean isValidBrowserUrl(String url) {
+        try {
+            // Check for null or empty URLs
+            if (url == null || url.isEmpty()) {
+                return false;
+            }
+
+            // Check url too long
+            if (url.length() > 4096) {
+                return false;
+            }
+
+            // Check for non-printable characters
+            for (int i = 0; i < url.length(); i++) {
+                char c = url.charAt(i);
+                if (c <= 0x1F || c == 0x7F) {
+                    return false;
+                }
+            }
+
+            URI uri = new URI(url);
+            String scheme = uri.getScheme();
+
+            // Check invalid scheme
+            if (
+                scheme == null ||
+                !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https") || scheme.equalsIgnoreCase("mailto"))
+            ) {
+                return false;
+            }
+
+            // Check invalid host
+            if (scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https")) {
+                if (uri.getHost() == null || uri.getHost().isEmpty()) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
+        if (!getMemoryLimits().checkForData(P.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(S.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(dkLen)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(N)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(r)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(p2)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData((long) r * p2)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        try {
+            if (dkLen <= 0) {
+                throw new IllegalArgumentException("dkLen must be > 0");
+            }
+
+            if (N <= 0 || (N & (N - 1)) != 0) {
+                throw new IllegalArgumentException("N must be > 0 and a power of 2");
+            }
+
+            if (r <= 0) {
+                throw new IllegalArgumentException("r must be > 0");
+            }
+
+            if (p2 <= 0) {
+                throw new IllegalArgumentException("p must be > 0");
+            }
+
+            return SCrypt.generate(P, S, N, r, p2, dkLen);
+        } catch (Exception e) {
+            throw new SecurityException("SCrypt operation failed", e);
+        }
+    }
+
+    @Override
+    public String nfkc(String str) {
+        if (!getMemoryLimits().checkForString(str.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        String normalized = Normalizer.normalize(str, Normalizer.Form.NFKC);
+        return normalized;
+    }
+
+    @Override
+    public VStore getDataStore(String appName, String storeName) {
+        if (!getMemoryLimits().checkForString(appName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForString(storeName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        appName = NGEUtils.censorSpecial(appName);
+        storeName = NGEUtils.censorSpecial(storeName);
+        logger.finer("Data store path: " + Util.getSystemDataPath(appName).resolve(storeName));
+        return new VStore(new FileSystemVStore(Util.getSystemDataPath(appName).resolve(storeName)));
+    }
+
+    @Override
+    public VStore getCacheStore(String appName, String cacheName) {
+        if (!getMemoryLimits().checkForString(appName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (!getMemoryLimits().checkForString(cacheName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        appName = NGEUtils.censorSpecial(appName);
+        cacheName = NGEUtils.censorSpecial(cacheName);
+        logger.finer("Cache store path: " + Util.getSystemCachePath(appName).resolve(cacheName));
+        return new VStore(new FileSystemVStore(Util.getSystemCachePath(appName).resolve(cacheName)));
+    }
+
+    protected final Cleaner cleaner = Cleaner.create();
+
+    @Override
+    public Runnable registerFinalizer(Object obj, Runnable finalizer) {
+        Cleanable cls = cleaner.register(obj, finalizer);
+        return () -> {
+            if (cls != null) {
+                cls.clean();
+            }
+        };
+    }
+
+    @Override
+    public boolean isLoopbackAddress(URI uri) {
+        try {
+            // 1. Loopback, private, and any-local addresses
+            InetAddress address = InetAddress.getByName(uri.getHost());
+            if (
+                address.isLoopbackAddress() ||
+                address.isAnyLocalAddress() ||
+                address.isLinkLocalAddress() ||
+                address.isSiteLocalAddress() ||
+                isPrivateAddress(address)
+            ) return true;
+
+            // 2. any ip of the local machine
+            Enumeration<NetworkInterface> nics = NetworkInterface.getNetworkInterfaces();
+            while (nics.hasMoreElements()) {
+                NetworkInterface nic = nics.nextElement();
+                Enumeration<InetAddress> addrs = nic.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress localAddr = addrs.nextElement();
+                    if (address.equals(localAddr)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Error checking loopback address", e);
+            return super.isLoopbackAddress(uri);
+        }
+    }
+
+    private boolean isPrivateAddress(InetAddress address) {
+        byte[] bytes = address.getAddress();
+        if (bytes.length == 4) {
+            int first = bytes[0] & 0xff;
+            int second = bytes[1] & 0xff;
+            return (
+                first == 10 ||
+                (first == 172 && second >= 16 && second <= 31) ||
+                (first == 192 && second == 168) ||
+                (first == 100 && second >= 64 && second <= 127)
+            );
+        }
+        return bytes.length == 16 && (bytes[0] & 0xfe) == 0xfc;
+    }
+
+    @Override
+    public InputStream openResource(String resourceName) throws IOException {
+        if (!getMemoryLimits().checkForString(resourceName.length())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        String fullpath = resourceName;
+        if (fullpath.startsWith("/")) {
+            fullpath = fullpath.substring(1);
+        }
+        InputStream is = Thread.currentThread().getContextClassLoader().getResourceAsStream(fullpath);
+        if (is == null) {
+            is = IosPlatform.class.getClassLoader().getResourceAsStream(fullpath);
+        }
+
+        if (is == null) {
+            throw new IOException("Resource not found: " + resourceName);
+        }
+        return is;
+    }
+
+    @Override
+    public byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption) {
+        if (!getMemoryLimits().checkForData(key.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(iv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
+
+        try {
+            BufferedBlockCipher cipher = new PaddedBufferedBlockCipher(
+                CBCBlockCipher.newInstance(AESEngine.newInstance()),
+                new PKCS7Padding()
+            );
+
+            KeyParameter keyParam = new KeyParameter(key);
+            ParametersWithIV parameters = new ParametersWithIV(keyParam, iv);
+
+            cipher.init(forEncryption, parameters);
+
+            byte[] output = new byte[cipher.getOutputSize(data.length)];
+            int length = cipher.processBytes(data, 0, data.length, output, 0);
+            length += cipher.doFinal(output, length);
+
+            if (length < output.length) {
+                byte[] result = new byte[length];
+                System.arraycopy(output, 0, result, 0, length);
+                return result;
+            }
+
+            return output;
+        } catch (Exception e) {
+            throw new RuntimeException("AES-256-CBC operation failed", e);
+        }
+    }
+
+    @Override
+    public String getPlatformName() {
+        return "iOS";
+    }
+
+    public void panic(String err) {
+        panicImpl(err);
+    }
+
+    private static void panicImpl(String err) {
+        System.err.println(err);
+        throw new RuntimeException("PANIC: " + err);
+    }
+}

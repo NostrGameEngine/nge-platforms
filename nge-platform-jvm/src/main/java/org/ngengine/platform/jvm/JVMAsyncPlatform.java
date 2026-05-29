@@ -1271,6 +1271,50 @@ public class JVMAsyncPlatform extends NGEPlatform {
         return transport;
     }
 
+    private boolean setSdlClipboard(String text) {
+        try {
+            Class<?> sdlClipboardClass = Class.forName("org.lwjgl.sdl.SDLClipboard");
+            java.lang.reflect.Method sdlSetClipboardText = sdlClipboardClass.getMethod(
+                "SDL_SetClipboardText",
+                CharSequence.class
+            );
+            Boolean result = (Boolean) sdlSetClipboardText.invoke(null, text);
+            if (Boolean.TRUE.equals(result)) {
+                logger.log(Level.FINE, "Set clipboard content via SDL");
+                return true;
+            }
+        } catch (ClassNotFoundException e) {
+            logger.log(Level.FINE, "SDL clipboard is not available", e);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to set SDL clipboard content", e);
+        }
+        return false;
+    }
+
+    private String getSdlClipboard() {
+        try {
+            Class<?> sdlClipboardClass = Class.forName("org.lwjgl.sdl.SDLClipboard");
+            java.lang.reflect.Method sdlGetClipboardText = sdlClipboardClass.getMethod("SDL_GetClipboardText");
+            String result = (String) sdlGetClipboardText.invoke(null);
+            logger.log(Level.FINE, "Retrieved clipboard content via SDL");
+            return result != null ? result : "";
+        } catch (ClassNotFoundException e) {
+            logger.log(Level.FINE, "SDL clipboard is not available", e);
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "Failed to get SDL clipboard content", e);
+        }
+        return null;
+    }
+
+    private boolean isSdlClipboardAvailable() {
+        try {
+            Class.forName("org.lwjgl.sdl.SDLClipboard");
+            return true;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
+    }
+
     private boolean setGlfwClipboard(String text) {
         try {
             Class<?> glfwClass = Class.forName("org.lwjgl.glfw.GLFW");
@@ -1374,14 +1418,17 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (data == null) data = "";
         if (!getMemoryLimits().checkForString(data.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
         try {
-            if (isGlfwAvailable()) {
-                setGlfwClipboard(data);
+            if (isSdlClipboardAvailable() && setSdlClipboard(data)) {
+                return;
+            }
+            if (isGlfwAvailable() && setGlfwClipboard(data)) {
+                return;
             }
             if (isAWTAvailable()) {
                 setAWTClipboard(data);
             }
         } catch (Exception e) {
-            logger.log(Level.FINE, "Could not set clipboard content (AWT not available)", e);
+            logger.log(Level.FINE, "Could not set clipboard content", e);
         }
     }
 
@@ -1390,6 +1437,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         return wrapPromise((res, rej) -> {
             String content = null;
             try {
+                if (content == null && isSdlClipboardAvailable()) {
+                    content = getSdlClipboard();
+                }
                 if (content == null && isGlfwAvailable()) {
                     content = getGlfwClipboard();
                 }
@@ -1397,7 +1447,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                     content = getAWTClipboard();
                 }
             } catch (Exception e) {
-                logger.log(Level.FINE, "Could not get clipboard content (AWT not available)", e);
+                logger.log(Level.FINE, "Could not get clipboard content", e);
             }
             content = content != null ? content : "";
             if (!getMemoryLimits().checkForString(content.length())) {

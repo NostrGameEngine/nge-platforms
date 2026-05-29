@@ -1,0 +1,23 @@
+plugins {
+    id 'java-library'
+}
+
+def libdatachannelJavaIosOverride = findProperty('libdatachannelJavaIosOverride')?.toString()
+
+dependencies {
+    api project(':nge-platform-common')
+    implementation libs.gson
+    implementation libs.bcprov
+    implementation libs.libdatachannelJava
+    implementation(libdatachannelJavaIosOverride ?: libs.libdatachannelJavaIos)
+    implementation libs.libjgliosCoreIos
+    implementation libs.saferalloc
+    implementation libs.saferallocNativesIos
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}

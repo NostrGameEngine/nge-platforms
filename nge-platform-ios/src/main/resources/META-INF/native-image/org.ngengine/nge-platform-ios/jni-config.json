@@ -1,0 +1,215 @@
+[
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "boolean",
+          "boolean",
+          "long",
+          "int"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.DataChannelReliability"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "int",
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.UnknownFailureException"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String",
+          "int",
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.NativeOperationException"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.FailureException"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.InvalidException"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.NotAvailableException"
+  },
+  {
+    "methods": [
+      {
+        "name": "<init>",
+        "parameterTypes": [
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.exception.TooSmallException"
+  },
+  {
+    "methods": [
+      {
+        "name": "allocate",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "log",
+        "parameterTypes": [
+          "int",
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.LibDataChannel"
+  },
+  {
+    "methods": [
+      {
+        "name": "onChannelAvailable",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onChannelBinaryMessage",
+        "parameterTypes": [
+          "int",
+          "java.nio.ByteBuffer"
+        ]
+      },
+      {
+        "name": "onChannelBufferedAmountLow",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onChannelClosed",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onChannelError",
+        "parameterTypes": [
+          "int",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "onChannelOpen",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onChannelTextMessage",
+        "parameterTypes": [
+          "int",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "onDataChannel",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onGatheringStateChange",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onIceStateChange",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onLocalCandidate",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "onLocalDescription",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      },
+      {
+        "name": "onSignalingStateChange",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onStateChange",
+        "parameterTypes": [
+          "int"
+        ]
+      },
+      {
+        "name": "onTrack",
+        "parameterTypes": [
+          "int"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.PeerConnectionListener"
+  },
+  {
+    "methods": [
+      {
+        "name": "parse",
+        "parameterTypes": [
+          "java.lang.String",
+          "java.lang.String"
+        ]
+      }
+    ],
+    "name": "tel.schich.libdatachannel.CandidatePair"
+  }
+]

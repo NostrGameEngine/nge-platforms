@@ -29,6 +29,11 @@ ext {
     licenseUrl="https://opensource.org/licenses/BSD-3-Clause"
 }
 
+def spotbugsTaskRequested = gradle.startParameter.taskNames.any { taskName ->
+    taskName.toString().toLowerCase(java.util.Locale.ROOT).contains("spotbugs")
+}
+rootProject.ext.enableSpotBugs = spotbugsTaskRequested || (findProperty("enableSpotBugs")?.toString()?.toBoolean() ?: false)
+
 if(System.getenv("SONATYPE_USERNAME") || project.findProperty("sonatypeUsername")){
     nexusPublishing {
         repositories {
@@ -73,14 +78,16 @@ allprojects {
     }
 }
 
-def applyConf(proj, isAndroid){
+def applyConf = { proj, isAndroid ->
     // java only
     if(!isAndroid){
         proj.java {
             withJavadocJar()
             withSourcesJar()
         }
-        proj.apply plugin: "com.github.spotbugs"
+        if (rootProject.ext.enableSpotBugs) {
+            proj.apply plugin: "com.github.spotbugs"
+        }
 
 
      
@@ -146,7 +153,7 @@ def applyConf(proj, isAndroid){
                         if (proj.plugins.hasPlugin("java-library")) {
                             from(proj.components.java)
                         }
-                        else if (proj.plugins.hasPlugin("com.android.library")) {
+                        else if (proj.plugins.hasPlugin("com.android.library") && proj.components.findByName("release") != null) {
                             from(proj.components["release"])
                         }
 
@@ -296,14 +303,15 @@ subprojects { proj ->
             spotbugsPlugins "com.h3xstream.findsecbugs:findsecbugs-plugin:1.14.0"
         }
         proj.tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach { task ->
+            def reportName = task.path.substring(1).replace(":", "-")
             task.reports {
                 html {
-                    enabled     = true
-                    destination = file("${proj.rootDir}/reports/spotbugs/${task.name}.html")
+                    required.set(true)
+                    outputLocation.set(file("${proj.rootDir}/reports/spotbugs/${reportName}.html"))
                 }
                 sarif {
-                    enabled     = true
-                    destination = file("${proj.rootDir}/reports/spotbugs/${task.name}.sarif")
+                    required.set(true)
+                    outputLocation.set(file("${proj.rootDir}/reports/spotbugs/${reportName}.sarif"))
                 }
             }
         }

@@ -44,9 +44,17 @@ tasks.register('androidRtcEmulatorHarness', Exec) {
     commandLine 'bash', 'scripts/run-rtc-emulator-harness.sh'
 }
 
-def sdk = System.getenv('ANDROID_SDK_ROOT') ?: System.getenv('ANDROID_HOME')
+def sdk = [
+    System.getenv('ANDROID_SDK_ROOT'),
+    System.getenv('ANDROID_HOME'),
+    System.getProperty('android.home'),
+    new File(System.getProperty('user.home'), 'Library/Android/sdk').absolutePath,
+    new File(System.getProperty('user.home'), 'Android/Sdk').absolutePath
+].find { candidate ->
+    candidate != null && new File(candidate.toString(), 'platforms').isDirectory()
+}
 if (!sdk) {
-    throw new GradleException('Android SDK not found. Set ANDROID_SDK_ROOT or ANDROID_HOME.')
+    throw new GradleException('Android SDK not found. Set ANDROID_SDK_ROOT, ANDROID_HOME, or -Dandroid.home.')
 }
 println "Using Android SDK at: ${sdk}"
 

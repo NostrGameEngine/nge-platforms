@@ -8,23 +8,26 @@ on:
       - main
       - master
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
-  interop-matrix:
-    name: Interop Matrix
+  interop-matrix-linux:
+    name: Interop Matrix (Linux + Android)
     runs-on: ubuntu-latest
     timeout-minutes: 90
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set up Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v6
       with:
         node-version: '22'
 
     - name: Set up JDK 21
-      uses: actions/setup-java@v4
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -32,7 +35,7 @@ jobs:
 
     - name: Install Google Chrome
       id: chrome
-      uses: browser-actions/setup-chrome@v1
+      uses: browser-actions/setup-chrome@v2
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
@@ -48,6 +51,8 @@ jobs:
       env:
         CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         ANDROID_AVD_NAME: ci-interop
+        ANDROID_REUSE_RUNNING_EMULATOR: "1"
+        ANDROID_TEAVM_RTC_STRESS_MESSAGES: "96"
       with:
         api-level: 33
         target: google_apis
@@ -56,4 +61,60 @@ jobs:
         avd-name: ci-interop
         emulator-options: -no-window -no-boot-anim -noaudio -gpu swiftshader_indirect -no-snapshot
         disable-animations: true
-        script: ./gradlew --no-daemon interopMatrix --console=plain
+        script: ./gradlew --no-daemon interopMatrix --console=plain -PforceAndroidInterop=true
+
+  interop-matrix-macos:
+    name: Interop Matrix (macOS + iOS)
+    runs-on: macos-15
+    timeout-minutes: 120
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v6
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v6
+      with:
+        node-version: '22'
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'gradle'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Select Xcode
+      run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+    - name: Prepare iOS simulator runtime
+      run: |
+        set -euo pipefail
+        xcrun simctl list runtimes
+        xcrun simctl list devicetypes
+        runtime="$(xcrun simctl list runtimes -j | node -e "
+          const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+          const runtimes = data.runtimes
+            .filter((r) => r.isAvailable && (r.platform === 'iOS' || String(r.identifier).includes('iOS')))
+            .sort((a, b) => String(b.version).localeCompare(String(a.version), undefined, { numeric: true }));
+          if (!runtimes.length) process.exit(1);
+          process.stdout.write(runtimes[0].identifier);
+        ")"
+        device_type="$(xcrun simctl list devicetypes -j | node -e "
+          const data = JSON.parse(require('fs').readFileSync(0, 'utf8'));
+          const preferred = ['iPhone 16', 'iPhone 15', 'iPhone 14'];
+          const available = data.devicetypes.filter((d) => d.name.startsWith('iPhone '));
+          const picked = preferred.map((name) => available.find((d) => d.name === name)).find(Boolean) || available[0];
+          if (!picked) process.exit(1);
+          process.stdout.write(picked.identifier);
+        ")"
+        udid="$(xcrun simctl create "NGE iOS Interop" "$device_type" "$runtime")"
+        echo "IOS_SIMULATOR_DEVICE=$udid" >> "$GITHUB_ENV"
+        xcrun simctl boot "$udid" || true
+        xcrun simctl bootstatus "$udid" -b
+
+    - name: Run iOS simulator interoperability
+      run: ./gradlew --no-daemon :nge-platform-interop-test:iosSimulatorInteropHarness --console=plain -PskipAndroidInterop=true -PforceIosInterop=true -PiosSimulatorDevice="${IOS_SIMULATOR_DEVICE}"

@@ -2,9 +2,14 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import puppeteer from 'puppeteer-core';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const teavmDir = path.resolve(projectDir, '..', 'nge-platform-teavm');
+const INTEROP_TITLE = 'Interop: TeaVM Browser <-> TeaVM Browser RTC';
+const PUPPETEER_PROTOCOL_TIMEOUT_MS = Number(process.env.PUPPETEER_PROTOCOL_TIMEOUT_MS || 600000);
+const PUPPETEER_NAVIGATION_TIMEOUT_MS = Number(process.env.PUPPETEER_NAVIGATION_TIMEOUT_MS || 120000);
+const PUPPETEER_RESULT_TIMEOUT_MS = Number(process.env.PUPPETEER_RESULT_TIMEOUT_MS || 120000);
 const rootDirs = [
   path.join(projectDir, 'test-harness'),
   path.join(teavmDir, 'src', 'main', 'resources'),
@@ -34,14 +39,22 @@ async function runBrowserHarness(url) {
   const browser = await puppeteer.launch({
     executablePath: chrome,
     headless: true,
+    protocolTimeout: PUPPETEER_PROTOCOL_TIMEOUT_MS,
     args: [
       '--no-sandbox',
       '--disable-dev-shm-usage',
       '--disable-gpu',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--disable-extensions',
+      '--disable-sync',
+      '--no-first-run',
       '--disable-features=WebRtcHideLocalIpsWithMdns',
     ],
   });
   const page = await browser.newPage();
+  page.setDefaultTimeout(PUPPETEER_RESULT_TIMEOUT_MS);
+  page.setDefaultNavigationTimeout(PUPPETEER_NAVIGATION_TIMEOUT_MS);
   const consoleMessages = [];
   const pageErrors = [];
 
@@ -59,7 +72,7 @@ async function runBrowserHarness(url) {
   });
 
   try {
-    await page.goto(url, { waitUntil: 'networkidle2', timeout: 20000 });
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: PUPPETEER_NAVIGATION_TIMEOUT_MS });
     await page.waitForFunction(() => {
       const el = document.getElementById('result');
       if (!el) return false;
@@ -71,7 +84,7 @@ async function runBrowserHarness(url) {
       } catch {
         return false;
       }
-    }, { timeout: 25000 });
+    }, { timeout: PUPPETEER_RESULT_TIMEOUT_MS });
 
     const raw = await page.$eval('#result', (el) => el.textContent || '');
     let result;
@@ -128,6 +141,11 @@ async function main() {
       process.stderr.write(`${pageErrors.join('\n')}\n`);
     }
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+    emitInteropAnnotation(
+      INTEROP_TITLE,
+      Boolean(result.ok),
+      result.ok ? 'TeaVM browser peers exchanged RTC data successfully.' : firstFailureText(result.error)
+    );
     if (!result.ok) {
       process.exitCode = 1;
     }
@@ -137,6 +155,7 @@ async function main() {
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });

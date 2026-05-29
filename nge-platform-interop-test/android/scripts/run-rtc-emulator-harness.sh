@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SDK_CANDIDATES=()
 if [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then SDK_CANDIDATES+=("${ANDROID_SDK_ROOT}"); fi
 if [[ -n "${ANDROID_HOME:-}" ]]; then SDK_CANDIDATES+=("${ANDROID_HOME}"); fi
-SDK_CANDIDATES+=("$HOME/Android/Sdk" "$HOME/Android")
+SDK_CANDIDATES+=("$HOME/Library/Android/sdk" "$HOME/Android/Sdk" "$HOME/Android")
 
 SDK_DIR=""
 for CANDIDATE in "${SDK_CANDIDATES[@]}"; do
@@ -29,6 +29,7 @@ ANDROID_SIGNAL_BASE="${ANDROID_RTC_SIGNAL_BASE:-}"
 ANDROID_WS_URL="${ANDROID_RTC_WS_URL:-}"
 ANDROID_HTTP_PARITY_URL="${ANDROID_RTC_HTTP_PARITY_URL:-}"
 ANDROID_REUSE_RUNNING_EMULATOR="${ANDROID_REUSE_RUNNING_EMULATOR:-0}"
+ANDROID_STRESS_MESSAGES="${ANDROID_RTC_STRESS_MESSAGES:-}"
 
 if [[ ! -x "${EMULATOR_BIN}" ]]; then
   echo "Emulator binary not found: ${EMULATOR_BIN}" >&2
@@ -149,6 +150,7 @@ else
 fi
 
 echo "Waiting for Android boot..."
+export ANDROID_SERIAL="${EMULATOR_SERIAL}"
 "${ADB_BIN}" -s "${EMULATOR_SERIAL}" wait-for-device
 for _ in $(seq 1 120); do
   if [[ -n "${EMULATOR_PID:-}" ]] && ! kill -0 "${EMULATOR_PID}" >/dev/null 2>&1; then
@@ -178,5 +180,8 @@ if [[ -n "${ANDROID_WS_URL}" ]]; then
 fi
 if [[ -n "${ANDROID_HTTP_PARITY_URL}" ]]; then
   GRADLE_ARGS+=("-Pandroid.testInstrumentationRunnerArguments.httpParityUrl=${ANDROID_HTTP_PARITY_URL}")
+fi
+if [[ -n "${ANDROID_STRESS_MESSAGES}" ]]; then
+  GRADLE_ARGS+=("-Pandroid.testInstrumentationRunnerArguments.stressMessages=${ANDROID_STRESS_MESSAGES}")
 fi
 ./gradlew "${GRADLE_ARGS[@]}"

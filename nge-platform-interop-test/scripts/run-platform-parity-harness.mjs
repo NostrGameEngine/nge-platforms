@@ -3,11 +3,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
 const rootDirs = [path.join(projectDir, 'test-harness'), path.join(teavmDir, 'src', 'main', 'resources')];
+const INTEROP_TITLE = 'Interop: JVM <-> Android <-> TeaVM Platform Parity';
 
 const state = { results: { jvm: null, android: null, browser: null } };
 
@@ -215,10 +217,18 @@ async function main() {
     ]
   };
   process.stdout.write(`${JSON.stringify(combined, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    combined.ok,
+    combined.ok
+      ? 'JVM, Android, and TeaVM browser platform snapshots match.'
+      : firstFailureText(compare.mismatches?.join('; '), state.results.jvm?.error, state.results.android?.error, state.results.browser?.error)
+  );
   if (!combined.ok) process.exit(1);
 }
 
 main().catch((err) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(err?.stack || err?.message || err));
   process.stderr.write(`${err.stack || err.message || String(err)}\n`);
   process.exit(1);
 });

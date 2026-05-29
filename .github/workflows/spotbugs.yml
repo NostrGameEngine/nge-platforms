@@ -3,6 +3,9 @@ name: SpotBugs Analysis
 on:
   push: 
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   security:
     runs-on: ubuntu-latest
@@ -11,12 +14,12 @@ jobs:
       
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v6
       with:
         fetch-depth: 0
       
     - name: Set up JDK 21
-      uses: actions/setup-java@v3
+      uses: actions/setup-java@v5
       with:
         java-version: '21'
         distribution: 'temurin'
@@ -27,13 +30,14 @@ jobs:
         
     - name: Run SpotBugs with SARIF output
       run: |
-        ./gradlew spotbugsMain --info
-        ./gradlew spotlessCheck
-        
-      continue-on-error: true
+        ./gradlew --no-daemon spotbugsMain --console=plain -PenableSpotBugs=true
+        ./gradlew --no-daemon spotlessCheck --console=plain
+
+    - name: Merge SpotBugs SARIF runs
+      run: node .github/scripts/merge-sarif-runs.mjs reports/spotbugs reports/spotbugs/spotbugs.sarif
     
     - name: Upload reports
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: reports
         path: reports
@@ -42,7 +46,7 @@ jobs:
       run: find reports -type f | sort
       
     - name: Upload SpotBugs SARIF file
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@v4
       with:
-        sarif_file: reports/spotbugs/spotbugsMain.sarif
+        sarif_file: reports/spotbugs/spotbugs.sarif
         category: spotbugs

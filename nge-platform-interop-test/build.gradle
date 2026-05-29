@@ -3,6 +3,9 @@ plugins {
     id "com.github.node-gradle.node" version "7.1.0"
 }
 
+def hasAndroidInterop = rootProject.findProject(":nge-platform-interop-test:android") != null
+def hasIosInterop = rootProject.findProject(":nge-platform-interop-test:ios") != null
+
 node {
     version = "22.18.0"
     download = true
@@ -10,8 +13,8 @@ node {
 }
 
 task npmInstallHarness(type: com.github.gradle.node.npm.task.NpmTask) {
-    // wrtc ships its native binding via install scripts; force scripts enabled
-    // even if user/global npm config sets ignore-scripts=true.
+    // Node WebRTC providers may ship native bindings via install scripts; force
+    // scripts enabled even if user/global npm config sets ignore-scripts=true.
     args = ['install', '--no-fund', '--no-audit', '--ignore-scripts=false']
 }
 
@@ -50,65 +53,83 @@ task jvmTeaVMNodeInteropHarness(type: Exec) {
     }
 }
 
-task jvmAndroidInteropHarness(type: Exec) {
-    dependsOn npmInstallHarness
-    dependsOn ":nge-platform-interop-test:jvm:classes"
-    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
-    workingDir project.projectDir
-    commandLine "node", "scripts/run-jvm-android-interop-harness.mjs"
+if (hasAndroidInterop) {
+    task jvmAndroidInteropHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        dependsOn ":nge-platform-interop-test:jvm:classes"
+        dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-jvm-android-interop-harness.mjs"
 
-    doFirst {
-        println "Running JVM<->Android emulator RTC interoperability harness"
+        doFirst {
+            println "Running JVM<->Android emulator RTC interoperability harness"
+        }
     }
+
+    task androidTeaVMInteropHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        dependsOn ":nge-platform-teavm:copyWebpackOutput"
+        dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-android-teavm-interop-harness.mjs"
+
+        doFirst {
+            println "Running Android emulator<->TeaVM browser RTC interoperability harness"
+        }
+    }
+
+    task platformParityHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        dependsOn ":nge-platform-teavm:copyWebpackOutput"
+        dependsOn ":nge-platform-interop-test:jvm:classes"
+        dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-platform-parity-harness.mjs"
+
+        doFirst {
+            println "Running cross-platform NGEPlatform parity harness (JVM/Android/TeaVM-browser)"
+        }
+    }
+
+    task asyncParityHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        dependsOn ":nge-platform-interop-test:jvm:classes"
+        dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-async-parity-harness.mjs"
+
+        doFirst {
+            println "Running async/executor parity harness (JVM/Android/TeaVM-browser baseline)"
+        }
+    }
+
+    task websocketInteropParityHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        dependsOn ":nge-platform-interop-test:jvm:classes"
+        dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-websocket-interop-parity-harness.mjs"
+
+        doFirst {
+            println "Running cross-platform WebSocket interop/parity harness (JVM/Android/browser)"
+        }
+    }
+} else {
+    logger.lifecycle("Android interoperability harnesses skipped: :nge-platform-interop-test:android is not included.")
 }
 
-task androidTeaVMInteropHarness(type: Exec) {
-    dependsOn npmInstallHarness
-    dependsOn ":nge-platform-teavm:copyWebpackOutput"
-    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
-    workingDir project.projectDir
-    commandLine "node", "scripts/run-android-teavm-interop-harness.mjs"
+if (hasIosInterop) {
+    task iosSimulatorInteropHarness(type: Exec) {
+        dependsOn npmInstallHarness
+        workingDir project.projectDir
+        commandLine "node", "scripts/run-ios-simulator-interop-harness.mjs"
 
-    doFirst {
-        println "Running Android emulator<->TeaVM browser RTC interoperability harness"
+        doFirst {
+            println "Running iOS simulator interoperability harness"
+        }
     }
-}
-
-task platformParityHarness(type: Exec) {
-    dependsOn npmInstallHarness
-    dependsOn ":nge-platform-teavm:copyWebpackOutput"
-    dependsOn ":nge-platform-interop-test:jvm:classes"
-    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
-    workingDir project.projectDir
-    commandLine "node", "scripts/run-platform-parity-harness.mjs"
-
-    doFirst {
-        println "Running cross-platform NGEPlatform parity harness (JVM/Android/TeaVM-browser)"
-    }
-}
-
-task asyncParityHarness(type: Exec) {
-    dependsOn npmInstallHarness
-    dependsOn ":nge-platform-interop-test:jvm:classes"
-    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
-    workingDir project.projectDir
-    commandLine "node", "scripts/run-async-parity-harness.mjs"
-
-    doFirst {
-        println "Running async/executor parity harness (JVM/Android/TeaVM-browser baseline)"
-    }
-}
-
-task websocketInteropParityHarness(type: Exec) {
-    dependsOn npmInstallHarness
-    dependsOn ":nge-platform-interop-test:jvm:classes"
-    dependsOn ":nge-platform-interop-test:android:compileDebugAndroidTestJavaWithJavac"
-    workingDir project.projectDir
-    commandLine "node", "scripts/run-websocket-interop-parity-harness.mjs"
-
-    doFirst {
-        println "Running cross-platform WebSocket interop/parity harness (JVM/Android/browser)"
-    }
+} else {
+    logger.lifecycle("iOS simulator interoperability harness skipped: :nge-platform-interop-test:ios is not included.")
 }
 
 task interopMatrix {
@@ -117,11 +138,16 @@ task interopMatrix {
     dependsOn rtcBrowserHarness
     dependsOn jvmTeaVMInteropHarness
     dependsOn jvmTeaVMNodeInteropHarness
-    dependsOn jvmAndroidInteropHarness
-    dependsOn androidTeaVMInteropHarness
-    dependsOn platformParityHarness
-    dependsOn asyncParityHarness
-    dependsOn websocketInteropParityHarness
+    if (hasAndroidInterop) {
+        dependsOn jvmAndroidInteropHarness
+        dependsOn androidTeaVMInteropHarness
+        dependsOn platformParityHarness
+        dependsOn asyncParityHarness
+        dependsOn websocketInteropParityHarness
+    }
+    if (hasIosInterop) {
+        dependsOn iosSimulatorInteropHarness
+    }
 }
 
 tasks.configureEach { t ->

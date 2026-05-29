@@ -4,12 +4,14 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 import { WebSocketServer } from 'ws';
+import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
 const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
 const rootDirs = [path.join(projectDir, 'test-harness'), path.join(teavmDir, 'src', 'main', 'resources')];
 const state = { results: { jvm: null, android: null, browser: null } };
+const INTEROP_TITLE = 'Interop: JVM <-> Android <-> Browser WebSocket';
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -293,10 +295,16 @@ async function main() {
     process.stderr.write(`[android stderr buffered]\n${androidOut.stderr}\n`);
   }
   process.stdout.write(`${JSON.stringify(out, null, 2)}\n`);
+  emitInteropAnnotation(
+    INTEROP_TITLE,
+    out.ok,
+    out.ok ? 'WebSocket snapshots match across JVM, Android, and browser.' : firstFailureText(cmp.mismatches?.join('; '), state.results.jvm?.error, state.results.android?.error, state.results.browser?.error)
+  );
   if (!out.ok) process.exit(1);
 }
 
 main().catch((e) => {
+  emitInteropAnnotation(INTEROP_TITLE, false, firstFailureText(e?.stack || e?.message || e));
   process.stderr.write(`${e.stack || e.message || String(e)}\n`);
   process.exit(1);
 });

@@ -1,0 +1,87 @@
+plugins {
+    id 'java-library'
+    id 'org.ngengine.libjglios' version '0.3-SNAPSHOT'
+}
+
+dependencies {
+    implementation project(':nge-platform-ios')
+    implementation libs.gson
+    implementation libs.libjgliosAngleIos
+    implementation libs.libjgliosCoreIos
+    implementation libs.libjgliosSdl3Ios
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+iOS {
+    mainClass = 'org.ngengine.platform.ios.interop.IosInteropEntrypoints'
+    bundleId = 'org.ngengine.platform.interop.ios'
+    appName = 'NGEIosInterop'
+    orientation = 'portrait'
+    simulatorDevice = findProperty('iosSimulatorDevice') ?: 'iPhone 16'
+}
+
+tasks.named('compileJava') {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+tasks.register('runIosSimulatorInteropHarness') {
+    group = 'verification'
+    description = 'Builds and runs the iOS simulator side of the interoperability harness'
+    dependsOn 'buildIosSimulatorApp'
+
+    doLast {
+        def runCommand = { List<String> args, boolean ignoreExitValue = false, Map<String, ?> env = [:] ->
+            def shouldIgnoreExitValue = ignoreExitValue
+            def output = providers.exec {
+                commandLine args
+                environment env
+                setIgnoreExitValue(shouldIgnoreExitValue)
+            }
+            def result = output.result.get()
+            if (!ignoreExitValue) {
+                result.assertNormalExitValue()
+            }
+        }
+
+        def signalBase = System.getenv('IOS_INTEROP_SIGNAL_BASE') ?: findProperty('iosInteropSignalBase')
+        if (!signalBase) {
+            throw new GradleException('IOS_INTEROP_SIGNAL_BASE or -PiosInteropSignalBase is required.')
+        }
+
+        def deviceName = findProperty('iosSimulatorDevice') ?: 'iPhone 16'
+        def bundleId = 'org.ngengine.platform.interop.ios'
+        def appDir = layout.buildDirectory.dir('ios-graal-simulator/NGEIosInteropSim.app').get().asFile
+        if (!appDir.isDirectory()) {
+            throw new GradleException("iOS simulator app was not built: ${appDir}")
+        }
+
+        runCommand(['xcrun', 'simctl', 'boot', deviceName], true)
+        runCommand(['xcrun', 'simctl', 'bootstatus', deviceName, '-b'])
+        runCommand(['xcrun', 'simctl', 'terminate', deviceName, bundleId], true)
+        runCommand(['xcrun', 'simctl', 'install', deviceName, appDir.absolutePath])
+        runCommand(
+            ['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process', deviceName, bundleId],
+            false,
+            [
+                SIMCTL_CHILD_IOS_INTEROP_SIGNAL_BASE: signalBase.toString(),
+                SIMCTL_CHILD_IOS_INTEROP_KIND: (System.getenv('IOS_INTEROP_KIND') ?: 'smoke'),
+                SIMCTL_CHILD_LIBJGLIOS_MAX_FRAMES: (System.getenv('LIBJGLIOS_MAX_FRAMES') ?: '3600')
+            ]
+        )
+    }
+}
+
+tasks.configureEach { t ->
+    if (t.name.startsWith('publish') || t.name == 'sign' || t.name.startsWith('sign')) {
+        t.enabled = false
+    }
+}

@@ -56,6 +56,8 @@ dependencies {
     implementation 'org.ngengine:nge-platform-jvm:<version>'
     // For Android
     // implementation 'org.ngengine:nge-platform-android:<version>'
+    // For iOS (libJGLIOS)
+    // implementation 'org.ngengine:nge-platform-ios:<version>'
     // For HTML5 (GWT)
     // implementation 'org.ngengine:nge-platform-teavm:<version>'
 }
@@ -74,6 +76,7 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-common | all | java 11+ |
 | nge-platform-jvm | desktop | java 21+ |
 | nge-platform-android | android | android api 33+ |
+| nge-platform-ios | ios | [libJGLIOS](https://github.com/NostrGameEngine/libJGLIOS) |
 | nge-platform-teavm | browser webgl2 | java 21+ / teavm 0.11.0+ |
 
 ## Testing
@@ -85,6 +88,7 @@ This repo has some unit and integration tests for each platform, and for platfor
 
 - Android SDK + emulator installed (with exported `ANDROID_SDK_ROOT`, `ANDROID_HOME`)
 - At least one Android AVD available (defaults to `Generic_AOSP` if present)
+- macOS with Xcode and an iOS simulator runtime installed for iOS simulator tests
 - Chrome/Chromium installed for Puppeteer (`CHROME_BIN` can be used to override the path)
 
 
