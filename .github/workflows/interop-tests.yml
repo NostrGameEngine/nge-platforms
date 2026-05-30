@@ -65,7 +65,7 @@ jobs:
 
   interop-matrix-macos:
     name: Interop Matrix (macOS + iOS)
-    runs-on: macos-15-intel
+    runs-on: macos-15
     timeout-minutes: 120
 
     steps:
