@@ -24,6 +24,7 @@ public final class IosInteropEntrypoints {
     private static volatile int exitCode;
 
     public IosInteropEntrypoints() {
+        start();
     }
 
     public static void main(String[] args) {
@@ -65,6 +66,7 @@ public final class IosInteropEntrypoints {
                 kind = "smoke";
             }
 
+            System.setProperty("nge-platforms.allowLoopbackInURIs", "true");
             IosPlatform platform = new IosPlatform();
             setGlobalPlatform(platform);
             runSmoke(platform, signalBase, result);

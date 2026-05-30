@@ -8,9 +8,10 @@ const repoRoot = path.resolve(projectDir, '..');
 const state = { ios: null };
 const INTEROP_TITLE = 'Interop: iOS Simulator <-> Node Harness';
 const buildTask = ':nge-platform-interop-test:ios:buildIosSimulatorApp';
-const runTask = ':nge-platform-interop-test:ios:runIosSimulatorInteropHarness';
 const iosSimulatorDevice = process.env.IOS_SIMULATOR_DEVICE || process.env.IOS_SIMULATOR_UDID || '';
 const iosResultTimeoutMs = Number.parseInt(process.env.IOS_INTEROP_RESULT_TIMEOUT_MS || `${8 * 60 * 1000}`, 10);
+const iosBundleId = 'org.ngengine.platform.interop.ios';
+const iosAppDir = path.join(projectDir, 'ios', 'build', 'ios-graal-simulator', 'NGEIosInteropSim.app');
 
 function json(res, status, body) {
   res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' });
@@ -102,6 +103,23 @@ function spawnCapture(cmd, args, { cwd, env, label, timeoutMs } = {}) {
   });
 }
 
+function runSimctl(args, options = {}) {
+  return spawnCapture('xcrun', ['simctl', ...args], {
+    cwd: repoRoot,
+    label: options.label || 'simctl',
+    env: options.env,
+    timeoutMs: options.timeoutMs,
+  });
+}
+
+async function expectSuccess(promise, description, { ignoreFailure = false } = {}) {
+  const out = await promise;
+  if (out.code !== 0 && !ignoreFailure) {
+    throw new Error(`${description} failed with exit code ${out.code}\n${out.stderr || out.stdout}`);
+  }
+  return out;
+}
+
 function waitForIosResult(timeoutMs) {
   return new Promise((resolve, reject) => {
     const started = Date.now();
@@ -129,21 +147,28 @@ async function main() {
   if (buildOut.code !== 0) {
     throw new Error(`iOS simulator app build failed with exit code ${buildOut.code}\n${buildOut.stderr || buildOut.stdout}`);
   }
+  if (!iosSimulatorDevice) {
+    throw new Error('IOS_SIMULATOR_DEVICE or IOS_SIMULATOR_UDID is required to launch the iOS simulator harness.');
+  }
 
   const server = makeServer();
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const port = server.address().port;
   const signalBase = `http://127.0.0.1:${port}/signal`;
 
-  const gradlePromise = spawnCapture(
-    './gradlew',
-    [runTask, '-x', buildTask, '--console=plain', ...gradleInteropArgs],
+  await expectSuccess(runSimctl(['boot', iosSimulatorDevice]), 'Boot iOS simulator', { ignoreFailure: true });
+  await expectSuccess(runSimctl(['bootstatus', iosSimulatorDevice, '-b']), 'Wait for iOS simulator boot');
+  await expectSuccess(runSimctl(['terminate', iosSimulatorDevice, iosBundleId]), 'Terminate previous iOS interop app', { ignoreFailure: true });
+  await expectSuccess(runSimctl(['install', iosSimulatorDevice, iosAppDir]), 'Install iOS interop app');
+
+  const launchPromise = runSimctl(
+    ['launch', '--console', '--terminate-running-process', iosSimulatorDevice, iosBundleId],
     {
-      cwd: repoRoot,
       label: 'ios',
       env: {
-        IOS_INTEROP_SIGNAL_BASE: signalBase,
-        IOS_INTEROP_KIND: 'smoke',
+        SIMCTL_CHILD_IOS_INTEROP_SIGNAL_BASE: signalBase,
+        SIMCTL_CHILD_IOS_INTEROP_KIND: 'smoke',
+        SIMCTL_CHILD_LIBJGLIOS_MAX_FRAMES: process.env.LIBJGLIOS_MAX_FRAMES || '3600',
       },
       timeoutMs: iosResultTimeoutMs + 30_000,
     }
@@ -154,10 +179,10 @@ async function main() {
   try {
     iosResult = await Promise.race([
       waitForIosResult(iosResultTimeoutMs),
-      gradlePromise.then((out) => {
+      launchPromise.then((out) => {
         if (!state.ios) {
           throw new Error(
-            `iOS simulator Gradle task exited before publishing a result (exit code ${out.code}).\n${out.stderr || out.stdout}`
+            `iOS simulator app exited before publishing a result (exit code ${out.code}).\n${out.stderr || out.stdout}`
           );
         }
         return state.ios;
@@ -167,7 +192,7 @@ async function main() {
     resultError = e;
   }
 
-  const gradleOut = await gradlePromise;
+  const launchOut = await launchPromise;
   server.close();
 
   if (resultError) throw resultError;
@@ -181,9 +206,9 @@ async function main() {
   if (iosResult?.httpStatusCode !== 201 || iosResult?.httpBody !== 'echo:ios-http-body|req:ios') checks.push('HTTP host<->simulator interop failed');
 
   const out = {
-    ok: gradleOut.code === 0 && checks.length === 0,
+    ok: launchOut.code === 0 && checks.length === 0,
     ios: iosResult,
-    gradleExitCode: gradleOut.code,
+    simulatorExitCode: launchOut.code,
     checks,
     coverage: [
       'iOS simulator app build through libJGLIOS/GraalVM',

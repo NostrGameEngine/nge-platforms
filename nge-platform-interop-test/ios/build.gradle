@@ -39,6 +39,19 @@ tasks.register('runIosSimulatorInteropHarness') {
     dependsOn 'buildIosSimulatorApp'
 
     doLast {
+        def runCommand = { List<String> args, boolean ignoreExitValue = false, Map<String, ?> env = [:] ->
+            def shouldIgnoreExitValue = ignoreExitValue
+            def output = providers.exec {
+                commandLine args
+                environment env
+                setIgnoreExitValue(shouldIgnoreExitValue)
+            }
+            def result = output.result.get()
+            if (!ignoreExitValue) {
+                result.assertNormalExitValue()
+            }
+        }
+
         def signalBase = System.getenv('IOS_INTEROP_SIGNAL_BASE') ?: findProperty('iosInteropSignalBase')
         if (!signalBase) {
             throw new GradleException('IOS_INTEROP_SIGNAL_BASE or -PiosInteropSignalBase is required.')
@@ -51,26 +64,19 @@ tasks.register('runIosSimulatorInteropHarness') {
             throw new GradleException("iOS simulator app was not built: ${appDir}")
         }
 
-        project.exec {
-            commandLine 'xcrun', 'simctl', 'boot', deviceName
-            ignoreExitValue true
-        }
-        project.exec {
-            commandLine 'xcrun', 'simctl', 'bootstatus', deviceName, '-b'
-        }
-        project.exec {
-            commandLine 'xcrun', 'simctl', 'terminate', deviceName, bundleId
-            ignoreExitValue true
-        }
-        project.exec {
-            commandLine 'xcrun', 'simctl', 'install', deviceName, appDir.absolutePath
-        }
-        project.exec {
-            environment 'SIMCTL_CHILD_IOS_INTEROP_SIGNAL_BASE', signalBase.toString()
-            environment 'SIMCTL_CHILD_IOS_INTEROP_KIND', (System.getenv('IOS_INTEROP_KIND') ?: 'smoke')
-            environment 'SIMCTL_CHILD_LIBJGLIOS_MAX_FRAMES', (System.getenv('LIBJGLIOS_MAX_FRAMES') ?: '3600')
-            commandLine 'xcrun', 'simctl', 'launch', '--console', '--terminate-running-process', deviceName, bundleId
-        }
+        runCommand(['xcrun', 'simctl', 'boot', deviceName], true)
+        runCommand(['xcrun', 'simctl', 'bootstatus', deviceName, '-b'])
+        runCommand(['xcrun', 'simctl', 'terminate', deviceName, bundleId], true)
+        runCommand(['xcrun', 'simctl', 'install', deviceName, appDir.absolutePath])
+        runCommand(
+            ['xcrun', 'simctl', 'launch', '--console', '--terminate-running-process', deviceName, bundleId],
+            false,
+            [
+                SIMCTL_CHILD_IOS_INTEROP_SIGNAL_BASE: signalBase.toString(),
+                SIMCTL_CHILD_IOS_INTEROP_KIND: (System.getenv('IOS_INTEROP_KIND') ?: 'smoke'),
+                SIMCTL_CHILD_LIBJGLIOS_MAX_FRAMES: (System.getenv('LIBJGLIOS_MAX_FRAMES') ?: '3600')
+            ]
+        )
     }
 }
 
