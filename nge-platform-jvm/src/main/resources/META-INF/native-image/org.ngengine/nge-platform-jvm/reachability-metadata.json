@@ -5475,6 +5475,9 @@
             ]
         },
         {
+            "type": "org.ngengine.saferalloc.SaferAlloc"
+        },
+        {
             "type": "sun.launcher.LauncherHelper",
             "jniAccessible": true,
             "fields": [
