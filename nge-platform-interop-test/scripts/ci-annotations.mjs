@@ -15,8 +15,11 @@ export function emitInteropAnnotation(title, ok, description) {
   if (process.env.GITHUB_ACTIONS !== 'true') {
     return;
   }
+  const status = ok ? 'PASS' : 'FAIL';
   const command = ok ? 'notice' : 'error';
-  process.stdout.write(`::${command} title=${escapeAnnotationProperty(title)}::${escapeAnnotationData(description)}\n`);
+  const clearTitle = `${status} - ${title}`;
+  const clearDescription = `Status: ${status}\n${description || 'No additional details.'}`;
+  process.stdout.write(`::${command} title=${escapeAnnotationProperty(clearTitle)}::${escapeAnnotationData(clearDescription)}\n`);
 }
 
 export function firstFailureText(...values) {
