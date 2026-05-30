@@ -119,6 +119,7 @@ tasks.register('generateNativeImageMetadata', JavaExec) {
     workingDir = project.projectDir
     outputs.dir(nativeImageMetadataMainDir)
     outputs.upToDateWhen { false }
+    timeout = Duration.ofMinutes(5)
 
     doFirst {
         File javaExec = javaLauncher.get().executablePath.asFile
@@ -158,6 +159,7 @@ tasks.register('generateNativeImageMetadataFromTests', Test) {
     useJUnit()
     outputs.dir(nativeImageMetadataTestsDir)
     outputs.upToDateWhen { false }
+    timeout = Duration.ofMinutes(10)
 
     doFirst {
         File javaExec = javaLauncher.get().executablePath.asFile
@@ -174,6 +176,18 @@ tasks.register('generateNativeImageMetadataFromTests', Test) {
                 includeTestsMatching(configuredTestFilter)
             }
             logger.lifecycle("Using test filter for metadata generation: ${configuredTestFilter}")
+        }
+
+        def includeNativeRtcTests = project.findProperty('nativeImageMetadataIncludeNativeRtcTests')
+                ?.toString()
+                ?.toBoolean()
+                ?: false
+        if (!includeNativeRtcTests) {
+            filter {
+                excludeTestsMatching('org.ngengine.platform.jvm.JVMRTCTransportUnitTest')
+                excludeTestsMatching('org.ngengine.platform.jvm.TestLibDatachannelInitialization')
+            }
+            logger.lifecycle("Skipping native RTC/libdatachannel tests during metadata generation; pass -PnativeImageMetadataIncludeNativeRtcTests=true to include them.")
         }
 
         logger.lifecycle("Generating Native Image metadata from tests in: ${outDir}")

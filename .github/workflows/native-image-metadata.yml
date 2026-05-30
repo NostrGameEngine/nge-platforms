@@ -11,10 +11,15 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+concurrency:
+  group: refresh-native-image-metadata-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   refresh-native-image-metadata:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: write
 
@@ -37,6 +42,7 @@ jobs:
       - name: Regenerate GraalVM reachability metadata
         id: refresh_metadata
         continue-on-error: true
+        timeout-minutes: 15
         run: ./gradlew --no-daemon :nge-platform-jvm:refreshNativeImageMetadataAll
 
       - name: Commit and push metadata changes
