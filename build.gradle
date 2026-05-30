@@ -78,7 +78,7 @@ allprojects {
     }
 }
 
-def applyConf(proj, isAndroid){
+def applyConf = { proj, isAndroid ->
     // java only
     if(!isAndroid){
         proj.java {
