@@ -64,7 +64,7 @@ jobs:
         script: ./gradlew --no-daemon interopMatrix --console=plain -PforceAndroidInterop=true
 
   interop-matrix-macos:
-    name: Interop Matrix (macOS + Android + iOS)
+    name: Interop Matrix (macOS + iOS)
     runs-on: macos-15-intel
     timeout-minutes: 120
 
@@ -121,18 +121,6 @@ jobs:
       run: chmod +x gradlew
 
     - name: Run interoperability matrix
-      uses: reactivecircus/android-emulator-runner@v2
       env:
         CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
-        ANDROID_AVD_NAME: ci-interop
-        ANDROID_REUSE_RUNNING_EMULATOR: "1"
-        ANDROID_TEAVM_RTC_STRESS_MESSAGES: "96"
-      with:
-        api-level: 33
-        target: google_apis
-        arch: x86_64
-        profile: pixel_6
-        avd-name: ci-interop
-        emulator-options: -no-window -no-boot-anim -noaudio -gpu swiftshader_indirect -no-snapshot
-        disable-animations: true
-        script: ./gradlew --no-daemon interopMatrix --console=plain -PforceAndroidInterop=true -PforceIosInterop=true -PiosSimulatorDevice="${IOS_SIMULATOR_DEVICE}"
+      run: ./gradlew --no-daemon interopMatrix --console=plain -PskipAndroidInterop=true -PforceIosInterop=true -PiosSimulatorDevice="${IOS_SIMULATOR_DEVICE}"

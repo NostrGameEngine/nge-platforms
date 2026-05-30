@@ -59,13 +59,14 @@ def isMacOs = osName.contains("mac")
 def hasIosSimulatorToolchain = isMacOs && file("/usr/bin/xcrun").isFile()
 
 def forceAndroid = enabledFlag("forceAndroid") || enabledFlag("forceAndroidInterop") || enabledFlag("includeAndroid")
+def skipAndroidInterop = enabledFlag("skipAndroid") || enabledFlag("skipAndroidInterop") || enabledFlag("excludeAndroidInterop")
 def forceIosInterop = enabledFlag("forceIos") || enabledFlag("forceIosInterop") || enabledFlag("includeIosInterop")
 def directAndroidTask = directTaskFor(":nge-platform-android") || directTaskFor(":nge-platform-interop-test:android")
 def directIosInteropTask = directTaskFor(":nge-platform-interop-test:ios")
 def requestedInteropMatrix = requestedTasks.any { taskName ->
     taskName == "interopMatrix" || taskName.endsWith(":interopMatrix")
 }
-def includeAndroidProjects = hasAndroidSdk || forceAndroid || directAndroidTask
+def includeAndroidProjects = (hasAndroidSdk && !skipAndroidInterop) || forceAndroid || directAndroidTask
 def includeIosInteropProject = (hasIosSimulatorToolchain && requestedInteropMatrix) || forceIosInterop || directIosInteropTask
 
 if ((forceAndroid || directAndroidTask) && !hasAndroidSdk) {
@@ -89,6 +90,8 @@ if (includeAndroidProjects) {
     include("nge-platform-interop-test:android")
     project(":nge-platform-interop-test:android").projectDir = file("nge-platform-interop-test/android")
     println "Android platform enabled using SDK at: ${androidSdkDir}"
+} else if (skipAndroidInterop) {
+    println "Android platform/interoperability projects skipped: disabled by -PskipAndroidInterop=true."
 } else {
     println "Android platform/interoperability projects skipped: Android SDK not found. Pass -PforceAndroid=true to require them."
 }
