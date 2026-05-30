@@ -13,8 +13,8 @@ node {
 }
 
 task npmInstallHarness(type: com.github.gradle.node.npm.task.NpmTask) {
-    // wrtc ships its native binding via install scripts; force scripts enabled
-    // even if user/global npm config sets ignore-scripts=true.
+    // Node WebRTC providers may ship native bindings via install scripts; force
+    // scripts enabled even if user/global npm config sets ignore-scripts=true.
     args = ['install', '--no-fund', '--no-audit', '--ignore-scripts=false']
 }
 

@@ -1,7 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { emitInteropAnnotation, firstFailureText } from './ci-annotations.mjs';
 
@@ -130,57 +130,25 @@ async function setupNodeWebRTC() {
     return 'global';
   }
 
-  const importWrtc = async () => import('wrtc');
-  const tryRepairWrtcBinary = () => {
-    const wrtcDir = path.join(projectDir, 'node_modules', 'wrtc');
-    const binDir = path.join(projectDir, 'node_modules', '.bin');
-    const env = {
-      ...process.env,
-      PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
-    };
-    const result = spawnSync('node', ['scripts/download-prebuilt.js'], {
-      cwd: wrtcDir,
-      env,
-      stdio: 'inherit',
-    });
-    return result.status === 0;
-  };
-
   let wrtcModule;
+  let provider = '@roamhq/wrtc';
   try {
-    wrtcModule = await importWrtc();
-  } catch (error) {
-    const message = String(error);
-    const missingNative = message.includes('wrtc.node') || message.includes('build/Release/wrtc.node');
-    if (!missingNative) {
+    wrtcModule = await import('@roamhq/wrtc');
+  } catch (roamError) {
+    provider = 'wrtc';
+    try {
+      wrtcModule = await import('wrtc');
+    } catch (legacyError) {
       throw new Error(
-        `Node WebRTC not available. Install wrtc@0.4.7 (pinned) or provide globals. Original error: ${message}`
-      );
-    }
-
-    const repaired = tryRepairWrtcBinary();
-    if (repaired) {
-      try {
-        wrtcModule = await importWrtc();
-      } catch (retryError) {
-        throw new Error(
-          'Node WebRTC not available: wrtc native binding repair succeeded but import still failed. ' +
-          `Original error: ${String(retryError)}`
-        );
-      }
-    } else {
-      throw new Error(
-        'Node WebRTC not available: wrtc native binding was not installed and automatic prebuilt download failed. ' +
-        'Ensure npm scripts are enabled (`npm install --ignore-scripts=false`) and ' +
-        '`@mapbox/node-pre-gyp` is present, then run `npm rebuild wrtc --ignore-scripts=false`. ' +
-        `Original error: ${message}`
+        'Node WebRTC not available. Install @roamhq/wrtc, or provide global WebRTC classes. ' +
+        `@roamhq/wrtc error: ${String(roamError)}. wrtc fallback error: ${String(legacyError)}`
       );
     }
   }
 
   const wrtc = wrtcModule.default ?? wrtcModule;
   if (typeof wrtc.RTCPeerConnection !== 'function' || typeof wrtc.RTCIceCandidate !== 'function') {
-    throw new Error('wrtc loaded but does not expose RTCPeerConnection/RTCIceCandidate');
+    throw new Error(`${provider} loaded but does not expose RTCPeerConnection/RTCIceCandidate`);
   }
 
   globalThis.RTCPeerConnection ??= wrtc.RTCPeerConnection;
@@ -191,7 +159,7 @@ async function setupNodeWebRTC() {
   if (typeof wrtc.RTCDataChannel === 'function') {
     globalThis.RTCDataChannel ??= wrtc.RTCDataChannel;
   }
-  return 'wrtc';
+  return provider;
 }
 
 async function runNodeTeaVMPeer(signalBase, bundlePath) {
@@ -294,7 +262,7 @@ async function runNodeTeaVMPeer(signalBase, bundlePath) {
         await pc.addIceCandidate(c);
         step('added buffered remote ICE');
       } catch (error) {
-        // libwebrtc/wrtc can reject candidate variants that browsers accept.
+        // libwebrtc-backed Node providers can reject candidate variants that browsers accept.
         // Keep parity with JVM side behavior by ignoring per-candidate failures.
         step(`ignored buffered remote ICE add failure: ${String(error)}`);
       }
@@ -315,7 +283,7 @@ async function runNodeTeaVMPeer(signalBase, bundlePath) {
     }
     if (msg.type === 'ice') {
       // Avoid creating a candidate object with sdpMLineIndex:null because
-      // wrtc's addIceCandidate expects a 32-bit integer when the field exists.
+      // Node WebRTC providers expect a 32-bit integer when the field exists.
       const candidate = {
         candidate: msg.candidate,
         sdpMid: msg.sdpMid ?? undefined,
@@ -410,7 +378,7 @@ async function runNodeTeaVMPeer(signalBase, bundlePath) {
       jvmToBrowserStressCount: STRESS_MESSAGES,
     });
 
-    // NOTE: wrtc@0.4.7 can segfault during explicit close/teardown on some
+    // NOTE: Node WebRTC native providers can segfault during explicit close/teardown on some
     // environments even after successful exchange. We avoid manual closes
     // here and terminate the harness process explicitly in main().
     return result;

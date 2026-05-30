@@ -123,4 +123,4 @@ jobs:
     - name: Run interoperability matrix
       env:
         CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
-      run: ./gradlew --no-daemon interopMatrix --console=plain -PskipAndroidInterop=true -PforceIosInterop=true -PiosSimulatorDevice="${IOS_SIMULATOR_DEVICE}"
+      run: ./gradlew --no-daemon :nge-platform-interop-test:rtcBrowserHarness :nge-platform-interop-test:iosSimulatorInteropHarness --console=plain -PskipAndroidInterop=true -PforceIosInterop=true -PiosSimulatorDevice="${IOS_SIMULATOR_DEVICE}"
