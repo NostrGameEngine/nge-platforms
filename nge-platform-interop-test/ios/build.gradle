@@ -6,6 +6,9 @@ plugins {
 dependencies {
     implementation project(':nge-platform-ios')
     implementation libs.gson
+    implementation libs.libjgliosAngleIos
+    implementation libs.libjgliosCoreIos
+    implementation libs.libjgliosSdl3Ios
 }
 
 java {
