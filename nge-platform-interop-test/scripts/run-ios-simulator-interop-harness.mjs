@@ -121,7 +121,8 @@ function waitForIosResult(timeoutMs) {
 
 async function main() {
   const simulatorArgs = iosSimulatorDevice ? [`-PiosSimulatorDevice=${iosSimulatorDevice}`] : [];
-  const buildOut = await spawnCapture('./gradlew', [buildTask, '--console=plain', ...simulatorArgs], {
+  const gradleInteropArgs = ['-PskipAndroidInterop=true', '-PforceIosInterop=true', ...simulatorArgs];
+  const buildOut = await spawnCapture('./gradlew', [buildTask, '--console=plain', ...gradleInteropArgs], {
     cwd: repoRoot,
     label: 'ios-build',
   });
@@ -136,7 +137,7 @@ async function main() {
 
   const gradlePromise = spawnCapture(
     './gradlew',
-    [runTask, '-x', buildTask, '--console=plain', ...simulatorArgs],
+    [runTask, '-x', buildTask, '--console=plain', ...gradleInteropArgs],
     {
       cwd: repoRoot,
       label: 'ios',

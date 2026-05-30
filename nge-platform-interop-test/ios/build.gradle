@@ -51,21 +51,21 @@ tasks.register('runIosSimulatorInteropHarness') {
             throw new GradleException("iOS simulator app was not built: ${appDir}")
         }
 
-        exec {
+        project.exec {
             commandLine 'xcrun', 'simctl', 'boot', deviceName
             ignoreExitValue true
         }
-        exec {
+        project.exec {
             commandLine 'xcrun', 'simctl', 'bootstatus', deviceName, '-b'
         }
-        exec {
+        project.exec {
             commandLine 'xcrun', 'simctl', 'terminate', deviceName, bundleId
             ignoreExitValue true
         }
-        exec {
+        project.exec {
             commandLine 'xcrun', 'simctl', 'install', deviceName, appDir.absolutePath
         }
-        exec {
+        project.exec {
             environment 'SIMCTL_CHILD_IOS_INTEROP_SIGNAL_BASE', signalBase.toString()
             environment 'SIMCTL_CHILD_IOS_INTEROP_KIND', (System.getenv('IOS_INTEROP_KIND') ?: 'smoke')
             environment 'SIMCTL_CHILD_LIBJGLIOS_MAX_FRAMES', (System.getenv('LIBJGLIOS_MAX_FRAMES') ?: '3600')
