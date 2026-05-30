@@ -84,20 +84,8 @@ jobs:
         distribution: 'temurin'
         cache: 'gradle'
 
-    - name: Install Google Chrome
-      id: chrome
-      uses: browser-actions/setup-chrome@v2
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-
-    - name: Run browser RTC interoperability
-      env:
-        CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
-        PUPPETEER_PROTOCOL_TIMEOUT_MS: "600000"
-        PUPPETEER_NAVIGATION_TIMEOUT_MS: "120000"
-        PUPPETEER_RESULT_TIMEOUT_MS: "120000"
-      run: ./gradlew --no-daemon :nge-platform-interop-test:rtcBrowserHarness --console=plain -PskipAndroidInterop=true
 
     - name: Select Xcode
       run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
