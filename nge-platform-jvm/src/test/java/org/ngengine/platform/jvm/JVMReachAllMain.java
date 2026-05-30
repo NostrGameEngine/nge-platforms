@@ -61,6 +61,10 @@ import org.ngengine.platform.transport.WebsocketTransport;
  */
 public final class JVMReachAllMain {
 
+    private static final boolean INCLUDE_NATIVE_RTC =
+        Boolean.getBoolean("nge.reachall.includeNativeRtc") ||
+        Boolean.parseBoolean(System.getenv().getOrDefault("NGE_REACHALL_INCLUDE_NATIVE_RTC", "false"));
+
     private JVMReachAllMain() {}
 
     public static void main(String[] args) throws Exception {
@@ -427,6 +431,17 @@ public final class JVMReachAllMain {
         safeRun(
             "rtc-transport",
             () -> {
+                if (!INCLUDE_NATIVE_RTC) {
+                    touchClassReflection(
+                        Class.forName(
+                            "org.ngengine.platform.jvm.JVMRTCTransport",
+                            false,
+                            Thread.currentThread().getContextClassLoader()
+                        )
+                    );
+                    return null;
+                }
+
                 Duration p2pAttemptTimeout = Duration.ofSeconds(2);
                 Collection<String> stun = new ArrayList<>();
                 RTCTransport rtc = platform.newRTCTransport(p2pAttemptTimeout, "reach-all-conn", stun);
@@ -669,7 +684,7 @@ public final class JVMReachAllMain {
             safeRun(
                 "reflect-" + className,
                 () -> {
-                    Class<?> clazz = Class.forName(className);
+                    Class<?> clazz = Class.forName(className, false, Thread.currentThread().getContextClassLoader());
                     touchClassReflection(clazz);
                     for (Class<?> nested : clazz.getDeclaredClasses()) {
                         touchClassReflection(nested);
