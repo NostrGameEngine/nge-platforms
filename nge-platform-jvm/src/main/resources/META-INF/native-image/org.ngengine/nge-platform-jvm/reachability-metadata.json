@@ -2578,6 +2578,21 @@
             "type": "org.junit.runner.Result$SerializedForm"
         },
         {
+            "type": "byte[]",
+            "serializable": true
+        },
+        {
+            "type": "com.google.gson.internal.bind.JavaTimeTypeAdapters",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "com.sun.crypto.provider.AESCipher$General",
             "methods": [
                 {
@@ -2792,6 +2807,18 @@
             "serializable": true
         },
         {
+            "type": "java.lang.Exception",
+            "serializable": true
+        },
+        {
+            "type": "java.lang.NoSuchMethodException",
+            "serializable": true
+        },
+        {
+            "type": "java.lang.NullPointerException",
+            "serializable": true
+        },
+        {
             "type": "java.lang.Object"
         },
         {
@@ -2799,7 +2826,27 @@
             "serializable": true
         },
         {
+            "type": "java.lang.ReflectiveOperationException",
+            "serializable": true
+        },
+        {
+            "type": "java.lang.RuntimeException",
+            "serializable": true
+        },
+        {
             "type": "java.lang.SecurityManager"
+        },
+        {
+            "type": "java.lang.StackTraceElement",
+            "serializable": true
+        },
+        {
+            "type": "java.lang.StackTraceElement[]",
+            "serializable": true
+        },
+        {
+            "type": "java.lang.String",
+            "serializable": true
         },
         {
             "type": "java.lang.String"
@@ -2818,6 +2865,10 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "java.lang.Throwable",
+            "serializable": true
         },
         {
             "type": "java.lang.invoke.MethodHandle"
@@ -2854,6 +2905,14 @@
         },
         {
             "type": "java.sql.Date"
+        },
+        {
+            "type": "java.util.ArrayList",
+            "serializable": true
+        },
+        {
+            "type": "java.util.Collections$EmptyList",
+            "serializable": true
         },
         {
             "type": "java.util.HashMap"
@@ -4101,6 +4160,32 @@
                     ]
                 },
                 {
+                    "name": "failure",
+                    "parameterTypes": [
+                        "java.lang.Object",
+                        "org.gradle.api.tasks.testing.TestFailure"
+                    ]
+                },
+                {
+                    "name": "started",
+                    "parameterTypes": [
+                        "org.gradle.api.internal.tasks.testing.TestDescriptorInternal",
+                        "org.gradle.api.internal.tasks.testing.TestStartEvent"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.gradle.api.internal.tasks.testing.TestResultProcessor",
+            "methods": [
+                {
+                    "name": "completed",
+                    "parameterTypes": [
+                        "java.lang.Object",
+                        "org.gradle.api.internal.tasks.testing.TestCompleteEvent"
+                    ]
+                },
+                {
                     "name": "started",
                     "parameterTypes": [
                         "org.gradle.api.internal.tasks.testing.TestDescriptorInternal",
@@ -4282,6 +4367,18 @@
             ]
         },
         {
+            "type": "org.gradle.internal.serialize.ExceptionPlaceholder",
+            "serializable": true
+        },
+        {
+            "type": "org.gradle.internal.serialize.StackTraceElementPlaceholder",
+            "serializable": true
+        },
+        {
+            "type": "org.gradle.internal.serialize.TopLevelExceptionPlaceholder",
+            "serializable": true
+        },
+        {
             "type": "org.gradle.internal.service.MethodHandleBasedServiceMethodFactory",
             "methods": [
                 {
@@ -4360,6 +4457,9 @@
         },
         {
             "type": "org.lwjgl.glfw.GLFW"
+        },
+        {
+            "type": "org.lwjgl.sdl.SDLClipboard"
         },
         {
             "type": "org.ngengine.platform.ExecutionQueueTest",
@@ -4991,6 +5091,23 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurity",
+            "methods": [
+                {
+                    "name": "isLoopbackOrAnyLocal",
+                    "parameterTypes": [
+                        "java.net.InetAddress"
+                    ]
+                },
+                {
+                    "name": "isPrivateNetworkAddress",
+                    "parameterTypes": [
+                        "java.net.InetAddress"
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
             "methods": [
                 {
@@ -5027,6 +5144,17 @@
                 },
                 {
                     "name": "connId"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMRTCTransport",
+            "methods": [
+                {
+                    "name": "configureLibDataChannelAllocatorIfRequested",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
@@ -5126,6 +5254,9 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMReachAllMain$ReachDto"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMSecp256k1Test",
             "methods": [
                 {
@@ -5138,6 +5269,28 @@
                     "name": "validatesSecp256k1PublicVectors",
                     "parameterTypes": [
                         
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
+            "fields": [
+                {
+                    "name": "binaryBuffer"
+                },
+                {
+                    "name": "messageBuffer"
+                },
+                {
+                    "name": "openWebSocket"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "ensureBinaryCapacity",
+                    "parameterTypes": [
+                        "int"
                     ]
                 }
             ]
@@ -5842,6 +5995,9 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "tel.schich.libdatachannel.LibDataChannel"
         },
         {
             "type": "tel.schich.libdatachannel.PeerConnectionListener",
