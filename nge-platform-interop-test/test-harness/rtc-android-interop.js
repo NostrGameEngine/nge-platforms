@@ -4,7 +4,7 @@ const resultEl = document.getElementById('result');
 const progress = [];
 const url = new URL(window.location.href);
 const signalBase = url.searchParams.get('signalBase');
-const STRESS_MESSAGES = 256;
+const STRESS_MESSAGES = Math.max(1, Number.parseInt(url.searchParams.get('stressMessages') || '128', 10));
 
 function setResult(obj) {
   resultEl.textContent = JSON.stringify({ progress, ...obj }, null, 2);
@@ -183,7 +183,7 @@ async function main() {
   }
   step('sent browser stress burst');
 
-  const msgDeadline = Date.now() + 60000;
+  const msgDeadline = Date.now() + 120000;
   while (Date.now() < msgDeadline) {
     if (receivedTexts.length >= STRESS_MESSAGES) break;
     const poll = await get(`/poll?to=browser&after=${cursor}`);

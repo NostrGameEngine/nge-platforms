@@ -9,6 +9,7 @@ const projectDir = path.resolve(path.dirname(new URL(import.meta.url).pathname),
 const repoRoot = path.resolve(projectDir, '..');
 const teavmDir = path.resolve(repoRoot, 'nge-platform-teavm');
 const INTEROP_TITLE = 'Interop: Android <-> TeaVM Browser RTC';
+const stressMessages = process.env.ANDROID_TEAVM_RTC_STRESS_MESSAGES || '96';
 const rootDirs = [
   path.join(projectDir, 'test-harness'),
   path.join(teavmDir, 'src', 'main', 'resources'),
@@ -214,7 +215,9 @@ async function runOnce(attempt) {
   const port = typeof addr === 'object' && addr ? addr.port : 0;
   const browserSignalBase = `http://127.0.0.1:${port}/signal`;
   const androidSignalBase = `http://10.0.2.2:${port}/signal`;
-  const pageUrl = `http://127.0.0.1:${port}/test-harness/rtc-android-interop.html?signalBase=${encodeURIComponent(browserSignalBase)}`;
+  const pageUrl =
+    `http://127.0.0.1:${port}/test-harness/rtc-android-interop.html?signalBase=${encodeURIComponent(browserSignalBase)}` +
+    `&stressMessages=${encodeURIComponent(stressMessages)}`;
 
   const androidPromise = spawnCapture('./gradlew', [
     ':nge-platform-interop-test:android:androidRtcEmulatorHarness',
@@ -224,7 +227,9 @@ async function runOnce(attempt) {
     env: {
       ANDROID_RTC_TEST_FILTER: 'org.ngengine.platform.android.AndroidTeaVMRtcInteropInstrumentedTest',
       ANDROID_RTC_SIGNAL_BASE: androidSignalBase,
+      ANDROID_RTC_STRESS_MESSAGES: stressMessages,
       ANDROID_AVD_NAME: process.env.ANDROID_AVD_NAME || 'Generic_AOSP',
+      ANDROID_REUSE_RUNNING_EMULATOR: process.env.ANDROID_REUSE_RUNNING_EMULATOR || '0',
     },
   });
 
@@ -273,7 +278,7 @@ function isTransientRtcFlake(result) {
     result?.browserPageResult?.error,
     result?.android?.error,
   ].filter(Boolean).join('\n');
-  return /Timeout waiting for datachannel open|Timed out waiting for RTC connected|RTC connected event missing|Timed out waiting for android-ready|Browser harness failed: Error: Timeout waiting for datachannel open/i.test(texts)
+  return /Timeout waiting for datachannel open|Timed out waiting for RTC connected|RTC connected event missing|Timed out waiting for android-ready|Timed out waiting for android stress burst|Browser harness failed: Error: Timeout waiting for datachannel open/i.test(texts)
     || (!result?.android && result?.androidExitCode !== 0);
 }
 

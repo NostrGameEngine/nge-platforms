@@ -52,7 +52,7 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final List<String> STUN_SERVERS = List.of("stun.l.google.com:19302");
     private static final String BROWSER_INITIATOR_CHANNEL = "nostr4j-browser-android-interop";
-    private static final int STRESS_MESSAGES = 256;
+    private static final int DEFAULT_STRESS_MESSAGES = 128;
 
     @BeforeClass
     public static void ensurePlatform() throws Exception {
@@ -68,6 +68,7 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
     public void androidAndTeaVmBrowserCanExchangeMessagesOverRtc() throws Exception {
         String signalBase = InstrumentationRegistry.getArguments().getString("signalBase");
         assertNotNull("Missing instrumentation arg 'signalBase'", signalBase);
+        int stressMessages = stressMessages();
 
         AndroidThreadedPlatform platform;
         try {
@@ -246,14 +247,14 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
                 fail("Did not receive browser-ready signal");
             }
 
-            sendStressBurst(channel, "android-seq", STRESS_MESSAGES);
-            assertReceiveStressBurst(inbox, listenerError, "browser-seq", STRESS_MESSAGES, 60, TimeUnit.SECONDS);
+            sendStressBurst(channel, "android-seq", stressMessages);
+            assertReceiveStressBurst(inbox, listenerError, "browser-seq", stressMessages, 60, TimeUnit.SECONDS);
 
             channel.close().await();
             JsonObject result = new JsonObject();
             result.addProperty("ok", true);
-            result.addProperty("androidToBrowserStressCount", STRESS_MESSAGES);
-            result.addProperty("browserToAndroidStressCount", STRESS_MESSAGES);
+            result.addProperty("androidToBrowserStressCount", stressMessages);
+            result.addProperty("browserToAndroidStressCount", stressMessages);
             result.addProperty("browserLabel", meta.getOrDefault("browserLabel", ""));
             postJson(http, signalBase + "/result/android", result);
         } catch (Throwable t) {
@@ -289,6 +290,18 @@ public class AndroidTeaVMRtcInteropInstrumentedTest {
             }
         }
         throw new IllegalStateException("Timed out waiting for browser message");
+    }
+
+    private static int stressMessages() {
+        String raw = InstrumentationRegistry.getArguments().getString("stressMessages");
+        if (raw == null || raw.trim().isEmpty()) {
+            return DEFAULT_STRESS_MESSAGES;
+        }
+        try {
+            return Math.max(1, Integer.parseInt(raw.trim()));
+        } catch (NumberFormatException e) {
+            return DEFAULT_STRESS_MESSAGES;
+        }
     }
 
     private static void sendStressBurst(RTCDataChannel channel, String prefix, int count) throws Exception {

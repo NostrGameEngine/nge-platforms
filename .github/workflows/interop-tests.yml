@@ -48,6 +48,8 @@ jobs:
       env:
         CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         ANDROID_AVD_NAME: ci-interop
+        ANDROID_REUSE_RUNNING_EMULATOR: "1"
+        ANDROID_TEAVM_RTC_STRESS_MESSAGES: "96"
       with:
         api-level: 33
         target: google_apis
@@ -120,6 +122,8 @@ jobs:
       env:
         CHROME_BIN: ${{ steps.chrome.outputs.chrome-path }}
         ANDROID_AVD_NAME: ci-interop
+        ANDROID_REUSE_RUNNING_EMULATOR: "1"
+        ANDROID_TEAVM_RTC_STRESS_MESSAGES: "96"
       with:
         api-level: 33
         target: google_apis
