@@ -83,6 +83,35 @@ public final class JVMReachAllMain {
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses();
         exerciseNetworkSecurity(platform);
+        exerciseExternalProviders();
+    }
+
+    private static void exerciseExternalProviders() {
+        safeRun(
+            "external-libdatachannel-reflect",
+            () -> {
+                try {
+                    List<String> names = List.of(
+                        "tel.schich.libdatachannel.LibDataChannel",
+                        "tel.schich.libdatachannel.PeerConnection",
+                        "tel.schich.libdatachannel.DataChannel",
+                        "tel.schich.libdatachannel.DataChannelReliability",
+                        "tel.schich.libdatachannel.exception.FailureException",
+                        "tel.schich.libdatachannel.exception.NativeOperationException"
+                    );
+                    for (String n : names) {
+                        try {
+                            Class<?> c = Class.forName(n);
+                            touchClassReflection(c);
+                            for (Class<?> nested : c.getDeclaredClasses()) {
+                                touchClassReflection(nested);
+                            }
+                        } catch (ClassNotFoundException ignored) {}
+                    }
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
     }
 
     private static void exerciseCryptoAndEncoding(JVMAsyncPlatform platform) {
