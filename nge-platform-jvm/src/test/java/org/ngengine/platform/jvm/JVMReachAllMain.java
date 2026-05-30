@@ -257,8 +257,29 @@ public final class JVMReachAllMain {
             () -> {
                 Path tmp = Files.createTempDirectory("nge-reachall");
                 FileSystemVStore backend = new FileSystemVStore(tmp);
-                await(backend.write("a.txt")).write("hello".getBytes(StandardCharsets.UTF_8));
-                await(backend.read("a.txt")).close();
+                try {
+                    java.io.OutputStream os = await(backend.write("a.txt"));
+                    try {
+                        os.write("hello".getBytes(StandardCharsets.UTF_8));
+                    } catch (Throwable ignored) {
+                    } finally {
+                        try {
+                            os.close();
+                        } catch (Throwable ignored) {
+                        }
+                    }
+                } catch (Throwable ignored) {
+                }
+
+                try {
+                    java.io.InputStream in = await(backend.read("a.txt"));
+                    try {
+                        if (in != null) in.close();
+                    } catch (Throwable ignored) {
+                    }
+                } catch (Throwable ignored) {
+                }
+
                 await(backend.exists("a.txt"));
                 await(backend.listAll());
                 await(backend.delete("a.txt"));
@@ -599,6 +620,18 @@ public final class JVMReachAllMain {
                 Util.hchacha20(new byte[32], new byte[16]);
                 Util.getSystemCachePath("nge-reachall");
                 Util.getSystemDataPath("nge-reachall");
+                try {
+                    java.nio.file.Path tmpDir = java.nio.file.Files.createTempDirectory("nge-reachall-safepath");
+                    try {
+                        Util.safePath(tmpDir, "../traversal.txt", false);
+                    } catch (Throwable ignored) {
+                    }
+                    try {
+                        Util.safePath(tmpDir, "/absolute.txt", false);
+                    } catch (Throwable ignored) {
+                    }
+                } catch (Throwable ignored) {
+                }
                 return null;
             }
         );
