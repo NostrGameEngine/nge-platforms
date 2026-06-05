@@ -186,7 +186,7 @@ asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprov" }
 commons-math3 = { module = "org.apache.commons:commons-math3", version.ref = "commons-math3" }
 findsecbugs-plugin = { module = "com.h3xstream.findsecbugs:findsecbugs-plugin", version.ref = "findsecbugs" }
-gradle-git = "org.ajoberstar:gradle-git:1.2.0"
+gradle-git = "org.ajoberstar:gradle-git:1.7.2"
 groovy-test = "org.apache.groovy:groovy-test:4.0.31"
 gson = "com.google.code.gson:gson:2.14.0"
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
