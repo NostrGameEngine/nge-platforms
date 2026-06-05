@@ -13,7 +13,7 @@ nanosvgChicoryJavaSnapshot = "0.1"
 ngengineSnapshot = "0.3.0-SNAPSHOT"
 ngePlatformSnapshot = "0.3.0-SNAPSHOT"
 nostr4jSnapshot = "0.3.0-SNAPSHOT"
-nostradsSnapshot = "0.2.0-SNAPSHOT"
+nostradsSnapshot = "0.2.4"
 saferallocSnapshot = "0.0.10"
 stbImageSnapshot = "2.30.5"
 
