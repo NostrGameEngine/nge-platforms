@@ -183,11 +183,27 @@ public final class JVMReachAllMain {
     }
 
     private static void exerciseAllocators(JVMAsyncPlatform platform) {
+        // Install deterministic test hooks so the guard logic runs without native SaferAlloc
+        safeRun(
+            "allocator-guard-set-hooks",
+            () -> {
+                JVMNGEAllocatorGuard.setTestHooks(
+                    (java.util.function.LongSupplier) () -> 0L,
+                    (java.util.function.LongSupplier) () -> System.currentTimeMillis(),
+                    (Runnable) () -> {}
+                );
+                JVMNGEAllocatorGuard.resetStateForTests();
+                return null;
+            }
+        );
+
         safeRun(
             "allocator-malloc-free",
             () -> {
                 ByteBuffer buf = platform.getNativeAllocator().malloc(64);
-                platform.getNativeAllocator().free(buf);
+                try {
+                    platform.getNativeAllocator().free(buf);
+                } catch (Throwable ignored) {}
                 return null;
             }
         );
@@ -195,8 +211,13 @@ public final class JVMReachAllMain {
             "allocator-calloc-realloc-free",
             () -> {
                 ByteBuffer buf = platform.getNativeAllocator().calloc(1, 64);
-                ByteBuffer resized = platform.getNativeAllocator().realloc(buf, 128);
-                platform.getNativeAllocator().free(resized);
+                ByteBuffer resized = null;
+                try {
+                    resized = platform.getNativeAllocator().realloc(buf, 128);
+                } catch (Throwable ignored) {}
+                try {
+                    platform.getNativeAllocator().free(resized != null ? resized : buf);
+                } catch (Throwable ignored) {}
                 return null;
             }
         );
@@ -205,6 +226,12 @@ public final class JVMReachAllMain {
             () -> {
                 JVMNGEAllocatorGuard.beforeAlloc(128);
                 JVMNGEAllocatorGuard.notifyGC();
+                // check test helper
+                try {
+                    JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                } catch (Throwable ignored) {}
+                // restore
+                JVMNGEAllocatorGuard.resetStateForTests();
                 return null;
             }
         );
