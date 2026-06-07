@@ -135,6 +135,29 @@ public final class JVMReachAllMain {
             }
         );
         safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
+        safeRun(
+            "secp256k1-verify-create-recover",
+            () -> {
+                try {
+                    byte[] pk2 = platform.secp256k1PublicKeyCreate(privateKey, true);
+                    boolean privOk = platform.secp256k1PrivateKeyVerify(privateKey);
+                    boolean pubOk = platform.secp256k1PublicKeyVerify(pk2);
+                    byte[] hash = platform.sha256("recover".getBytes(StandardCharsets.UTF_8));
+                    org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature rec =
+                        platform.secp256k1SignRecoverable(hash, privateKey);
+                    try {
+                        byte[] sig = rec.getSignature64();
+                        int rid = rec.getRecoveryId();
+                        byte[] recPub = platform.secp256k1RecoverPublicKey(hash, sig, rid, true);
+                        return Boolean.valueOf(recPub != null && recPub.length > 0);
+                    } catch (Throwable ignored) {
+                        return Boolean.valueOf(pubOk || privOk);
+                    }
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
         safeRun(
             "hkdf",
