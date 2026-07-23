@@ -544,20 +544,30 @@ public final class JVMReachAllMain {
                     RTCTransport a = platform.newRTCTransport(p2pAttemptTimeout2, "reach-a", stun2);
                     RTCTransport b = platform.newRTCTransport(p2pAttemptTimeout2, "reach-b", stun2);
 
-                    final java.util.concurrent.atomic.AtomicBoolean gotMessage = new java.util.concurrent.atomic.AtomicBoolean(false);
+                    final java.util.concurrent.atomic.AtomicBoolean gotMessage = new java.util.concurrent.atomic.AtomicBoolean(
+                        false
+                    );
 
                     b.addListener(
                         new org.ngengine.platform.transport.RTCTransportListener() {
                             @Override
-                            public void onLocalRTCIceCandidate(org.ngengine.platform.transport.RTCTransportIceCandidate candidate) {}
+                            public void onLocalRTCIceCandidate(
+                                org.ngengine.platform.transport.RTCTransportIceCandidate candidate
+                            ) {}
 
                             @Override
-                            public void onRTCBinaryMessage(org.ngengine.platform.transport.RTCDataChannel channel, java.nio.ByteBuffer msg) {
+                            public void onRTCBinaryMessage(
+                                org.ngengine.platform.transport.RTCDataChannel channel,
+                                java.nio.ByteBuffer msg
+                            ) {
                                 gotMessage.set(true);
                             }
 
                             @Override
-                            public void onRTCChannelError(org.ngengine.platform.transport.RTCDataChannel channel, Throwable e) {}
+                            public void onRTCChannelError(
+                                org.ngengine.platform.transport.RTCDataChannel channel,
+                                Throwable e
+                            ) {}
 
                             @Override
                             public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
@@ -603,7 +613,9 @@ public final class JVMReachAllMain {
                             } catch (Throwable ignored) {}
 
                             // give some time for message delivery (best-effort)
-                            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+                            try {
+                                Thread.sleep(200);
+                            } catch (InterruptedException ignored) {}
                         }
                     } catch (Throwable ignored) {}
 
