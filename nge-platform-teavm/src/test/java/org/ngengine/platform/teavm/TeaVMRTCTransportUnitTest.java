@@ -84,6 +84,41 @@ public class TeaVMRTCTransportUnitTest {
     }
 
     @Test
+    public void readyTaskSettlementResolvesOnlyOnce() {
+        AtomicReference<String> resolved = new AtomicReference<>();
+        AtomicReference<Throwable> rejected = new AtomicReference<>();
+        TeaVMRTCTransport.ReadyTaskSettlement<String> settlement = new TeaVMRTCTransport.ReadyTaskSettlement<>(
+            resolved::set,
+            rejected::set
+        );
+
+        assertTrue(settlement.trySettle());
+        settlement.resolve("open");
+        assertFalse(settlement.trySettle());
+
+        assertEquals("open", resolved.get());
+        assertNull(rejected.get());
+    }
+
+    @Test
+    public void readyTaskSettlementRejectsOnlyOnce() {
+        AtomicReference<String> resolved = new AtomicReference<>();
+        AtomicReference<Throwable> rejected = new AtomicReference<>();
+        TeaVMRTCTransport.ReadyTaskSettlement<String> settlement = new TeaVMRTCTransport.ReadyTaskSettlement<>(
+            resolved::set,
+            rejected::set
+        );
+        Exception channelClosed = new Exception("Channel closed");
+
+        assertTrue(settlement.trySettle());
+        settlement.reject(channelClosed);
+        assertFalse(settlement.trySettle());
+
+        assertNull(resolved.get());
+        assertSame(channelClosed, rejected.get());
+    }
+
+    @Test
     @SuppressWarnings({ "deprecation", "rawtypes", "unchecked" })
     public void deprecatedWritePreservesOrderUnderStressInBothDirections() throws Exception {
         TeaVMRTCTransport transportA = new TeaVMRTCTransport();

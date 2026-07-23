@@ -41,6 +41,7 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -78,6 +79,30 @@ public class TeaVMRTCTransport implements RTCTransport {
     private Duration p2pAttemptTimeout;
 
     public TeaVMRTCTransport() {}
+
+    static final class ReadyTaskSettlement<T> {
+
+        private final AtomicBoolean settled = new AtomicBoolean(false);
+        private final Consumer<T> resolve;
+        private final Consumer<Throwable> reject;
+
+        ReadyTaskSettlement(Consumer<T> resolve, Consumer<Throwable> reject) {
+            this.resolve = Objects.requireNonNull(resolve);
+            this.reject = Objects.requireNonNull(reject);
+        }
+
+        boolean trySettle() {
+            return settled.compareAndSet(false, true);
+        }
+
+        void resolve(T value) {
+            resolve.accept(value);
+        }
+
+        void reject(Throwable error) {
+            reject.accept(error);
+        }
+    }
 
     @Override
     public void start(Duration p2pAttemptTimeout, AsyncExecutor executor, String connId, Collection<String> stunServers) {
@@ -346,118 +371,115 @@ public class TeaVMRTCTransport implements RTCTransport {
 
         NGEPlatform platform = NGEUtils.getPlatform();
         RTCDataChannel wrapper = wrapChannel(nativeChannel);
-        @SuppressWarnings("unchecked")
-        Consumer<?>[] cs = new Consumer[2];
-        AsyncTask<RTCDataChannel> readyTask = platform.promisify(
-            (res, rej) -> {
-                cs[0] = res;
-                cs[1] = rej;
-            },
-            this.asyncExecutor
-        );
-        Consumer<RTCDataChannel> resReady = (Consumer<RTCDataChannel>) cs[0];
-        Consumer<Throwable> rejReady = (Consumer<Throwable>) cs[1];
-        channelReadyTasks.put(nativeChannel, readyTask);
-        pendingReadyRejectors.put(nativeChannel, e -> rejReady.accept(e));
+        AsyncTask<RTCDataChannel> readyTask = platform.wrapPromise((resReady, rejReady) -> {
+            ReadyTaskSettlement<RTCDataChannel> settlement = new ReadyTaskSettlement<>(resReady, rejReady);
 
-        Runnable completeReady = () -> {
-            pendingReadyRejectors.remove(nativeChannel);
-            logger.fine("Data channel opened: " + wrapper.getName());
-            for (RTCTransportListener listener : listeners) {
-                try {
-                    listener.onRTCChannelReady(wrapper);
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error notifying channel ready", e);
+            Runnable completeReady = () -> {
+                if (!settlement.trySettle()) {
+                    return;
                 }
-            }
-            resReady.accept(wrapper);
-        };
-
-        Consumer<Exception> failReady = error -> {
-            pendingReadyRejectors.remove(nativeChannel);
-            rejReady.accept(error);
-        };
-
-        nativeChannel.setBinaryType("arraybuffer");
-
-        nativeChannel.setOnCloseHandler(() -> {
-            logger.fine("Data channel closed: " + wrapper.getName());
-            removeChannelReferences(nativeChannel);
-            for (RTCTransportListener listener : listeners) {
-                try {
-                    listener.onRTCChannelClosed(wrapper);
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error notifying channel close", e);
-                }
-            }
-            failReady.accept(new Exception("Channel closed"));
-        });
-
-        nativeChannel.setOnErrorHandler(error -> {
-            logger.log(Level.WARNING, "Data channel error: " + error.getError());
-            for (RTCTransportListener listener : listeners) {
-                try {
-                    listener.onRTCChannelError(wrapper, new Exception(error.getError()));
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error notifying channel error", e);
-                }
-            }
-        });
-
-        nativeChannel.setOnBufferedAmountLowHandler(() -> {
-            for (RTCTransportListener listener : listeners) {
-                try {
-                    listener.onRTCBufferedAmountLow(wrapper);
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error notifying buffered amount low", e);
-                }
-            }
-        });
-
-        TeaVMBinds.rtcSetOnMessageHandler(
-            nativeChannel,
-            buffer -> {
-                assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
-                ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
+                pendingReadyRejectors.remove(nativeChannel);
+                logger.fine("Data channel opened: " + wrapper.getName());
                 for (RTCTransportListener listener : listeners) {
                     try {
-                        listener.onRTCBinaryMessage(wrapper, byteBuffer);
+                        listener.onRTCChannelReady(wrapper);
                     } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error handling message", e);
+                        logger.log(Level.WARNING, "Error notifying channel ready", e);
                     }
                 }
-            }
-        );
+                settlement.resolve(wrapper);
+            };
 
-        this.asyncExecutor.runLater(
-                () -> {
-                    if (!"open".equals(nativeChannel.getReadyState())) {
-                        logger.finer("Data channel failed to open in time, closing channel");
-                        try {
-                            wrapper.close();
-                        } catch (Exception e) {
-                            logger.log(Level.FINER, "Error closing channel", e);
-                        }
-                        failReady.accept(new Exception("Channel open timeout"));
-                    } else {
-                        logger.fine("Data channel is open: " + wrapper.getName());
-                        completeReady.run();
+            Consumer<Exception> failReady = error -> {
+                if (!settlement.trySettle()) {
+                    return;
+                }
+                pendingReadyRejectors.remove(nativeChannel);
+                settlement.reject(error);
+            };
+            pendingReadyRejectors.put(nativeChannel, failReady);
+
+            nativeChannel.setBinaryType("arraybuffer");
+
+            nativeChannel.setOnCloseHandler(() -> {
+                logger.fine("Data channel closed: " + wrapper.getName());
+                removeChannelReferences(nativeChannel);
+                for (RTCTransportListener listener : listeners) {
+                    try {
+                        listener.onRTCChannelClosed(wrapper);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error notifying channel close", e);
                     }
-                    return null;
-                },
-                Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
-                TimeUnit.MILLISECONDS
+                }
+                failReady.accept(new Exception("Channel closed"));
+            });
+
+            nativeChannel.setOnErrorHandler(error -> {
+                Exception channelError = new Exception(error.getError());
+                logger.log(Level.WARNING, "Data channel error: " + error.getError());
+                for (RTCTransportListener listener : listeners) {
+                    try {
+                        listener.onRTCChannelError(wrapper, channelError);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error notifying channel error", e);
+                    }
+                }
+                failReady.accept(channelError);
+            });
+
+            nativeChannel.setOnBufferedAmountLowHandler(() -> {
+                for (RTCTransportListener listener : listeners) {
+                    try {
+                        listener.onRTCBufferedAmountLow(wrapper);
+                    } catch (Exception e) {
+                        logger.log(Level.WARNING, "Error notifying buffered amount low", e);
+                    }
+                }
+            });
+
+            TeaVMBinds.rtcSetOnMessageHandler(
+                nativeChannel,
+                buffer -> {
+                    assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
+                    ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
+                    for (RTCTransportListener listener : listeners) {
+                        try {
+                            listener.onRTCBinaryMessage(wrapper, byteBuffer);
+                        } catch (Exception e) {
+                            logger.log(Level.WARNING, "Error handling message", e);
+                        }
+                    }
+                }
             );
 
-        nativeChannel.setOnOpenHandler(() -> {
-            completeReady.run();
+            this.asyncExecutor.runLater(
+                    () -> {
+                        if (!"open".equals(nativeChannel.getReadyState())) {
+                            logger.finer("Data channel failed to open in time, closing channel");
+                            failReady.accept(new Exception("Channel open timeout"));
+                            try {
+                                wrapper.close();
+                            } catch (Exception e) {
+                                logger.log(Level.FINER, "Error closing channel", e);
+                            }
+                        } else {
+                            logger.fine("Data channel is open: " + wrapper.getName());
+                            completeReady.run();
+                        }
+                        return null;
+                    },
+                    Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
+                    TimeUnit.MILLISECONDS
+                );
+
+            nativeChannel.setOnOpenHandler(completeReady::run);
+
+            if ("open".equals(nativeChannel.getReadyState())) {
+                logger.fine("Data channel already opened: " + wrapper.getName());
+                completeReady.run();
+            }
         });
-
-        if ("open".equals(nativeChannel.getReadyState())) {
-            logger.fine("Data channel already opened: " + wrapper.getName());
-            completeReady.run();
-        }
-
+        channelReadyTasks.put(nativeChannel, readyTask);
         return readyTask;
     }
 
