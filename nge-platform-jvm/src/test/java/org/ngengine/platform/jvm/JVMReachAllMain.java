@@ -732,7 +732,7 @@ public final class JVMReachAllMain {
         safeRun(
             "schnorr",
             () -> {
-                byte[] msg = "reach".getBytes(StandardCharsets.UTF_8);
+                byte[] msg = NGEUtils.getPlatform().sha256("reach".getBytes(StandardCharsets.UTF_8));
                 byte[] sk = Schnorr.generatePrivateKey();
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
@@ -970,7 +970,9 @@ public final class JVMReachAllMain {
 
                     byte[] sk = Schnorr.generatePrivateKey();
                     byte[] pk = Schnorr.genPubKey(sk);
-                    Schnorr.sign("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8), sk, new byte[32]);
+                    byte[] msg = platform.sha256("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
+                    Schnorr.verify(msg, pk, sig);
                 } catch (Throwable ignored) {}
                 return null;
             }
