@@ -135,6 +135,47 @@ public final class JVMReachAllMain {
             }
         );
         safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
+        safeRun(
+            "secp256k1-keys-verify-create",
+            () -> {
+                try {
+                    boolean ok1 = platform.secp256k1PrivateKeyVerify(privateKey);
+                    byte[] pubCreated = platform.secp256k1PublicKeyCreate(privateKey, true);
+                    boolean ok2 = platform.secp256k1PublicKeyVerify(pubCreated);
+                    return ok1 && ok2;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+        safeRun(
+            "secp256k1-sign-recoverable",
+            () -> {
+                try {
+                    byte[] hash = platform.sha256("recover".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature s = platform.secp256k1SignRecoverable(hash, privateKey);
+                    return s;
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
+        safeRun(
+            "secp256k1-recover-publickey",
+            () -> {
+                try {
+                    byte[] sig64 = new byte[64];
+                    return platform.secp256k1RecoverPublicKey(
+                        platform.sha256("recover".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
+                        sig64,
+                        0,
+                        true
+                    );
+                } catch (Throwable ignored) {
+                    return null;
+                }
+            }
+        );
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
         safeRun(
             "hkdf",
@@ -205,6 +246,16 @@ public final class JVMReachAllMain {
             () -> {
                 JVMNGEAllocatorGuard.beforeAlloc(128);
                 JVMNGEAllocatorGuard.notifyGC();
+                // Exercise test-only hooks to ensure reflection/coverage for deterministic test APIs
+                try {
+                    JVMNGEAllocatorGuard.setTestHooks(null, null, null);
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                } catch (Throwable ignored) {}
                 return null;
             }
         );

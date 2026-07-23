@@ -5091,6 +5091,9 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMNGEAllocatorGuard"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurity",
             "methods": [
                 {
@@ -5473,6 +5476,9 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature"
         },
         {
             "type": "org.ngengine.saferalloc.SaferAlloc"

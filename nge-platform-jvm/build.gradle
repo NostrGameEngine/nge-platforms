@@ -67,6 +67,9 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.Point$JacobianPoint',
         'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
         'org.ngengine.platform.jvm.JVMReachAllMain$ReachDto',
+        // Ensure secp256k1 helper types and allocator-guard test hooks are always registered for native builds
+        'org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature',
+        'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
         'org.ngengine.saferalloc.SaferAlloc'
 ]
 
