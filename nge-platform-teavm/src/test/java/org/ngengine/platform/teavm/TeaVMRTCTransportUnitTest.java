@@ -46,6 +46,7 @@ import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
+import org.ngengine.platform.transport.RTCTransportIceCandidate;
 
 public class TeaVMRTCTransportUnitTest {
 
@@ -116,6 +117,28 @@ public class TeaVMRTCTransportUnitTest {
 
         assertNull(resolved.get());
         assertSame(channelClosed, rejected.get());
+    }
+
+    @Test
+    public void remoteIceCandidatesWaitForRemoteDescriptionAndFlushOnce() {
+        RecordingIceTransport transport = new RecordingIceTransport();
+        RTCTransportIceCandidate first = new RTCTransportIceCandidate("candidate:first", "0");
+        RTCTransportIceCandidate second = new RTCTransportIceCandidate("candidate:second", "0");
+
+        transport.addRemoteIceCandidates(List.of(first, first, second));
+
+        assertFalse(transport.isRemoteDescriptionSet());
+        assertEquals(2, transport.getPendingRemoteCandidateCount());
+        assertTrue(transport.appliedCandidates.isEmpty());
+
+        transport.markRemoteDescriptionSet();
+
+        assertTrue(transport.isRemoteDescriptionSet());
+        assertEquals(0, transport.getPendingRemoteCandidateCount());
+        assertEquals(List.of(first, second), transport.appliedCandidates);
+
+        transport.addRemoteIceCandidates(List.of(first, second));
+        assertEquals(List.of(first, second), transport.appliedCandidates);
     }
 
     @Test
@@ -204,6 +227,19 @@ public class TeaVMRTCTransportUnitTest {
         @Override
         public AsyncTask<Void> close() {
             return ImmediateAsyncTask.completed(null);
+        }
+    }
+
+    private static final class RecordingIceTransport extends TeaVMRTCTransport {
+
+        private final List<RTCTransportIceCandidate> appliedCandidates = new ArrayList<>();
+
+        @Override
+        void applyRemoteIceCandidate(RTCTransportIceCandidate candidate) {
+            if (appliedCandidates.contains(candidate)) {
+                return;
+            }
+            appliedCandidates.add(candidate);
         }
     }
 

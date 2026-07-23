@@ -286,6 +286,15 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcAddIceCandidateAsync(
+        RTCPeerConnection conn,
+        RTCIceCandidate candidate,
+        JSConsumer<Void> res,
+        JSConsumer<String> rej
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void rtcCreateAnswerAsync(
         RTCPeerConnection conn,
         JSConsumer<RTCSessionDescription> res,

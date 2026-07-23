@@ -33,6 +33,7 @@ package org.ngengine.platform.teavm;
 import java.util.List;
 import java.util.Map;
 import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
 import org.ngengine.platform.transport.NGEHttpResponse;
@@ -156,6 +157,18 @@ public class TeaVMBindsAsync {
             conn,
             sdp,
             type,
+            result -> callback.complete(result),
+            error -> callback.error(new Exception(error))
+        );
+    }
+
+    @Async
+    public static native void rtcAddIceCandidate(RTCPeerConnection conn, RTCIceCandidate candidate);
+
+    private static void rtcAddIceCandidate(RTCPeerConnection conn, RTCIceCandidate candidate, AsyncCallback<Void> callback) {
+        TeaVMBinds.rtcAddIceCandidateAsync(
+            conn,
+            candidate,
             result -> callback.complete(result),
             error -> callback.error(new Exception(error))
         );

@@ -63,6 +63,7 @@ public class TeaVMRTCTransport implements RTCTransport {
 
     private final List<RTCTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final List<RTCTransportIceCandidate> trackedRemoteCandidates = new CopyOnWriteArrayList<>();
+    private final List<RTCTransportIceCandidate> pendingRemoteCandidates = new CopyOnWriteArrayList<>();
     private final Map<String, List<Consumer<RTCDataChannel>>> pendingIncomingChannelResolvers = new ConcurrentHashMap<>();
     private final Map<org.ngengine.platform.teavm.webrtc.RTCDataChannel, RTCDataChannel> channelWrappers =
         new ConcurrentHashMap<>();
@@ -74,6 +75,7 @@ public class TeaVMRTCTransport implements RTCTransport {
     private String connId;
     private volatile boolean isInitiator;
     private volatile boolean connected;
+    private volatile boolean remoteDescriptionSet;
     private RTCPeerConnection peerConnection;
     private AsyncExecutor asyncExecutor;
     private Duration p2pAttemptTimeout;
@@ -110,6 +112,9 @@ public class TeaVMRTCTransport implements RTCTransport {
         this.connId = connId;
         this.asyncExecutor = executor;
         this.connected = false;
+        this.remoteDescriptionSet = false;
+        this.trackedRemoteCandidates.clear();
+        this.pendingRemoteCandidates.clear();
 
         String[] iceUrls = stunServers.stream().map(server -> "stun:" + server).toArray(String[]::new);
 
@@ -573,6 +578,7 @@ public class TeaVMRTCTransport implements RTCTransport {
                 (res, rej) -> {
                     try {
                         TeaVMBindsAsync.rtcSetRemoteDescription(this.peerConnection, offerOrAnswer, "answer");
+                        markRemoteDescriptionSet();
                         res.accept(null);
                     } catch (Throwable e) {
                         rej.accept(e);
@@ -587,6 +593,7 @@ public class TeaVMRTCTransport implements RTCTransport {
             (res, rej) -> {
                 try {
                     TeaVMBindsAsync.rtcSetRemoteDescription(this.peerConnection, offerOrAnswer, "offer");
+                    markRemoteDescriptionSet();
                     RTCSessionDescription answer = TeaVMBindsAsync.rtcCreateAnswer(this.peerConnection);
                     TeaVMBindsAsync.rtcSetLocalDescription(this.peerConnection, answer.getSdp(), "answer");
                     logger.fine("Answer ready");
@@ -602,20 +609,47 @@ public class TeaVMRTCTransport implements RTCTransport {
     @Override
     public void addRemoteIceCandidates(Collection<RTCTransportIceCandidate> candidates) {
         for (RTCTransportIceCandidate candidate : candidates) {
-            if (!trackedRemoteCandidates.contains(candidate)) {
-                logger.fine("Adding remote candidate: " + candidate);
-                try {
-                    RTCIceCandidate iceCandidate = TeaVMBinds.rtcCreateIceCandidate(
-                        candidate.getCandidate(),
-                        candidate.getSdpMid()
-                    );
-                    this.peerConnection.addIceCandidate(iceCandidate);
-                    trackedRemoteCandidates.add(candidate);
-                } catch (Exception e) {
-                    logger.log(Level.WARNING, "Error adding ICE candidate", e);
-                }
+            if (trackedRemoteCandidates.contains(candidate) || pendingRemoteCandidates.contains(candidate)) {
+                continue;
             }
+            if (!remoteDescriptionSet) {
+                logger.fine("Queueing remote candidate until the remote description is set: " + candidate);
+                pendingRemoteCandidates.add(candidate);
+                continue;
+            }
+            applyRemoteIceCandidate(candidate);
         }
+    }
+
+    void markRemoteDescriptionSet() {
+        remoteDescriptionSet = true;
+        List<RTCTransportIceCandidate> queued = new CopyOnWriteArrayList<>(pendingRemoteCandidates);
+        pendingRemoteCandidates.clear();
+        for (RTCTransportIceCandidate candidate : queued) {
+            applyRemoteIceCandidate(candidate);
+        }
+    }
+
+    void applyRemoteIceCandidate(RTCTransportIceCandidate candidate) {
+        if (trackedRemoteCandidates.contains(candidate)) {
+            return;
+        }
+        logger.fine("Adding remote candidate: " + candidate);
+        try {
+            RTCIceCandidate iceCandidate = TeaVMBinds.rtcCreateIceCandidate(candidate.getCandidate(), candidate.getSdpMid());
+            TeaVMBindsAsync.rtcAddIceCandidate(this.peerConnection, iceCandidate);
+            trackedRemoteCandidates.add(candidate);
+        } catch (Throwable e) {
+            logger.log(Level.WARNING, "Error adding ICE candidate", e);
+        }
+    }
+
+    boolean isRemoteDescriptionSet() {
+        return remoteDescriptionSet;
+    }
+
+    int getPendingRemoteCandidateCount() {
+        return pendingRemoteCandidates.size();
     }
 
     @Override
@@ -667,6 +701,9 @@ public class TeaVMRTCTransport implements RTCTransport {
         }
         channelReadyTasks.clear();
         channelWrappers.clear();
+        pendingRemoteCandidates.clear();
+        trackedRemoteCandidates.clear();
+        remoteDescriptionSet = false;
 
         if (this.peerConnection != null) {
             this.peerConnection.close();

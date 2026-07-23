@@ -1054,6 +1054,14 @@ export const rtcSetRemoteDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*s
         });
 }   
 
+export const rtcAddIceCandidateAsync = (conn /*RTCPeerConnection*/, candidate /*RTCIceCandidate*/, res, rej) => { // void
+    conn.addIceCandidate(candidate)
+        .then(() => res())
+        .catch(error => {
+            console.error('Error adding ICE candidate:', error);
+            rej(String(error));
+        });
+}
 
 export const rtcCreateAnswerAsync = (conn /*RTCPeerConnection*/, res, rej) => { // str
     conn.createAnswer()
