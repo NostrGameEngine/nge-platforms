@@ -528,6 +528,92 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        // If native libdatachannel is available, attempt an in-process RTC pair to exercise signaling and data channels end-to-end.
+        safeRun(
+            "rtc-local-pair",
+            () -> {
+                if (!INCLUDE_NATIVE_RTC) {
+                    return null;
+                }
+
+                try {
+                    Duration p2pAttemptTimeout2 = Duration.ofSeconds(5);
+                    Collection<String> stun2 = new ArrayList<>();
+
+                    RTCTransport a = platform.newRTCTransport(p2pAttemptTimeout2, "reach-a", stun2);
+                    RTCTransport b = platform.newRTCTransport(p2pAttemptTimeout2, "reach-b", stun2);
+
+                    final java.util.concurrent.atomic.AtomicBoolean gotMessage = new java.util.concurrent.atomic.AtomicBoolean(false);
+
+                    b.addListener(
+                        new org.ngengine.platform.transport.RTCTransportListener() {
+                            @Override
+                            public void onLocalRTCIceCandidate(org.ngengine.platform.transport.RTCTransportIceCandidate candidate) {}
+
+                            @Override
+                            public void onRTCBinaryMessage(org.ngengine.platform.transport.RTCDataChannel channel, java.nio.ByteBuffer msg) {
+                                gotMessage.set(true);
+                            }
+
+                            @Override
+                            public void onRTCChannelError(org.ngengine.platform.transport.RTCDataChannel channel, Throwable e) {}
+
+                            @Override
+                            public void onRTCChannelReady(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                            @Override
+                            public void onRTCBufferedAmountLow(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                            @Override
+                            public void onRTCChannelClosed(org.ngengine.platform.transport.RTCDataChannel channel) {}
+
+                            @Override
+                            public void onRTCDisconnected(String reason) {}
+
+                            @Override
+                            public void onRTCConnected() {}
+                        }
+                    );
+
+                    try {
+                        // a listens -> offer
+                        org.ngengine.platform.AsyncTask<String> offerTask = a.listen();
+                        String offer = offerTask.await();
+
+                        // b connects with offer -> returns answer
+                        org.ngengine.platform.AsyncTask<String> answerTask = b.connect(offer);
+                        String answer = answerTask.await();
+
+                        // a connects with answer
+                        a.connect(answer);
+
+                        // create data channels on both sides
+                        org.ngengine.platform.AsyncTask<org.ngengine.platform.transport.RTCDataChannel> chA =
+                            a.createDataChannel("reach-all", null, true, true, -1, null);
+                        org.ngengine.platform.AsyncTask<org.ngengine.platform.transport.RTCDataChannel> chB =
+                            b.createDataChannel("reach-all", null, true, true, -1, null);
+
+                        org.ngengine.platform.transport.RTCDataChannel ca = chA.await();
+                        org.ngengine.platform.transport.RTCDataChannel cb = chB.await();
+
+                        if (ca != null && cb != null) {
+                            try {
+                                ca.write(java.nio.ByteBuffer.wrap(new byte[] { 9, 9, 9 }));
+                            } catch (Throwable ignored) {}
+
+                            // give some time for message delivery (best-effort)
+                            try { Thread.sleep(200); } catch (InterruptedException ignored) {}
+                        }
+                    } catch (Throwable ignored) {}
+
+                    a.close();
+                    b.close();
+                } catch (Throwable ignored) {}
+
+                return null;
+            }
+        );
     }
 
     private static void exerciseHttpRequests(JVMAsyncPlatform platform) {
