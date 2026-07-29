@@ -105,7 +105,6 @@ public abstract class NGEPlatform {
 
     public abstract byte[] generatePrivateKey();
 
- 
     public ByteBuffer generatePrivateKeyBuffer() {
         return wrapBinaryResult(generatePrivateKey());
     }
