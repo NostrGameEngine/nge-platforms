@@ -67,7 +67,10 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.Point$JacobianPoint',
         'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
         'org.ngengine.platform.jvm.JVMReachAllMain$ReachDto',
-        'org.ngengine.saferalloc.SaferAlloc'
+        'org.ngengine.saferalloc.SaferAlloc',
+        // Additional deterministic hints to cover reflection/method handles seen in harness
+        'org.ngengine.platform.jvm.JVMWebsocketTransport',
+        'org.ngengine.platform.jvm.JVMNetworkSecurity'
 ]
 
 def ensureJavaExecutableAvailable = { File executable, String taskName ->

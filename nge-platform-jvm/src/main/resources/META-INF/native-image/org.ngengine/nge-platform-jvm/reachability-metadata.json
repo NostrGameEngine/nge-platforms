@@ -5108,6 +5108,9 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurity"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
             "methods": [
                 {
@@ -5302,6 +5305,9 @@
                     "name": "openWebSocket"
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport"
         },
         {
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransportUnitTest",
