@@ -30,11 +30,14 @@
  */
 package org.ngengine.platform.teavm;
 
+import java.nio.ByteBuffer;
 import org.ngengine.platform.teavm.webrtc.RTCDataChannel;
 import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCMessageCallback;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
+import org.teavm.jso.JSBuffer;
+import org.teavm.jso.JSBufferType;
 import org.teavm.jso.JSByRef;
 import org.teavm.jso.JSClass;
 import org.teavm.jso.JSFunctor;
@@ -55,23 +58,45 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    @JSByRef(optional = true)
     public static native byte[] randomBytes(int length);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    public static native int randomBytesBuffer(@JSBuffer(JSBufferType.UINT8) ByteBuffer output);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
     public static native byte[] generatePrivateKey();
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] genPubKey(@JSByRef byte[] secKey);
+    public static native int generatePrivateKeyBuffer(@JSBuffer(JSBufferType.UINT8) ByteBuffer output);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] sha256(@JSByRef byte[] data);
+    @JSByRef(optional = true)
+    public static native byte[] genPubKey(@JSByRef(optional = true) byte[] secKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int genPubKeyBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer secKey,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
+    public static native byte[] sha256(@JSByRef(optional = true) byte[] data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int sha256Buffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -83,74 +108,197 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] sign(@JSByRef byte[] data, @JSByRef byte[] privKeyBytes);
+    @JSByRef(optional = true)
+    public static native byte[] sign(@JSByRef(optional = true) byte[] data, @JSByRef(optional = true) byte[] privKeyBytes);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native boolean verify(@JSByRef byte[] data, @JSByRef byte[] pub, @JSByRef byte[] sig);
+    public static native int signBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer privKeyBytes,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] secp256k1SharedSecret(@JSByRef byte[] privKey, @JSByRef byte[] pubKey);
+    public static native boolean verify(
+        @JSByRef(optional = true) byte[] data,
+        @JSByRef(optional = true) byte[] pub,
+        @JSByRef(optional = true) byte[] sig
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native boolean secp256k1PrivateKeyVerify(@JSByRef byte[] privateKey);
+    public static native boolean verifyBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer pub,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer sig
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native boolean secp256k1PublicKeyVerify(@JSByRef byte[] publicKey);
+    @JSByRef(optional = true)
+    public static native byte[] secp256k1SharedSecret(
+        @JSByRef(optional = true) byte[] privKey,
+        @JSByRef(optional = true) byte[] pubKey
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] secp256k1PublicKeyCreate(@JSByRef byte[] privateKey, boolean compressed);
+    public static native int secp256k1SharedSecretBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer privKey,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer pubKey,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] secp256k1SignRecoverable(@JSByRef byte[] hash32, @JSByRef byte[] privateKey);
+    public static native boolean secp256k1PrivateKeyVerify(@JSByRef(optional = true) byte[] privateKey);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    public static native boolean secp256k1PrivateKeyVerifyBuffer(@JSBuffer(JSBufferType.UINT8) ByteBuffer privateKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean secp256k1PublicKeyVerify(@JSByRef(optional = true) byte[] publicKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean secp256k1PublicKeyVerifyBuffer(@JSBuffer(JSBufferType.UINT8) ByteBuffer publicKey);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
+    public static native byte[] secp256k1PublicKeyCreate(@JSByRef(optional = true) byte[] privateKey, boolean compressed);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int secp256k1PublicKeyCreateBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer privateKey,
+        boolean compressed,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
+    public static native byte[] secp256k1SignRecoverable(
+        @JSByRef(optional = true) byte[] hash32,
+        @JSByRef(optional = true) byte[] privateKey
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int secp256k1SignRecoverableBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer hash32,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer privateKey,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
     public static native byte[] secp256k1RecoverPublicKey(
-        @JSByRef byte[] hash32,
-        @JSByRef byte[] signature64,
+        @JSByRef(optional = true) byte[] hash32,
+        @JSByRef(optional = true) byte[] signature64,
         int recoveryId,
         boolean compressed
     );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] hmac(@JSByRef byte[] key, @JSByRef byte[] data1, @JSByRef byte[] data2);
+    public static native int secp256k1RecoverPublicKeyBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer hash32,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer signature64,
+        int recoveryId,
+        boolean compressed,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] hkdf_extract(@JSByRef byte[] salt, @JSByRef byte[] ikm);
+    @JSByRef(optional = true)
+    public static native byte[] hmac(
+        @JSByRef(optional = true) byte[] key,
+        @JSByRef(optional = true) byte[] data1,
+        @JSByRef(optional = true) byte[] data2
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] hkdf_expand(@JSByRef byte[] prk, @JSByRef byte[] info, int length);
+    public static native int hmacBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer key,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data1,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data2,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native String base64encode(@JSByRef byte[] data);
+    @JSByRef(optional = true)
+    public static native byte[] hkdf_extract(@JSByRef(optional = true) byte[] salt, @JSByRef(optional = true) byte[] ikm);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    public static native int hkdfExtractBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer salt,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer ikm,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
+    public static native byte[] hkdf_expand(
+        @JSByRef(optional = true) byte[] prk,
+        @JSByRef(optional = true) byte[] info,
+        int length
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int hkdfExpandBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer prk,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer info,
+        int length,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String base64encode(@JSByRef(optional = true) byte[] data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String base64encodeBuffer(@JSBuffer(JSBufferType.UINT8) ByteBuffer data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
     public static native byte[] base64decode(String data);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] chacha20(@JSByRef byte[] key, @JSByRef byte[] nonce, @JSByRef byte[] data);
+    public static native int base64decodeBuffer(String data, @JSBuffer(JSBufferType.UINT8) ByteBuffer output);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    @JSByRef(optional = true)
+    public static native byte[] chacha20(
+        @JSByRef(optional = true) byte[] key,
+        @JSByRef(optional = true) byte[] nonce,
+        @JSByRef(optional = true) byte[] data
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int chacha20Buffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer key,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer nonce,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -166,18 +314,32 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    @JSByRef(optional = true)
     public static native byte[] getBundledResource(String path);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
     public static native boolean hasBundledResource(String path);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
-    public static native byte[] aes256cbc(@JSByRef byte[] key, @JSByRef byte[] iv, @JSByRef byte[] data, boolean forEncryption);
+    @JSByRef(optional = true)
+    public static native byte[] aes256cbc(
+        @JSByRef(optional = true) byte[] key,
+        @JSByRef(optional = true) byte[] iv,
+        @JSByRef(optional = true) byte[] data,
+        boolean forEncryption
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int aes256cbcBuffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer key,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer iv,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        boolean forEncryption,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -192,7 +354,7 @@ public class TeaVMBinds implements JSObject {
     public static native void vfileWriteAsync(
         String name,
         String path,
-        @JSByRef byte[] data,
+        @JSByRef(optional = true) byte[] data,
         JSConsumer<Void> callback,
         JSConsumer<String> errorCallback
     );
@@ -233,8 +395,8 @@ public class TeaVMBinds implements JSObject {
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void scryptAsync(
-        @JSByRef byte[] P,
-        @JSByRef byte[] S,
+        @JSByRef(optional = true) byte[] P,
+        @JSByRef(optional = true) byte[] S,
         int N,
         int r,
         int p2,
@@ -245,13 +407,24 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
+    @JSByRef(optional = true)
     public static native byte[] xchacha20poly1305(
-        @JSByRef byte[] key,
-        @JSByRef byte[] nonce,
-        @JSByRef byte[] data,
-        @JSByRef byte[] associatedData,
+        @JSByRef(optional = true) byte[] key,
+        @JSByRef(optional = true) byte[] nonce,
+        @JSByRef(optional = true) byte[] data,
+        @JSByRef(optional = true) byte[] associatedData,
         boolean forEncryption
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int xchacha20poly1305Buffer(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer key,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer nonce,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer associatedData,
+        boolean forEncryption,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
     );
 
     @JSFunctor
@@ -261,7 +434,6 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    @JSByRef
     public static native FinalizerCallback registerFinalizer(Object obj, FinalizerCallback callback);
 
     @JSTopLevel
@@ -371,7 +543,19 @@ public class TeaVMBinds implements JSObject {
         String method,
         String url,
         String headersJson,
-        @JSByRef byte[] body,
+        @JSByRef(optional = true) byte[] body,
+        int timeoutMs,
+        JSConsumer<TeaVMHttpResponse> res,
+        JSConsumer<String> rej
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void fetchBufferAsync(
+        String method,
+        String url,
+        String headersJson,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer body,
         int timeoutMs,
         JSConsumer<TeaVMHttpResponse> res,
         JSConsumer<String> rej
@@ -383,7 +567,7 @@ public class TeaVMBinds implements JSObject {
         String method,
         String url,
         String headersJson,
-        @JSByRef byte[] body,
+        @JSByRef(optional = true) byte[] body,
         int timeoutMs,
         JSConsumer<TeaVMHttpStreamResponse> res,
         JSConsumer<String> rej

@@ -186,7 +186,6 @@ async function main() {
       ANDROID_RTC_TEST_FILTER: 'org.ngengine.platform.android.AndroidPlatformParityInstrumentedTest',
       ANDROID_RTC_SIGNAL_BASE: androidSignalBase,
       ANDROID_RTC_HTTP_PARITY_URL: androidHttpParityUrl,
-      ANDROID_AVD_NAME: process.env.ANDROID_AVD_NAME || 'Generic_AOSP',
     },
   });
 

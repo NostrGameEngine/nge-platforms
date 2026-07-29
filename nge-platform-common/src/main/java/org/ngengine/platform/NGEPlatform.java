@@ -33,6 +33,7 @@ package org.ngengine.platform;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -104,7 +105,16 @@ public abstract class NGEPlatform {
 
     public abstract byte[] generatePrivateKey();
 
+ 
+    public ByteBuffer generatePrivateKeyBuffer() {
+        return wrapBinaryResult(generatePrivateKey());
+    }
+
     public abstract byte[] genPubKey(byte[] secKey);
+
+    public ByteBuffer genPubKey(ByteBuffer secKey) {
+        return wrapBinaryResult(genPubKey(copyRemaining(secKey)));
+    }
 
     public abstract String toJSON(Collection obj);
 
@@ -113,6 +123,10 @@ public abstract class NGEPlatform {
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);
+
+    public ByteBuffer secp256k1SharedSecret(ByteBuffer privKey, ByteBuffer pubKey) {
+        return wrapBinaryResult(secp256k1SharedSecret(copyRemaining(privKey), copyRemaining(pubKey)));
+    }
 
     /**
      * Verifies whether a secp256k1 private key is valid.
@@ -124,6 +138,10 @@ public abstract class NGEPlatform {
      */
     public abstract boolean secp256k1PrivateKeyVerify(byte[] privateKey);
 
+    public boolean secp256k1PrivateKeyVerify(ByteBuffer privateKey) {
+        return secp256k1PrivateKeyVerify(copyRemaining(privateKey));
+    }
+
     /**
      * Verifies whether a secp256k1 public key is valid.
      * It must be an SEC1 compressed key (33 bytes) or uncompressed key (65 bytes),
@@ -134,6 +152,10 @@ public abstract class NGEPlatform {
      */
     public abstract boolean secp256k1PublicKeyVerify(byte[] publicKey);
 
+    public boolean secp256k1PublicKeyVerify(ByteBuffer publicKey) {
+        return secp256k1PublicKeyVerify(copyRemaining(publicKey));
+    }
+
     /**
      * Derives a secp256k1 public key from a private key.
      *
@@ -143,6 +165,10 @@ public abstract class NGEPlatform {
      * @throws IllegalArgumentException if the private key is invalid
      */
     public abstract byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed);
+
+    public ByteBuffer secp256k1PublicKeyCreate(ByteBuffer privateKey, boolean compressed) {
+        return wrapBinaryResult(secp256k1PublicKeyCreate(copyRemaining(privateKey), compressed));
+    }
 
     /**
      * Signs a 32-byte hash with ECDSA over secp256k1 and returns a recoverable signature.
@@ -157,6 +183,10 @@ public abstract class NGEPlatform {
      */
     public abstract Secp256k1RecoverableSignature secp256k1SignRecoverable(byte[] hash32, byte[] privateKey);
 
+    public Secp256k1RecoverableSignature secp256k1SignRecoverable(ByteBuffer hash32, ByteBuffer privateKey) {
+        return secp256k1SignRecoverable(copyRemaining(hash32), copyRemaining(privateKey));
+    }
+
     /**
      * Recovers a secp256k1 public key from hash + recoverable signature.
      *
@@ -169,17 +199,47 @@ public abstract class NGEPlatform {
      */
     public abstract byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed);
 
+    public ByteBuffer secp256k1RecoverPublicKey(ByteBuffer hash32, ByteBuffer signature64, int recoveryId, boolean compressed) {
+        return wrapBinaryResult(
+            secp256k1RecoverPublicKey(copyRemaining(hash32), copyRemaining(signature64), recoveryId, compressed)
+        );
+    }
+
     public abstract byte[] hmac(byte[] key, byte[] data1, byte[] data2);
+
+    public ByteBuffer hmac(ByteBuffer key, ByteBuffer data1, ByteBuffer data2) {
+        return wrapBinaryResult(hmac(copyRemaining(key), copyRemaining(data1), copyRemaining(data2)));
+    }
 
     public abstract byte[] hkdf_extract(byte[] salt, byte[] ikm);
 
+    public ByteBuffer hkdf_extract(ByteBuffer salt, ByteBuffer ikm) {
+        return wrapBinaryResult(hkdf_extract(copyRemaining(salt), copyRemaining(ikm)));
+    }
+
     public abstract byte[] hkdf_expand(byte[] prk, byte[] info, int length);
+
+    public ByteBuffer hkdf_expand(ByteBuffer prk, ByteBuffer info, int length) {
+        return wrapBinaryResult(hkdf_expand(copyRemaining(prk), copyRemaining(info), length));
+    }
 
     public abstract String base64encode(byte[] data);
 
+    public String base64encode(ByteBuffer data) {
+        return base64encode(copyRemaining(data));
+    }
+
     public abstract byte[] base64decode(String data);
 
+    public ByteBuffer base64decodeBuffer(String data) {
+        return wrapBinaryResult(base64decode(data));
+    }
+
     public abstract byte[] chacha20(byte[] key, byte[] nonce, byte[] data, boolean forEncryption);
+
+    public ByteBuffer chacha20(ByteBuffer key, ByteBuffer nonce, ByteBuffer data, boolean forEncryption) {
+        return wrapBinaryResult(chacha20(copyRemaining(key), copyRemaining(nonce), copyRemaining(data), forEncryption));
+    }
 
     public abstract WebsocketTransport newTransport();
 
@@ -189,13 +249,33 @@ public abstract class NGEPlatform {
 
     public abstract byte[] sha256(byte[] data);
 
+    public ByteBuffer sha256(ByteBuffer data) {
+        return wrapBinaryResult(sha256(copyRemaining(data)));
+    }
+
     public abstract String schnorrSign(String data, byte privKey[]) throws FailedToSignException;
+
+    public String schnorrSign(String data, ByteBuffer privKey) throws FailedToSignException {
+        return schnorrSign(data, copyRemaining(privKey));
+    }
 
     public abstract boolean schnorrVerify(String data, String sign, byte pubKey[]);
 
+    public boolean schnorrVerify(String data, String sign, ByteBuffer pubKey) {
+        return schnorrVerify(data, sign, copyRemaining(pubKey));
+    }
+
     public abstract AsyncTask<String> schnorrSignAsync(String data, byte privKey[]);
 
+    public AsyncTask<String> schnorrSignAsync(String data, ByteBuffer privKey) {
+        return schnorrSignAsync(data, copyRemaining(privKey));
+    }
+
     public abstract AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]);
+
+    public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, ByteBuffer pubKey) {
+        return schnorrVerifyAsync(data, sign, copyRemaining(pubKey));
+    }
 
     /**
      * This generically named method is deprecated in favor of {@link #schnorrSign(String, byte[])}
@@ -234,6 +314,10 @@ public abstract class NGEPlatform {
     }
 
     public abstract byte[] randomBytes(int n);
+
+    public ByteBuffer randomBytesBuffer(int n) {
+        return wrapBinaryResult(randomBytes(n));
+    }
 
     public final AsyncExecutor newAsyncExecutor() {
         return newAsyncExecutor(null);
@@ -504,6 +588,16 @@ public abstract class NGEPlatform {
         Map<String, String> headers
     );
 
+    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+        String method,
+        String inurl,
+        ByteBuffer body,
+        Duration timeout,
+        Map<String, String> headers
+    ) {
+        return httpRequest(method, inurl, body == null ? null : copyRemaining(body), timeout, headers);
+    }
+
     public abstract AsyncTask<NGEHttpResponseStream> httpRequestStream(
         String method,
         String inurl,
@@ -520,6 +614,10 @@ public abstract class NGEPlatform {
 
     public abstract byte[] scrypt(byte[] P, byte[] S, int N, int r, int p, int dkLen);
 
+    public ByteBuffer scrypt(ByteBuffer password, ByteBuffer salt, int n, int r, int p, int dkLen) {
+        return wrapBinaryResult(scrypt(copyRemaining(password), copyRemaining(salt), n, r, p, dkLen));
+    }
+
     public abstract byte[] xchacha20poly1305(
         byte[] key,
         byte[] nonce,
@@ -527,6 +625,24 @@ public abstract class NGEPlatform {
         byte[] associatedData,
         boolean forEncryption
     );
+
+    public ByteBuffer xchacha20poly1305(
+        ByteBuffer key,
+        ByteBuffer nonce,
+        ByteBuffer data,
+        ByteBuffer associatedData,
+        boolean forEncryption
+    ) {
+        return wrapBinaryResult(
+            xchacha20poly1305(
+                copyRemaining(key),
+                copyRemaining(nonce),
+                copyRemaining(data),
+                copyRemaining(associatedData),
+                forEncryption
+            )
+        );
+    }
 
     public abstract String nfkc(String str);
 
@@ -573,6 +689,10 @@ public abstract class NGEPlatform {
      * @return The encrypted or decrypted data
      */
     public abstract byte[] aes256cbc(byte[] key, byte[] iv, byte[] data, boolean forEncryption);
+
+    public ByteBuffer aes256cbc(ByteBuffer key, ByteBuffer iv, ByteBuffer data, boolean forEncryption) {
+        return wrapBinaryResult(aes256cbc(copyRemaining(key), copyRemaining(iv), copyRemaining(data), forEncryption));
+    }
 
     private final AtomicReference<ExecutionQueue> vstoreQueue = new AtomicReference<>(null);
 
@@ -625,4 +745,18 @@ public abstract class NGEPlatform {
     }
 
     public abstract NGEAllocator getNativeAllocator();
+
+    private static byte[] copyRemaining(ByteBuffer input) {
+        if (input == null) {
+            throw new NullPointerException("input");
+        }
+        ByteBuffer source = input.slice();
+        byte[] result = new byte[source.remaining()];
+        source.get(result);
+        return result;
+    }
+
+    private static ByteBuffer wrapBinaryResult(byte[] result) {
+        return result == null ? null : ByteBuffer.wrap(result);
+    }
 }

@@ -45,6 +45,6 @@ public interface TeaVMHttpResponse extends JSObject {
     String getStatusText();
 
     @JSProperty("body")
-    @JSByRef
+    @JSByRef(optional = true)
     byte[] getBody();
 }

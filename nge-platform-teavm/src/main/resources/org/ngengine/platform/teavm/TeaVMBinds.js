@@ -31,6 +31,16 @@ const _u = (data) => {
     }
 };
 
+const _writeBytes = (output, value) => {
+    const target = _u(output);
+    const source = _u(value);
+    if (target.length < source.length) {
+        throw new RangeError(`Output buffer is too small: required ${source.length}, available ${target.length}`);
+    }
+    target.set(source);
+    return source.length;
+};
+
 
 // wrap Uint8Array in an object 
 export const _bw = (data)=>{
@@ -375,16 +385,32 @@ export const randomBytes = (length /*int*/) => { // Uint8Array (byte[])
     return _u(_randomBytes(length));
 };
 
+export const randomBytesBuffer = (output) => {
+    return _writeBytes(output, _randomBytes(_u(output).length));
+};
+
 export const generatePrivateKey = () => { // Uint8Array (byte[])
     return _u(_schnorr.utils.randomPrivateKey());
+};
+
+export const generatePrivateKeyBuffer = (output) => {
+    return _writeBytes(output, _schnorr.utils.randomPrivateKey());
 };
 
 export const genPubKey = (secKey) => {// Uint8Array (byte[])
     return _u(_schnorr.getPublicKey(_u(secKey)));
 };
 
+export const genPubKeyBuffer = (secKey, output) => {
+    return _writeBytes(output, _schnorr.getPublicKey(_u(secKey)));
+};
+
 export const sha256 = (data /*byte[]*/) => { // Uint8Array (byte[])
     return _u(_sha256(_u(data)));
+};
+
+export const sha256Buffer = (data, output) => {
+    return _writeBytes(output, _sha256(_u(data)));
 };
 
 export const toJSON = (obj /*obj*/) => { // str
@@ -404,13 +430,24 @@ export const sign = (data /*byte[]*/, privKeyBytes  /*byte[]*/) => {  // Uint8Ar
     return _u(_schnorr.sign(_u(data), _u(privKeyBytes)));
 };
 
+export const signBuffer = (data, privKeyBytes, output) => {
+    return _writeBytes(output, _schnorr.sign(_u(data), _u(privKeyBytes)));
+};
+
 export const verify = (data /*byte[]*/, pub /*byte[]*/, sig/*byte[]*/) => { // bool
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
 };
 
+export const verifyBuffer = (data, pub, sig) => {
+    return _schnorr.verify(_u(sig), _u(data), _u(pub));
+};
 
 export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => { // Uint8Array (byte[])
     return _u(_secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+};
+
+export const secp256k1SharedSecretBuffer = (privKey, pubKey, output) => {
+    return _writeBytes(output, _secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
 };
 
 export const secp256k1PrivateKeyVerify = (privateKey /*byte[]*/) => { // bool
@@ -421,6 +458,10 @@ export const secp256k1PrivateKeyVerify = (privateKey /*byte[]*/) => { // bool
     }
 };
 
+export const secp256k1PrivateKeyVerifyBuffer = (privateKey) => {
+    return secp256k1PrivateKeyVerify(privateKey);
+};
+
 export const secp256k1PublicKeyVerify = (publicKey /*byte[]*/) => { // bool
     try {
         return _secp256k1.utils.isValidPublicKey(_u(publicKey));
@@ -429,8 +470,16 @@ export const secp256k1PublicKeyVerify = (publicKey /*byte[]*/) => { // bool
     }
 };
 
+export const secp256k1PublicKeyVerifyBuffer = (publicKey) => {
+    return secp256k1PublicKeyVerify(publicKey);
+};
+
 export const secp256k1PublicKeyCreate = (privateKey /*byte[]*/, compressed /*bool*/) => { // Uint8Array (byte[])
     return _u(_secp256k1.getPublicKey(_u(privateKey), !!compressed));
+};
+
+export const secp256k1PublicKeyCreateBuffer = (privateKey, compressed, output) => {
+    return _writeBytes(output, _secp256k1.getPublicKey(_u(privateKey), !!compressed));
 };
 
 export const secp256k1SignRecoverable = (hash32 /*byte[]*/, privateKey /*byte[]*/) => { // Uint8Array (byte[])
@@ -440,6 +489,10 @@ export const secp256k1SignRecoverable = (hash32 /*byte[]*/, privateKey /*byte[]*
     });
     const recoveredSig = signature.toBytes('recovered');
     return _u(recoveredSig);
+};
+
+export const secp256k1SignRecoverableBuffer = (hash32, privateKey, output) => {
+    return _writeBytes(output, secp256k1SignRecoverable(hash32, privateKey));
 };
 
 export const secp256k1RecoverPublicKey = (
@@ -464,20 +517,40 @@ export const secp256k1RecoverPublicKey = (
     return _u(point.toBytes(!!compressed));
 };
 
+export const secp256k1RecoverPublicKeyBuffer = (hash32, signature64, recoveryId, compressed, output) => {
+    return _writeBytes(output, secp256k1RecoverPublicKey(hash32, signature64, recoveryId, compressed));
+};
+
 export const hmac = (key /*byte[]*/, data1 /*byte[]*/, data2 /*byte[]*/) => { // Uint8Array (byte[])
     const msg = new Uint8Array([..._u(data1), ..._u(data2)]);
     return _u(_hmac(_sha256, _u(key), msg));
+};
+
+export const hmacBuffer = (key, data1, data2, output) => {
+    return _writeBytes(output, hmac(key, data1, data2));
 };
 
 export const hkdf_extract = (salt /*byte[]*/, ikm /*byte[]*/) => { // Uint8Array (byte[])
     return _u(_hkdf_extract(_sha256, _u(ikm), _u(salt)));
 };
 
+export const hkdfExtractBuffer = (salt, ikm, output) => {
+    return _writeBytes(output, _hkdf_extract(_sha256, _u(ikm), _u(salt)));
+};
+
 export const hkdf_expand = (prk/*byte[]*/, info/*byte[]*/, length/*int*/) => { // Uint8Array (byte[])
     return _u(_hkdf_expand(_sha256, _u(prk), _u(info), length));
 };
 
+export const hkdfExpandBuffer = (prk, info, length, output) => {
+    return _writeBytes(output, _hkdf_expand(_sha256, _u(prk), _u(info), length));
+};
+
 export const base64encode = (data /*byte[]*/) => { //str
+    return _base64.encode(_u(data));
+};
+
+export const base64encodeBuffer = (data) => {
     return _base64.encode(_u(data));
 };
 
@@ -485,8 +558,16 @@ export const base64decode = (data /*str*/) => { // Uint8Array (byte[])
     return _u(_base64.decode(data));
 };
 
+export const base64decodeBuffer = (data, output) => {
+    return _writeBytes(output, _base64.decode(data));
+};
+
 export const chacha20 = (key/*byte[]*/, nonce/*byte[]*/, data/*byte[]*/) => { // Uint8Array (byte[])
     return _u(_chacha20(_u(key), _u(nonce), _u(data)));
+};
+
+export const chacha20Buffer = (key, nonce, data, output) => {
+    return _writeBytes(output, _chacha20(_u(key), _u(nonce), _u(data)));
 };
 
 export const setTimeout = (callback, delay) => { //void
@@ -583,6 +664,10 @@ export const aes256cbc = (key/*byte[]*/, iv/*byte[]*/, data/*byte[]*/, forEncryp
         console.error('AES-256-CBC operation failed:', error);
         throw error;
     }
+};
+
+export const aes256cbcBuffer = (key, iv, data, forEncryption, output) => {
+    return _writeBytes(output, aes256cbc(key, iv, data, forEncryption));
 };
 
 
@@ -988,6 +1073,10 @@ export const xchacha20poly1305 = (
     }
 }
 
+export const xchacha20poly1305Buffer = (key, nonce, data, associatedData, forEncryption, output) => {
+    return _writeBytes(output, xchacha20poly1305(key, nonce, data, associatedData, forEncryption));
+};
+
 export const registerFinalizer = (obj, callback) => { // void
 
     if (typeof FinalizationRegistry === 'undefined') {
@@ -1217,6 +1306,8 @@ export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
         rej(String(error));
     });
 }
+
+export const fetchBufferAsync = fetchAsync;
 
 
 export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej) => {

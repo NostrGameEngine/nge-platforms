@@ -19,12 +19,14 @@ const state = {
   nextId: 1,
   queues: { browser: [], android: [] },
   results: { browser: null, android: null },
+  androidPolling: false,
 };
 
 function resetState() {
   state.nextId = 1;
   state.queues = { browser: [], android: [] };
   state.results = { browser: null, android: null };
+  state.androidPolling = false;
 }
 
 function mimeType(file) {
@@ -76,6 +78,7 @@ function makeServer() {
         const to = reqUrl.searchParams.get('to');
         const after = Number(reqUrl.searchParams.get('after') || '0');
         if (to !== 'browser' && to !== 'android') return json(res, 400, { error: 'invalid target' });
+        if (to === 'android') state.androidPolling = true;
         const messages = state.queues[to].filter((m) => (m.id || 0) > after);
         return json(res, 200, { cursor: state.nextId - 1, messages });
       }
@@ -141,6 +144,12 @@ function spawnCapture(cmd, args, { cwd, env } = {}) {
     child.on('error', reject);
     child.on('exit', (code) => { outWriter.flush(); errWriter.flush(); resolve({ code: code ?? -1, stdout, stderr }); });
   });
+}
+
+async function waitForAndroidPolling() {
+  while (!state.androidPolling) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }
 
 async function runBrowser(url) {
@@ -228,10 +237,32 @@ async function runOnce(attempt) {
       ANDROID_RTC_TEST_FILTER: 'org.ngengine.platform.android.AndroidTeaVMRtcInteropInstrumentedTest',
       ANDROID_RTC_SIGNAL_BASE: androidSignalBase,
       ANDROID_RTC_STRESS_MESSAGES: stressMessages,
-      ANDROID_AVD_NAME: process.env.ANDROID_AVD_NAME || 'Generic_AOSP',
       ANDROID_REUSE_RUNNING_EMULATOR: process.env.ANDROID_REUSE_RUNNING_EMULATOR || '0',
     },
   });
+
+  const startupTimeoutMs = 240000;
+  let startupTimeoutId = null;
+  const startupTimeout = new Promise((_, reject) => {
+    startupTimeoutId = setTimeout(
+      () => reject(new Error(`Android harness did not start signaling within ${startupTimeoutMs}ms`)),
+      startupTimeoutMs
+    );
+    startupTimeoutId.unref?.();
+  });
+  try {
+    await Promise.race([
+      waitForAndroidPolling(),
+      androidPromise.then((out) => {
+        throw new Error(
+          `Android harness exited before signaling (exit=${out.code})\n${out.stderr || out.stdout}`
+        );
+      }),
+      startupTimeout,
+    ]);
+  } finally {
+    if (startupTimeoutId) clearTimeout(startupTimeoutId);
+  }
 
   const timeoutMs = 240000;
   let timeoutId = null;
@@ -260,15 +291,13 @@ async function runOnce(attempt) {
     ok: Boolean(state.results.browser?.ok) && Boolean(state.results.android?.ok) && androidOut.code === 0,
     browser: state.results.browser ?? browserOut?.result ?? null,
     browserPageResult: browserOut?.result ?? null,
+    browserRunnerError: browserError ? String(browserError.stack || browserError.message || browserError) : null,
     android: state.results.android ?? null,
     androidExitCode: androidOut.code,
   };
 
   if (browserOut?.consoleMessages?.length) process.stderr.write(`${browserOut.consoleMessages.join('\n')}\n`);
   if (browserOut?.pageErrors?.length) process.stderr.write(`${browserOut.pageErrors.join('\n')}\n`);
-  if (browserError) {
-    throw browserError;
-  }
   return combined;
 }
 
@@ -276,6 +305,7 @@ function isTransientRtcFlake(result) {
   const texts = [
     result?.browser?.error,
     result?.browserPageResult?.error,
+    result?.browserRunnerError,
     result?.android?.error,
   ].filter(Boolean).join('\n');
   return /Timeout waiting for datachannel open|Timed out waiting for RTC connected|RTC connected event missing|Timed out waiting for android-ready|Timed out waiting for android stress burst|Browser harness failed: Error: Timeout waiting for datachannel open/i.test(texts)
@@ -304,7 +334,7 @@ async function main() {
   emitInteropAnnotation(
     INTEROP_TITLE,
     false,
-    `Android <-> TeaVM browser RTC failed after ${last?.attempt ?? attempts} attempt(s). ${firstFailureText(last?.browser?.error, last?.browserPageResult?.error, last?.android?.error)}`
+    `Android <-> TeaVM browser RTC failed after ${last?.attempt ?? attempts} attempt(s). ${firstFailureText(last?.browser?.error, last?.browserPageResult?.error, last?.browserRunnerError, last?.android?.error)}`
   );
   process.exit(1);
 }

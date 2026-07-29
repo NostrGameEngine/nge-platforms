@@ -53,6 +53,12 @@ task jvmTeaVMNodeInteropHarness(type: Exec) {
     }
 }
 
+task teaVMBackendParityHarness {
+    group = "verification"
+    description = "Runs the same NGE TeaVM platform vectors as compiled JavaScript and WebAssembly GC"
+    dependsOn ":nge-platform-teavm:teaVMBackendParity"
+}
+
 if (hasAndroidInterop) {
     task jvmAndroidInteropHarness(type: Exec) {
         dependsOn npmInstallHarness
@@ -135,6 +141,7 @@ if (hasIosInterop) {
 task interopMatrix {
     group = "verification"
     description = "Runs all interoperability harnesses across backends"
+    dependsOn teaVMBackendParityHarness
     dependsOn rtcBrowserHarness
     dependsOn jvmTeaVMInteropHarness
     dependsOn jvmTeaVMNodeInteropHarness

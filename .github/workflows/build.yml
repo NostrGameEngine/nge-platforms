@@ -69,9 +69,9 @@ jobs:
           echo "Android SDK not found; skipping Android unit tests in the generic build job."
         fi
    
-    - name: Run TeaVM Unit Tests
+    - name: Run TeaVM JavaScript and Wasm GC parity tests
       run: |
-        ./gradlew --no-daemon :nge-platform-teavm:test --console=plain
+        ./gradlew --no-daemon :nge-platform-teavm:teaVMBackendParity --console=plain
       
     - name: Publish Snapshot
       if: github.event_name != 'pull_request' && github.event_name != 'release'

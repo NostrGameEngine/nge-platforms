@@ -38,14 +38,14 @@ public final class TeaVMNGEAllocator implements NGEAllocator {
     @Override
     public ByteBuffer malloc(int size) {
         checkSize(size);
-        return ByteBuffer.allocate(size);
+        return ByteBuffer.allocateDirect(size);
     }
 
     @Override
     public ByteBuffer calloc(int count, int size) {
         checkSize(count);
         checkSize(size);
-        return ByteBuffer.allocate(Math.multiplyExact(count, size));
+        return ByteBuffer.allocateDirect(Math.multiplyExact(count, size));
     }
 
     @Override
@@ -55,7 +55,7 @@ public final class TeaVMNGEAllocator implements NGEAllocator {
             return malloc(newSize);
         }
 
-        ByteBuffer resized = ByteBuffer.allocate(newSize);
+        ByteBuffer resized = ByteBuffer.allocateDirect(newSize);
 
         int copy = Math.min(buffer.capacity(), newSize);
         ByteBuffer src = buffer.duplicate();
@@ -73,8 +73,10 @@ public final class TeaVMNGEAllocator implements NGEAllocator {
         if (alignment <= 0) {
             throw new IllegalArgumentException("alignment must be > 0");
         }
-        // Heap ByteBuffer has no real alignment guarantee here.
-        return ByteBuffer.allocate(size);
+        // TeaVM direct buffers live in the Wasm linear-memory heap. TeaVM
+        // controls their alignment; there is no public API for requesting a
+        // stronger alignment than the runtime already provides.
+        return ByteBuffer.allocateDirect(size);
     }
 
     @Override

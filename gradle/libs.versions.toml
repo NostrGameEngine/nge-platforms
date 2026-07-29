@@ -32,3 +32,4 @@ bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bcprov" }
 gson = "com.google.code.gson:gson:2.14.0"
 junit4 = "junit:junit:4.13.2"
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+okhttpAndroid = { module = "com.squareup.okhttp3:okhttp-android", version.ref = "okhttp" }

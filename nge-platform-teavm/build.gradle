@@ -66,13 +66,27 @@ java {
 
 tasks.named('test') {
     useJUnit()
-    // TeaVM JUnit4 runner settings for JS backend tests.
+    // Compile every TeaVM JUnit test through both browser backends. TeaVM
+    // 0.14.1 exposes the Wasm GC test DSL but does not forward it to the test
+    // worker, so keep the explicit runner properties until that is fixed.
     systemProperty 'teavm.junit.target', "${buildDir}/js-tests"
     systemProperty 'teavm.junit.js', 'true'
     systemProperty 'teavm.junit.js.runner', System.getProperty('teavm.junit.js.runner', 'browser-chrome')
+    systemProperty 'teavm.junit.wasm-gc', 'true'
+    systemProperty 'teavm.junit.wasm-gc.runner', System.getProperty('teavm.junit.wasm-gc.runner', 'browser-chrome')
     doFirst {
-        file("${buildDir}/js-tests/js/org/ngengine/platform/teavm/TeaVMSecp256k1Test/org/ngengine/platform/teavm").mkdirs()
-        file("${buildDir}/js-tests/js/org/ngengine/platform/teavm/TeaVMWebsocketTransportUnitTest/org/ngengine/platform/teavm").mkdirs()
+        def jsModuleTests = [
+            "TeaVMBackendParityTest",
+            "TeaVMSecp256k1Test",
+            "TeaVMWebsocketTransportUnitTest"
+        ]
+        ["js", "wasm-gc"].each { backend ->
+            jsModuleTests.each { testClass ->
+                file(
+                    "${buildDir}/js-tests/${backend}/org/ngengine/platform/teavm/${testClass}/org/ngengine/platform/teavm"
+                ).mkdirs()
+            }
+        }
     }
     testLogging {
         events "passed", "skipped", "failed"
@@ -82,4 +96,36 @@ tasks.named('test') {
         languageVersion = JavaLanguageVersion.of(11)
         vendor = JvmVendorSpec.ADOPTIUM
     }
+}
+
+tasks.register('teaVMBackendParity') {
+    group = "verification"
+    description = "Verifies that the TeaVM platform passes parity vectors as both JavaScript and WebAssembly GC"
+    dependsOn tasks.named('test')
+
+    doLast {
+        def testPath = "org/ngengine/platform/teavm/TeaVMBackendParityTest"
+        def jsOutput = file("${buildDir}/js-tests/js/${testPath}/classTest.js")
+        def wasmOutput = file("${buildDir}/js-tests/wasm-gc/${testPath}/classTest.wasm")
+        if (!jsOutput.isFile() || jsOutput.length() == 0) {
+            throw new GradleException("TeaVM JavaScript parity artifact was not produced: ${jsOutput}")
+        }
+        if (!wasmOutput.isFile() || wasmOutput.length() < 4) {
+            throw new GradleException("TeaVM Wasm GC parity artifact was not produced: ${wasmOutput}")
+        }
+        byte[] magic = new byte[4]
+        wasmOutput.withInputStream { stream ->
+            if (stream.read(magic) != magic.length) {
+                throw new GradleException("Could not read the Wasm GC parity artifact header: ${wasmOutput}")
+            }
+        }
+        if (!java.util.Arrays.equals(magic, [0x00, 0x61, 0x73, 0x6d] as byte[])) {
+            throw new GradleException("Invalid WebAssembly binary header: ${wasmOutput}")
+        }
+        println "TeaVM backend parity verified: JavaScript ${jsOutput.length()} bytes, Wasm GC ${wasmOutput.length()} bytes"
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('teaVMBackendParity')
 }

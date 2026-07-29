@@ -138,7 +138,6 @@ async function runOnce(attempt) {
     env: {
       ANDROID_RTC_TEST_FILTER: 'org.ngengine.platform.android.AndroidJVMRtcInteropInstrumentedTest',
       ANDROID_RTC_SIGNAL_BASE: androidSignalBase,
-      ANDROID_AVD_NAME: process.env.ANDROID_AVD_NAME || 'Generic_AOSP',
     },
   });
 

@@ -34,7 +34,7 @@ dependencies {
     androidTestImplementation libs.androidxTestExtJunit
     androidTestImplementation libs.junit4
     androidTestImplementation libs.gson
-    androidTestImplementation libs.okhttp
+    androidTestImplementation libs.okhttpAndroid
     androidTestImplementation libs.libdatachannelJavaAndroid
     androidTestImplementation libs.libdatachannelJava
 }

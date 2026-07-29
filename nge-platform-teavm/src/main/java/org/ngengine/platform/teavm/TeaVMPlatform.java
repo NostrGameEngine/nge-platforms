@@ -33,6 +33,7 @@ package org.ngengine.platform.teavm;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -90,8 +91,27 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer generatePrivateKeyBuffer() {
+        try {
+            ByteBuffer output = allocateOutput(32);
+            finishOutput(output, TeaVMBinds.generatePrivateKeyBuffer(output));
+            verifyRandomness(output, 32);
+            return output;
+        } catch (Exception e) {
+            panic("Failed to generate private key: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public byte[] genPubKey(byte[] secKey) {
         return TeaVMBinds.genPubKey(secKey);
+    }
+
+    @Override
+    public ByteBuffer genPubKey(ByteBuffer secKey) {
+        ByteBuffer output = allocateOutput(32);
+        return finishOutput(output, TeaVMBinds.genPubKeyBuffer(directInput(secKey), output));
     }
 
     @Override
@@ -144,8 +164,19 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer secp256k1SharedSecret(ByteBuffer privKey, ByteBuffer pubKey) {
+        ByteBuffer output = allocateOutput(33);
+        return finishOutput(output, TeaVMBinds.secp256k1SharedSecretBuffer(directInput(privKey), directInput(pubKey), output));
+    }
+
+    @Override
     public boolean secp256k1PrivateKeyVerify(byte[] privateKey) {
         return TeaVMBinds.secp256k1PrivateKeyVerify(privateKey);
+    }
+
+    @Override
+    public boolean secp256k1PrivateKeyVerify(ByteBuffer privateKey) {
+        return TeaVMBinds.secp256k1PrivateKeyVerifyBuffer(directInput(privateKey));
     }
 
     @Override
@@ -154,8 +185,19 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public boolean secp256k1PublicKeyVerify(ByteBuffer publicKey) {
+        return TeaVMBinds.secp256k1PublicKeyVerifyBuffer(directInput(publicKey));
+    }
+
+    @Override
     public byte[] secp256k1PublicKeyCreate(byte[] privateKey, boolean compressed) {
         return TeaVMBinds.secp256k1PublicKeyCreate(privateKey, compressed);
+    }
+
+    @Override
+    public ByteBuffer secp256k1PublicKeyCreate(ByteBuffer privateKey, boolean compressed) {
+        ByteBuffer output = allocateOutput(compressed ? 33 : 65);
+        return finishOutput(output, TeaVMBinds.secp256k1PublicKeyCreateBuffer(directInput(privateKey), compressed, output));
     }
 
     @Override
@@ -175,8 +217,39 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public Secp256k1RecoverableSignature secp256k1SignRecoverable(ByteBuffer hash32, ByteBuffer privateKey) {
+        ByteBuffer recovered = allocateOutput(65);
+        finishOutput(
+            recovered,
+            TeaVMBinds.secp256k1SignRecoverableBuffer(directInput(hash32), directInput(privateKey), recovered)
+        );
+
+        int recoveryId = recovered.get(0) & 0xff;
+        byte[] signature64 = new byte[64];
+        ByteBuffer signatureView = recovered.duplicate();
+        signatureView.position(1);
+        signatureView.get(signature64);
+        return new Secp256k1RecoverableSignature(signature64, recoveryId);
+    }
+
+    @Override
     public byte[] secp256k1RecoverPublicKey(byte[] hash32, byte[] signature64, int recoveryId, boolean compressed) {
         return TeaVMBinds.secp256k1RecoverPublicKey(hash32, signature64, recoveryId, compressed);
+    }
+
+    @Override
+    public ByteBuffer secp256k1RecoverPublicKey(ByteBuffer hash32, ByteBuffer signature64, int recoveryId, boolean compressed) {
+        ByteBuffer output = allocateOutput(compressed ? 33 : 65);
+        return finishOutput(
+            output,
+            TeaVMBinds.secp256k1RecoverPublicKeyBuffer(
+                directInput(hash32),
+                directInput(signature64),
+                recoveryId,
+                compressed,
+                output
+            )
+        );
     }
 
     @Override
@@ -185,8 +258,20 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer hmac(ByteBuffer key, ByteBuffer data1, ByteBuffer data2) {
+        ByteBuffer output = allocateOutput(32);
+        return finishOutput(output, TeaVMBinds.hmacBuffer(directInput(key), directInput(data1), directInput(data2), output));
+    }
+
+    @Override
     public byte[] hkdf_extract(byte[] salt, byte[] ikm) {
         return TeaVMBinds.hkdf_extract(salt, ikm);
+    }
+
+    @Override
+    public ByteBuffer hkdf_extract(ByteBuffer salt, ByteBuffer ikm) {
+        ByteBuffer output = allocateOutput(32);
+        return finishOutput(output, TeaVMBinds.hkdfExtractBuffer(directInput(salt), directInput(ikm), output));
     }
 
     @Override
@@ -195,8 +280,19 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer hkdf_expand(ByteBuffer prk, ByteBuffer info, int length) {
+        ByteBuffer output = allocateOutput(length);
+        return finishOutput(output, TeaVMBinds.hkdfExpandBuffer(directInput(prk), directInput(info), length, output));
+    }
+
+    @Override
     public String base64encode(byte[] data) {
         return TeaVMBinds.base64encode(data);
+    }
+
+    @Override
+    public String base64encode(ByteBuffer data) {
+        return TeaVMBinds.base64encodeBuffer(directInput(data));
     }
 
     @Override
@@ -205,8 +301,22 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer base64decodeBuffer(String data) {
+        int capacity = Math.max(1, ((data.length() + 3) / 4) * 3);
+        ByteBuffer output = allocateOutput(capacity);
+        return finishOutput(output, TeaVMBinds.base64decodeBuffer(data, output));
+    }
+
+    @Override
     public byte[] chacha20(byte[] key, byte[] nonce, byte[] data, boolean forEncryption) {
         return TeaVMBinds.chacha20(key, nonce, data);
+    }
+
+    @Override
+    public ByteBuffer chacha20(ByteBuffer key, ByteBuffer nonce, ByteBuffer data, boolean forEncryption) {
+        ByteBuffer input = directInput(data);
+        ByteBuffer output = allocateOutput(input.remaining());
+        return finishOutput(output, TeaVMBinds.chacha20Buffer(directInput(key), directInput(nonce), input, output));
     }
 
     @Override
@@ -222,6 +332,12 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer sha256(ByteBuffer data) {
+        ByteBuffer output = allocateOutput(32);
+        return finishOutput(output, TeaVMBinds.sha256Buffer(directInput(data), output));
+    }
+
+    @Override
     public String schnorrSign(String data, byte priv[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = TeaVMBinds.sign(dataB, priv);
@@ -229,10 +345,23 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public String schnorrSign(String data, ByteBuffer privKey) {
+        ByteBuffer message = directHex(data);
+        ByteBuffer output = allocateOutput(64);
+        finishOutput(output, TeaVMBinds.signBuffer(message, directInput(privKey), output));
+        return NGEUtils.bytesToHex(output);
+    }
+
+    @Override
     public boolean schnorrVerify(String data, String sign, byte pub[]) {
         byte dataB[] = NGEUtils.hexToByteArray(data);
         byte sig[] = NGEUtils.hexToByteArray(sign);
         return TeaVMBinds.verify(dataB, pub, sig);
+    }
+
+    @Override
+    public boolean schnorrVerify(String data, String sign, ByteBuffer pubKey) {
+        return TeaVMBinds.verifyBuffer(directHex(data), directInput(pubKey), directHex(sign));
     }
 
     private void verifyRandomness(byte bytes[], int n) throws Exception {
@@ -251,12 +380,44 @@ public class TeaVMPlatform extends NGEPlatform {
         if (allSame) throw new Exception("Generated bytes are all the same value");
     }
 
+    private void verifyRandomness(ByteBuffer bytes, int n) throws Exception {
+        if (n <= 0) throw new IllegalArgumentException("Requested byte length must be positive");
+        if (bytes == null) throw new Exception("Received null bytes");
+        if (bytes.remaining() != n) {
+            throw new Exception("Generated bytes length mismatch: expected " + n + ", got " + bytes.remaining());
+        }
+
+        boolean allZero = true;
+        boolean allSame = true;
+        byte first = bytes.get(bytes.position());
+        for (int i = 0; i < bytes.remaining(); i++) {
+            byte value = bytes.get(bytes.position() + i);
+            if (value != 0) allZero = false;
+            if (i > 0 && value != first) allSame = false;
+        }
+        if (allZero) throw new Exception("Generated bytes are all zero");
+        if (allSame) throw new Exception("Generated bytes are all the same value");
+    }
+
     @Override
     public byte[] randomBytes(int n) {
         try {
             byte[] bytes = TeaVMBinds.randomBytes(n);
             verifyRandomness(bytes, n);
             return bytes;
+        } catch (Exception e) {
+            panic("Failed to generate random bytes: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ByteBuffer randomBytesBuffer(int n) {
+        try {
+            ByteBuffer output = allocateOutput(n);
+            finishOutput(output, TeaVMBinds.randomBytesBuffer(output));
+            verifyRandomness(output, n);
+            return output;
         } catch (Exception e) {
             panic("Failed to generate random bytes: " + e.getMessage());
             throw new RuntimeException(e);
@@ -607,7 +768,35 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public AsyncTask<String> schnorrSignAsync(String data, ByteBuffer privKey) {
+        return promisify(
+            (res, rej) -> {
+                try {
+                    res.accept(schnorrSign(data, privKey));
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            },
+            defaultExecutor
+        );
+    }
+
+    @Override
     public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
+        return promisify(
+            (res, rej) -> {
+                try {
+                    res.accept(schnorrVerify(data, sign, pubKey));
+                } catch (Exception e) {
+                    rej.accept(e);
+                }
+            },
+            defaultExecutor
+        );
+    }
+
+    @Override
+    public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, ByteBuffer pubKey) {
         return promisify(
             (res, rej) -> {
                 try {
@@ -697,6 +886,48 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+        String method,
+        String inurl,
+        ByteBuffer body,
+        Duration timeout,
+        Map<String, String> headers
+    ) {
+        String url = NGEUtils.safeURI(inurl).toString();
+        String reqHeaders = headers != null ? toJSON(headers) : null;
+        ByteBuffer reqBody = body != null ? directInput(body) : directInput(ByteBuffer.allocate(0));
+
+        return promisify(
+            (res, rej) -> {
+                TeaVMBinds.fetchBufferAsync(
+                    method,
+                    url,
+                    reqHeaders,
+                    reqBody,
+                    (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
+                    r -> {
+                        new Thread(() -> {
+                            try {
+                                String jsonHeaders = r.getHeaders();
+                                int statusCode = r.getStatus();
+                                Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
+                                boolean status = statusCode >= 200 && statusCode < 300;
+                                byte[] data = status ? r.getBody() : new byte[0];
+                                res.accept(new NGEHttpResponse(statusCode, respHeaders, data, status));
+                            } catch (Throwable e) {
+                                rej.accept(e);
+                            }
+                        })
+                            .start();
+                    },
+                    e -> rej.accept(new RuntimeException("Fetch error: " + e))
+                );
+            },
+            defaultExecutor
+        );
+    }
+
+    @Override
     public AsyncTask<NGEHttpResponseStream> httpRequestStream(
         String method,
         String inurl,
@@ -764,6 +995,30 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer xchacha20poly1305(
+        ByteBuffer key,
+        ByteBuffer nonce,
+        ByteBuffer data,
+        ByteBuffer associatedData,
+        boolean forEncryption
+    ) {
+        ByteBuffer input = directInput(data);
+        int capacity = forEncryption ? Math.addExact(input.remaining(), 16) : input.remaining();
+        ByteBuffer output = allocateOutput(capacity);
+        return finishOutput(
+            output,
+            TeaVMBinds.xchacha20poly1305Buffer(
+                directInput(key),
+                directInput(nonce),
+                input,
+                directInput(associatedData),
+                forEncryption,
+                output
+            )
+        );
+    }
+
+    @Override
     public String nfkc(String str) {
         return TeaVMBinds.nfkc(str);
     }
@@ -813,8 +1068,78 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer aes256cbc(ByteBuffer key, ByteBuffer iv, ByteBuffer data, boolean forEncryption) {
+        ByteBuffer input = directInput(data);
+        int capacity = forEncryption ? Math.addExact(input.remaining(), 16) : input.remaining();
+        ByteBuffer output = allocateOutput(capacity);
+        return finishOutput(
+            output,
+            TeaVMBinds.aes256cbcBuffer(directInput(key), directInput(iv), input, forEncryption, output)
+        );
+    }
+
+    @Override
     public String getPlatformName() {
         return TeaVMBinds.getPlatformName();
+    }
+
+    private static ByteBuffer allocateOutput(int capacity) {
+        if (capacity < 0) {
+            throw new IllegalArgumentException("capacity must be non-negative");
+        }
+        return allocator.malloc(Math.max(1, capacity));
+    }
+
+    private static ByteBuffer directInput(ByteBuffer input) {
+        if (input == null) {
+            throw new NullPointerException("input");
+        }
+        ByteBuffer view = input.slice();
+        if (view.isDirect()) {
+            return view;
+        }
+
+        ByteBuffer direct = allocateOutput(view.remaining());
+        direct.limit(view.remaining());
+        direct.put(view);
+        direct.flip();
+        // @JSBuffer exposes a buffer's capacity, not its current limit. Slicing
+        // makes the JavaScript view cover exactly the caller's remaining bytes,
+        // including the zero-length case.
+        return direct.slice();
+    }
+
+    private static ByteBuffer directHex(String value) {
+        if (value == null) {
+            throw new NullPointerException("value");
+        }
+        if ((value.length() & 1) != 0) {
+            throw new IllegalArgumentException("Hex value must contain an even number of characters");
+        }
+
+        ByteBuffer output = allocateOutput(value.length() / 2);
+        output.limit(value.length() / 2);
+        for (int i = 0; i < value.length(); i += 2) {
+            int high = Character.digit(value.charAt(i), 16);
+            int low = Character.digit(value.charAt(i + 1), 16);
+            if (high < 0 || low < 0) {
+                throw new IllegalArgumentException("Invalid hexadecimal value");
+            }
+            output.put((byte) ((high << 4) | low));
+        }
+        output.flip();
+        return output;
+    }
+
+    private static ByteBuffer finishOutput(ByteBuffer output, int length) {
+        if (length < 0 || length > output.capacity()) {
+            throw new IllegalStateException(
+                "Native operation returned invalid output length " + length + " for capacity " + output.capacity()
+            );
+        }
+        output.position(0);
+        output.limit(length);
+        return output;
     }
 
     @Override

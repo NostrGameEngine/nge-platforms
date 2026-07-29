@@ -91,7 +91,7 @@ async function main(){
   const jvmSignalBase = `http://127.0.0.1:${port}/signal`; const androidSignalBase = `http://10.0.2.2:${port}/signal`; const browserSignalBase = `http://127.0.0.1:${port}/signal`;
   const pageUrl = `http://127.0.0.1:${port}/test-harness/async-parity.html?signalBase=${encodeURIComponent(browserSignalBase)}`;
   const jvmPromise = spawnCapture('./gradlew',[':nge-platform-interop-test:jvm:jvmAsyncParityJvmSide',`-PinteropSignalBase=${jvmSignalBase}`,'--console=plain'],{cwd:repoRoot,label:'jvm'});
-  const androidPromise = spawnCapture('./gradlew',[':nge-platform-interop-test:android:androidRtcEmulatorHarness','--console=plain'],{cwd:repoRoot,label:'android',env:{ANDROID_RTC_TEST_FILTER:'org.ngengine.platform.android.AndroidAsyncParityInstrumentedTest',ANDROID_RTC_SIGNAL_BASE:androidSignalBase,ANDROID_AVD_NAME:process.env.ANDROID_AVD_NAME||'Generic_AOSP'}});
+  const androidPromise = spawnCapture('./gradlew',[':nge-platform-interop-test:android:androidRtcEmulatorHarness','--console=plain'],{cwd:repoRoot,label:'android',env:{ANDROID_RTC_TEST_FILTER:'org.ngengine.platform.android.AndroidAsyncParityInstrumentedTest',ANDROID_RTC_SIGNAL_BASE:androidSignalBase}});
   let browserOut=null,browserErr=null; try{ browserOut = await runBrowser(pageUrl); } catch(e){ browserErr=e; }
   const [jvmOut, androidOut] = await Promise.all([jvmPromise,androidPromise]); server.close();
   if (browserOut?.consoleMessages?.length) process.stderr.write(browserOut.consoleMessages.join('\n')+'\n');

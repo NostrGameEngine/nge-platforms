@@ -250,7 +250,6 @@ async function main() {
         ANDROID_RTC_TEST_FILTER: 'org.ngengine.platform.android.AndroidWebsocketParityInstrumentedTest',
         ANDROID_RTC_SIGNAL_BASE: signalBaseAndroid,
         ANDROID_RTC_WS_URL: wsUrlAndroid,
-        ANDROID_AVD_NAME: process.env.ANDROID_AVD_NAME || 'Generic_AOSP',
       },
     }
   );

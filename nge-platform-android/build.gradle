@@ -55,7 +55,7 @@ dependencies {
     implementation libs.libdatachannelJavaArchDetect
     implementation libs.libdatachannelJava
     
-    implementation libs.okhttp
+    implementation libs.okhttpAndroid
 
     implementation libs.saferalloc
     implementation libs.saferallocNativesAndroid

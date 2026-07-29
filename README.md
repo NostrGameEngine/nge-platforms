@@ -58,7 +58,7 @@ dependencies {
     // implementation 'org.ngengine:nge-platform-android:<version>'
     // For iOS (libJGLIOS)
     // implementation 'org.ngengine:nge-platform-ios:<version>'
-    // For HTML5 (GWT)
+    // For HTML5 (TeaVM JavaScript or WebAssembly GC)
     // implementation 'org.ngengine:nge-platform-teavm:<version>'
 }
 ```
@@ -77,7 +77,7 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-jvm | desktop | java 21+ |
 | nge-platform-android | android | android api 33+ |
 | nge-platform-ios | ios | [libJGLIOS](https://github.com/NostrGameEngine/libJGLIOS) |
-| nge-platform-teavm | browser webgl2 | java 21+ / teavm 0.11.0+ |
+| nge-platform-teavm | browser | java 21+ / teavm 0.14.1+ |
 
 ## Testing
 
@@ -100,13 +100,17 @@ Unit tests:
 ./gradlew test
 ```
 
+TeaVM JavaScript/Wasm GC backend parity:
+
+```bash
+./gradlew :nge-platform-teavm:teaVMBackendParity
+```
 
 Interoperability tests:
 
 ```bash
 ./gradlew interopMatrix
 ```
-
 
 
 
