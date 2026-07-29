@@ -151,6 +151,9 @@ function compareSnapshots(results) {
   for (const key of ['verifyOwn', 'verifyAsync']) {
     for (const p of peers) if (Boolean(results[p][key]) !== true) mismatches.push(`${p}.${key} != true`);
   }
+  for (const p of ['jvm', 'android']) {
+    if (results[p].bufferOverridesVerified !== true) mismatches.push(`${p}.bufferOverridesVerified != true`);
+  }
   for (const key of ['verifyWrong']) {
     for (const p of peers) if (Boolean(results[p][key]) !== false) mismatches.push(`${p}.${key} != false`);
   }

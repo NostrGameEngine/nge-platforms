@@ -30,6 +30,7 @@ import java.math.BigInteger;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.URI;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.text.Normalizer;
@@ -261,6 +262,16 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer sha256(ByteBuffer data) {
+        if (data == null) throw new NullPointerException("data");
+
+        MessageDigest digest = context.get().sha256;
+        digest.reset();
+        digest.update(data.duplicate());
+        return wrapBinaryResult(digest.digest());
+    }
+
+    @Override
     public String toJSON(Collection obj) {
         PContext ctx = context.get();
         return ctx.json.toJson(obj);
@@ -448,6 +459,24 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                 mac.update(data2, 0, data2.length);
             }
             return mac.doFinal();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ByteBuffer hmac(ByteBuffer key, ByteBuffer data1, ByteBuffer data2) {
+        if (key == null) throw new NullPointerException("key");
+        if (data1 == null) throw new NullPointerException("data1");
+
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(copyRemaining(key), "HmacSHA256"));
+            mac.update(data1.duplicate());
+            if (data2 != null) {
+                mac.update(data2.duplicate());
+            }
+            return wrapBinaryResult(mac.doFinal());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -909,6 +938,20 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             byte[] body,
             int timeoutMs,
             Map<String, String> headers) throws Exception {
+        return openHttpConnection(
+                url,
+                method,
+                body == null ? null : ByteBuffer.wrap(body),
+                timeoutMs,
+                headers);
+    }
+
+    private HttpURLConnection openHttpConnection(
+            String url,
+            String method,
+            ByteBuffer body,
+            int timeoutMs,
+            Map<String, String> headers) throws Exception {
         String currentUrl = url;
         int redirects = 0;
         while (true) {
@@ -927,13 +970,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             applyHeaders(headers, connection);
 
             // Handle request body for POST, PUT, etc.
-            if (body != null && body.length > 0) {
-                connection.setDoOutput(true);
-                try (OutputStream os = connection.getOutputStream()) {
-                    os.write(body);
-                    os.flush();
-                }
-            }
+            writeRequestBody(connection, body);
 
             int statusCode = connection.getResponseCode();
             if (!isHttpRedirect(statusCode)) {
@@ -950,6 +987,28 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                 throw new IOException("Too many HTTP redirects");
             }
             currentUrl = redirectUrl;
+        }
+    }
+
+    private void writeRequestBody(HttpURLConnection connection, ByteBuffer body) throws IOException {
+        if (body == null || !body.hasRemaining()) {
+            return;
+        }
+
+        connection.setDoOutput(true);
+        ByteBuffer source = body.duplicate();
+        try (OutputStream os = connection.getOutputStream()) {
+            if (source.hasArray()) {
+                os.write(source.array(), source.arrayOffset() + source.position(), source.remaining());
+            } else {
+                byte[] chunk = new byte[Math.min(8192, source.remaining())];
+                while (source.hasRemaining()) {
+                    int length = Math.min(chunk.length, source.remaining());
+                    source.get(chunk, 0, length);
+                    os.write(chunk, 0, length);
+                }
+            }
+            os.flush();
         }
     }
 
@@ -1010,7 +1069,38 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             byte[] body,
             Duration itimeout,
             Map<String, String> headers) {
+        return httpRequestBufferInternal(
+                method,
+                inurl,
+                body == null ? null : ByteBuffer.wrap(body),
+                itimeout,
+                headers);
+    }
 
+    @Override
+    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+            String method,
+            String inurl,
+            ByteBuffer body,
+            Duration itimeout,
+            Map<String, String> headers) {
+        return httpRequestBufferInternal(
+                method,
+                inurl,
+                body == null ? null : body.duplicate(),
+                itimeout,
+                headers);
+    }
+
+    private AsyncTask<NGEHttpResponse> httpRequestBufferInternal(
+            String method,
+            String inurl,
+            ByteBuffer body,
+            Duration itimeout,
+            Map<String, String> headers) {
+        if (body != null && !getMemoryLimits().checkForData(body.remaining())) {
+            throw new IllegalArgumentException("Input exceeds buffer limits");
+        }
         String url = NGEUtils.safeURI(inurl).toString();
         int timeoutMs = (int) (itimeout != null ? itimeout.toMillis() : Duration.ofSeconds(60 * 2).toMillis());
 

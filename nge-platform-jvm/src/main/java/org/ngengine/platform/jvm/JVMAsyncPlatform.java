@@ -224,6 +224,19 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
+    public ByteBuffer sha256(ByteBuffer data) {
+        if (data == null) throw new NullPointerException("data");
+        if (!getMemoryLimits().checkForData(data.remaining())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        MessageDigest digest = context.get().sha256;
+        digest.reset();
+        digest.update(data.duplicate());
+        return wrapBinaryResult(digest.digest());
+    }
+
+    @Override
     public String toJSON(Collection obj) {
         Context ctx = context.get();
         return ctx.json.toJson(obj);
@@ -463,6 +476,31 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 mac.update(data2, 0, data2.length);
             }
             return mac.doFinal();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public ByteBuffer hmac(ByteBuffer key, ByteBuffer data1, ByteBuffer data2) {
+        if (key == null) throw new NullPointerException("key");
+        if (data1 == null) throw new NullPointerException("data1");
+        if (!getMemoryLimits().checkForKeys(key.remaining())) throw new IllegalArgumentException("Input exceeds buffer limits");
+        if (!getMemoryLimits().checkForData(data1.remaining())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        if (data2 != null && !getMemoryLimits().checkForData(data2.remaining())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(copyRemaining(key), "HmacSHA256"));
+            mac.update(data1.duplicate());
+            if (data2 != null) {
+                mac.update(data2.duplicate());
+            }
+            return wrapBinaryResult(mac.doFinal());
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -1021,6 +1059,36 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (body != null && !getMemoryLimits().checkForData(body.length)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
+        HttpRequest.BodyPublisher bodyPublisher = body == null
+            ? HttpRequest.BodyPublishers.noBody()
+            : HttpRequest.BodyPublishers.ofByteArray(body);
+        return httpRequestWithPublisher(method, inurl, bodyPublisher, itimeout, headers);
+    }
+
+    @Override
+    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+        String method,
+        String inurl,
+        ByteBuffer body,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
+        if (body != null && !getMemoryLimits().checkForData(body.remaining())) throw new IllegalArgumentException(
+            "Input exceeds buffer limits"
+        );
+        HttpRequest.BodyPublisher bodyPublisher = body == null
+            ? HttpRequest.BodyPublishers.noBody()
+            : byteBufferBodyPublisher(body);
+        return httpRequestWithPublisher(method, inurl, bodyPublisher, itimeout, headers);
+    }
+
+    private AsyncTask<NGEHttpResponse> httpRequestWithPublisher(
+        String method,
+        String inurl,
+        HttpRequest.BodyPublisher bodyPublisher,
+        Duration itimeout,
+        Map<String, String> headers
+    ) {
         URI url = JVMNetworkSecurity.safeHttpUri(inurl);
         Duration timeout = itimeout != null ? itimeout : Duration.ofSeconds(5);
 
@@ -1040,10 +1108,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
                         "User-Agent",
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0 nostr4j/1.0"
                     );
-                requestBuilder.method(
-                    method.toUpperCase(),
-                    body == null ? HttpRequest.BodyPublishers.noBody() : HttpRequest.BodyPublishers.ofByteArray(body)
-                );
+                requestBuilder.method(method.toUpperCase(), bodyPublisher);
 
                 applyHeaders(headers, requestBuilder);
 
@@ -1083,6 +1148,40 @@ public class JVMAsyncPlatform extends NGEPlatform {
                 rej.accept(e);
             }
         });
+    }
+
+    private static HttpRequest.BodyPublisher byteBufferBodyPublisher(ByteBuffer body) {
+        ByteBuffer template = body.duplicate();
+        long contentLength = template.remaining();
+        return HttpRequest.BodyPublishers.fromPublisher(
+            subscriber ->
+                subscriber.onSubscribe(
+                    new Flow.Subscription() {
+                        private boolean completed;
+
+                        @Override
+                        public synchronized void request(long count) {
+                            if (completed) {
+                                return;
+                            }
+                            if (count <= 0) {
+                                completed = true;
+                                subscriber.onError(new IllegalArgumentException("non-positive subscription request"));
+                                return;
+                            }
+                            completed = true;
+                            subscriber.onNext(template.asReadOnlyBuffer());
+                            subscriber.onComplete();
+                        }
+
+                        @Override
+                        public synchronized void cancel() {
+                            completed = true;
+                        }
+                    }
+                ),
+            contentLength
+        );
     }
 
     private HttpResponse.BodyHandler<byte[]> limitedByteArrayBodyHandler() {

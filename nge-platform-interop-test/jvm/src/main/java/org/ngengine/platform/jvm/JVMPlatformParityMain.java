@@ -36,6 +36,7 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -101,6 +102,23 @@ public class JVMPlatformParityMain {
         byte[] chachaDec = p.chacha20(CHACHA_KEY, CHACHA_NONCE, chachaEnc, false);
         String shaStr = p.sha256(SHA_STRING_INPUT);
         byte[] shaBytes = p.sha256(SHA_BYTES_INPUT);
+        ByteBuffer hmacKeyBuffer = nativeBuffer(p, HMAC_KEY);
+        ByteBuffer data1Buffer = nativeBuffer(p, DATA_1);
+        ByteBuffer data2Buffer = nativeBuffer(p, DATA_2);
+        ByteBuffer hmacBuffer = p.hmac(hmacKeyBuffer, data1Buffer, data2Buffer);
+        ByteBuffer shaInputBuffer = nativeBuffer(p, SHA_BYTES_INPUT);
+        ByteBuffer shaBuffer = p.sha256(shaInputBuffer);
+        if (
+            hmacKeyBuffer.position() != 0 ||
+            data1Buffer.position() != 0 ||
+            data2Buffer.position() != 0 ||
+            shaInputBuffer.position() != 0
+        ) {
+            throw new AssertionError("ByteBuffer crypto inputs were consumed");
+        }
+        if (!Arrays.equals(hmac, remainingBytes(hmacBuffer)) || !Arrays.equals(shaBytes, remainingBytes(shaBuffer))) {
+            throw new AssertionError("ByteBuffer crypto result differs from byte[] result");
+        }
 
         Map<String, Object> jsonMap = new LinkedHashMap<>();
         jsonMap.put("a", 1);
@@ -127,6 +145,20 @@ public class JVMPlatformParityMain {
                 Map.of("X-Parity-Req", "parity")
             )
             .await();
+        ByteBuffer httpBodyBuffer = nativeBuffer(p, "parity-http-body".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        var httpBufferRes = p
+            .httpRequestBuffer("POST", httpParityUrl, httpBodyBuffer, Duration.ofSeconds(10), Map.of("X-Parity-Req", "parity"))
+            .await();
+        if (httpBodyBuffer.position() != 0) {
+            throw new AssertionError("ByteBuffer HTTP body was consumed");
+        }
+        if (
+            !httpBufferRes.status() ||
+            httpBufferRes.statusCode() != 201 ||
+            !"echo:parity-http-body|req:parity".equals(httpBufferRes.bodyAsString())
+        ) {
+            throw new AssertionError("ByteBuffer HTTP request differs from byte[] request");
+        }
         String httpHdr = "";
         if (httpRes.headers() != null) {
             for (Map.Entry<String, List<String>> e : httpRes.headers().entrySet()) {
@@ -166,6 +198,7 @@ public class JVMPlatformParityMain {
         out.addProperty("httpRequest_statusCode", httpRes.statusCode());
         out.addProperty("httpRequest_body", httpRes.bodyAsString());
         out.addProperty("httpRequest_replyHeader", httpHdr);
+        out.addProperty("bufferOverridesVerified", true);
     }
 
     private static void postJson(HttpClient http, String url, JsonObject payload) throws Exception {
@@ -184,6 +217,23 @@ public class JVMPlatformParityMain {
     private static boolean allZero(byte[] data) {
         for (byte b : data) if (b != 0) return false;
         return true;
+    }
+
+    private static ByteBuffer nativeBuffer(NGEPlatform platform, byte[] data) {
+        ByteBuffer buffer = platform.getNativeAllocator().malloc(data.length);
+        if (!buffer.isDirect()) {
+            throw new AssertionError("Native allocator returned a non-direct buffer");
+        }
+        buffer.put(data);
+        buffer.flip();
+        return buffer;
+    }
+
+    private static byte[] remainingBytes(ByteBuffer buffer) {
+        ByteBuffer source = buffer.duplicate();
+        byte[] data = new byte[source.remaining()];
+        source.get(data);
+        return data;
     }
 
     private static byte[] hex(String s) {

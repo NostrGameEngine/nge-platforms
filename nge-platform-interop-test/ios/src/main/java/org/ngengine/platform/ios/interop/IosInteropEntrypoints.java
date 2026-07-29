@@ -158,6 +158,23 @@ public final class IosInteropEntrypoints {
         byte[] chachaDec = platform.chacha20(CHACHA_KEY, CHACHA_NONCE, chachaEnc, false);
         String shaStr = platform.sha256(SHA_STRING_INPUT);
         byte[] shaBytes = platform.sha256(SHA_BYTES_INPUT);
+        ByteBuffer hmacKeyBuffer = nativeBuffer(platform, HMAC_KEY);
+        ByteBuffer data1Buffer = nativeBuffer(platform, DATA_1);
+        ByteBuffer data2Buffer = nativeBuffer(platform, DATA_2);
+        ByteBuffer hmacBuffer = platform.hmac(hmacKeyBuffer, data1Buffer, data2Buffer);
+        ByteBuffer shaInputBuffer = nativeBuffer(platform, SHA_BYTES_INPUT);
+        ByteBuffer shaBuffer = platform.sha256(shaInputBuffer);
+        if (
+            hmacKeyBuffer.position() != 0 ||
+            data1Buffer.position() != 0 ||
+            data2Buffer.position() != 0 ||
+            shaInputBuffer.position() != 0
+        ) {
+            throw new AssertionError("ByteBuffer crypto inputs were consumed");
+        }
+        if (!Arrays.equals(hmac, remainingBytes(hmacBuffer)) || !Arrays.equals(shaBytes, remainingBytes(shaBuffer))) {
+            throw new AssertionError("ByteBuffer crypto result differs from byte[] result");
+        }
 
         Map<String, Object> jsonMap = new LinkedHashMap<>();
         jsonMap.put("a", 1);
@@ -186,6 +203,26 @@ public final class IosInteropEntrypoints {
                 Map.of("X-Parity-Req", "parity")
             )
             .await();
+        ByteBuffer httpBodyBuffer = nativeBuffer(platform, "parity-http-body".getBytes(StandardCharsets.UTF_8));
+        NGEHttpResponse bufferPostResponse = platform
+            .httpRequestBuffer(
+                "POST",
+                httpBase + "/parity-http",
+                httpBodyBuffer,
+                Duration.ofSeconds(15),
+                Map.of("X-Parity-Req", "parity")
+            )
+            .await();
+        if (httpBodyBuffer.position() != 0) {
+            throw new AssertionError("ByteBuffer HTTP body was consumed");
+        }
+        if (
+            !bufferPostResponse.status() ||
+            bufferPostResponse.statusCode() != 201 ||
+            !"echo:parity-http-body|req:parity".equals(bufferPostResponse.bodyAsString())
+        ) {
+            throw new AssertionError("ByteBuffer HTTP request differs from byte[] request");
+        }
         NGEHttpResponse getResponse = platform
             .httpRequest("GET", httpBase + "/ios-http-get?from=ios", null, Duration.ofSeconds(15), Map.of("X-IOS-Get", "ios"))
             .await();
@@ -221,6 +258,7 @@ public final class IosInteropEntrypoints {
         out.addProperty("httpRequest_statusCode", postResponse.statusCode());
         out.addProperty("httpRequest_body", postResponse.bodyAsString());
         out.addProperty("httpRequest_replyHeader", headerValue(postResponse.headers(), "X-Parity-Reply"));
+        out.addProperty("bufferOverridesVerified", true);
         out.addProperty("httpGet_statusCode", getResponse.statusCode());
         out.addProperty("httpGet_body", getResponse.bodyAsString());
     }
@@ -637,6 +675,23 @@ public final class IosInteropEntrypoints {
             }
         }
         return true;
+    }
+
+    private static ByteBuffer nativeBuffer(NGEPlatform platform, byte[] data) {
+        ByteBuffer buffer = platform.getNativeAllocator().malloc(data.length);
+        if (!buffer.isDirect()) {
+            throw new AssertionError("Native allocator returned a non-direct buffer");
+        }
+        buffer.put(data);
+        buffer.flip();
+        return buffer;
+    }
+
+    private static byte[] remainingBytes(ByteBuffer buffer) {
+        ByteBuffer source = buffer.duplicate();
+        byte[] data = new byte[source.remaining()];
+        source.get(data);
+        return data;
     }
 
     private static byte[] hex(String s) {

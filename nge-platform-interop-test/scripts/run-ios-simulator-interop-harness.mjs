@@ -354,6 +354,7 @@ function validateIosParity(ios) {
   for (const key of ['verifyOwn', 'verifyAsync', 'signatureVerified']) {
     if (Boolean(ios[key]) !== true) mismatches.push(`ios.${key} != true`);
   }
+  if (ios.bufferOverridesVerified !== true) mismatches.push('ios.bufferOverridesVerified != true');
   if (Boolean(ios.verifyWrong) !== false) mismatches.push('ios.verifyWrong != false');
   if (Number(ios.randomLen) !== 16 || ios.randomNonZero !== true) mismatches.push('ios random invariant failed');
   if (Number(ios.generatedPrivateKeyLen) !== 32 || ios.generatedPrivateKeyNonZero !== true) mismatches.push('ios generated private key invariant failed');

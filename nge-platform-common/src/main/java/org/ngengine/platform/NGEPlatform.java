@@ -105,6 +105,12 @@ public abstract class NGEPlatform {
 
     public abstract byte[] generatePrivateKey();
 
+    /**
+     * Generates a private key using a buffer-oriented representation.
+     *
+     * <p>The default implementation preserves the existing array implementation.
+     * Platforms with a native/shared-buffer boundary should override this method.</p>
+     */
     public ByteBuffer generatePrivateKeyBuffer() {
         return wrapBinaryResult(generatePrivateKey());
     }
@@ -587,6 +593,11 @@ public abstract class NGEPlatform {
         Map<String, String> headers
     );
 
+    /**
+     * Buffer-oriented HTTP request body. The default implementation adapts to
+     * the established array API; TeaVM overrides it to pass direct buffers to
+     * {@code fetch} without binary-array marshalling.
+     */
     public AsyncTask<NGEHttpResponse> httpRequestBuffer(
         String method,
         String inurl,
@@ -613,6 +624,12 @@ public abstract class NGEPlatform {
 
     public abstract byte[] scrypt(byte[] P, byte[] S, int N, int r, int p, int dkLen);
 
+    /**
+     * Buffer convenience for scrypt. The default adapter is intentionally used
+     * by TeaVM as well: scrypt's cost dominates the small password/salt/output
+     * transfers, so a separate direct-buffer asynchronous bridge would add
+     * complexity without a meaningful performance benefit.
+     */
     public ByteBuffer scrypt(ByteBuffer password, ByteBuffer salt, int n, int r, int p, int dkLen) {
         return wrapBinaryResult(scrypt(copyRemaining(password), copyRemaining(salt), n, r, p, dkLen));
     }
@@ -745,7 +762,7 @@ public abstract class NGEPlatform {
 
     public abstract NGEAllocator getNativeAllocator();
 
-    private static byte[] copyRemaining(ByteBuffer input) {
+    protected static byte[] copyRemaining(ByteBuffer input) {
         if (input == null) {
             throw new NullPointerException("input");
         }
@@ -755,7 +772,7 @@ public abstract class NGEPlatform {
         return result;
     }
 
-    private static ByteBuffer wrapBinaryResult(byte[] result) {
+    protected static ByteBuffer wrapBinaryResult(byte[] result) {
         return result == null ? null : ByteBuffer.wrap(result);
     }
 }
