@@ -1066,7 +1066,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+    public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
         String inurl,
         ByteBuffer body,

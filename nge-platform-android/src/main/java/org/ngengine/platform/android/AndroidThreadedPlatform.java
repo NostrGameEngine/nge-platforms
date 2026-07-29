@@ -1069,7 +1069,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             byte[] body,
             Duration itimeout,
             Map<String, String> headers) {
-        return httpRequestBufferInternal(
+        return httpRequestInternal(
                 method,
                 inurl,
                 body == null ? null : ByteBuffer.wrap(body),
@@ -1078,13 +1078,13 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     }
 
     @Override
-    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+    public AsyncTask<NGEHttpResponse> httpRequest(
             String method,
             String inurl,
             ByteBuffer body,
             Duration itimeout,
             Map<String, String> headers) {
-        return httpRequestBufferInternal(
+        return httpRequestInternal(
                 method,
                 inurl,
                 body == null ? null : body.duplicate(),
@@ -1092,7 +1092,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
                 headers);
     }
 
-    private AsyncTask<NGEHttpResponse> httpRequestBufferInternal(
+    private AsyncTask<NGEHttpResponse> httpRequestInternal(
             String method,
             String inurl,
             ByteBuffer body,

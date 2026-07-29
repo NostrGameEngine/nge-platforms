@@ -547,7 +547,7 @@ public abstract class NGEPlatform {
 
     public AsyncTask<String> httpGet(String url, Duration timeout, Map<String, String> headers) {
         return wrapPromise((res, rej) -> {
-            httpRequest("GET", url, null, timeout, headers)
+            httpRequest("GET", url, timeout, headers)
                 .then(r -> {
                     if (!r.status()) {
                         rej.accept(new IOException("HTTP error: " + r.statusCode()));
@@ -569,7 +569,7 @@ public abstract class NGEPlatform {
     @Deprecated
     public AsyncTask<byte[]> httpGetBytes(String url, Duration timeout, Map<String, String> headers) {
         return wrapPromise((res, rej) -> {
-            httpRequest("GET", url, null, timeout, headers)
+            httpRequest("GET", url, timeout, headers)
                 .then(r -> {
                     if (!r.status()) {
                         rej.accept(new IOException("HTTP error: " + r.statusCode()));
@@ -594,11 +594,18 @@ public abstract class NGEPlatform {
     );
 
     /**
-     * Buffer-oriented HTTP request body. The default implementation adapts to
-     * the established array API; TeaVM overrides it to pass direct buffers to
-     * {@code fetch} without binary-array marshalling.
+     * Issues an HTTP request without a request body.
      */
-    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+    public AsyncTask<NGEHttpResponse> httpRequest(String method, String inurl, Duration timeout, Map<String, String> headers) {
+        return httpRequest(method, inurl, (byte[]) null, timeout, headers);
+    }
+
+    /**
+     * Buffer-oriented overload of {@link #httpRequest(String, String, byte[], Duration, Map)}.
+     * The default implementation adapts to the established array API; platforms
+     * with a direct/shared-buffer HTTP boundary should override it.
+     */
+    public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
         String inurl,
         ByteBuffer body,

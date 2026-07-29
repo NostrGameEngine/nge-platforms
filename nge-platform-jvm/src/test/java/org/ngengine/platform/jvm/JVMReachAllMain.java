@@ -665,7 +665,7 @@ public final class JVMReachAllMain {
                 t.start();
                 int port = server.getLocalPort();
                 try {
-                    await(platform.httpRequest("GET", "http://127.0.0.1:" + port + "/", null, Duration.ofSeconds(5), null));
+                    await(platform.httpRequest("GET", "http://127.0.0.1:" + port + "/", Duration.ofSeconds(5), null));
                 } catch (Throwable ignored) {}
                 try {
                     await(

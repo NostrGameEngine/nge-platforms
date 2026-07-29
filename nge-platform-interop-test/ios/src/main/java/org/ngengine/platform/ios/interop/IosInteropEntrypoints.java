@@ -205,7 +205,7 @@ public final class IosInteropEntrypoints {
             .await();
         ByteBuffer httpBodyBuffer = nativeBuffer(platform, "parity-http-body".getBytes(StandardCharsets.UTF_8));
         NGEHttpResponse bufferPostResponse = platform
-            .httpRequestBuffer(
+            .httpRequest(
                 "POST",
                 httpBase + "/parity-http",
                 httpBodyBuffer,
@@ -224,7 +224,7 @@ public final class IosInteropEntrypoints {
             throw new AssertionError("ByteBuffer HTTP request differs from byte[] request");
         }
         NGEHttpResponse getResponse = platform
-            .httpRequest("GET", httpBase + "/ios-http-get?from=ios", null, Duration.ofSeconds(15), Map.of("X-IOS-Get", "ios"))
+            .httpRequest("GET", httpBase + "/ios-http-get?from=ios", Duration.ofSeconds(15), Map.of("X-IOS-Get", "ios"))
             .await();
 
         out.addProperty("platformName", platform.getPlatformName());
@@ -576,7 +576,7 @@ public final class IosInteropEntrypoints {
     }
 
     private static JsonObject getJson(IosPlatform platform, String url) throws Exception {
-        NGEHttpResponse res = platform.httpRequest("GET", url, null, Duration.ofSeconds(15), Map.of()).await();
+        NGEHttpResponse res = platform.httpRequest("GET", url, Duration.ofSeconds(15), Map.of()).await();
         if (res.statusCode() / 100 != 2) {
             throw new IllegalStateException("GET failed: " + res.statusCode() + " " + res.bodyAsString());
         }

@@ -143,7 +143,7 @@ public class AndroidPlatformParityInstrumentedTest {
         ).await();
         ByteBuffer httpBodyBuffer = nativeBuffer(p, "parity-http-body".getBytes(StandardCharsets.UTF_8));
         var httpBufferRes = p
-            .httpRequestBuffer(
+            .httpRequest(
                 "POST",
                 httpParityUrl,
                 httpBodyBuffer,

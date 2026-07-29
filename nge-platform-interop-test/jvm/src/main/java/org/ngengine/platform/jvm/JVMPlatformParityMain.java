@@ -147,7 +147,7 @@ public class JVMPlatformParityMain {
             .await();
         ByteBuffer httpBodyBuffer = nativeBuffer(p, "parity-http-body".getBytes(java.nio.charset.StandardCharsets.UTF_8));
         var httpBufferRes = p
-            .httpRequestBuffer("POST", httpParityUrl, httpBodyBuffer, Duration.ofSeconds(10), Map.of("X-Parity-Req", "parity"))
+            .httpRequest("POST", httpParityUrl, httpBodyBuffer, Duration.ofSeconds(10), Map.of("X-Parity-Req", "parity"))
             .await();
         if (httpBodyBuffer.position() != 0) {
             throw new AssertionError("ByteBuffer HTTP body was consumed");

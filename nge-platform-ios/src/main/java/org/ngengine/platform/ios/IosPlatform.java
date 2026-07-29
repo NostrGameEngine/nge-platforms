@@ -1032,21 +1032,21 @@ public class IosPlatform extends NGEPlatform {
         Duration itimeout,
         Map<String, String> headers
     ) {
-        return httpRequestBufferInternal(method, inurl, body == null ? null : ByteBuffer.wrap(body), itimeout, headers);
+        return httpRequestInternal(method, inurl, body == null ? null : ByteBuffer.wrap(body), itimeout, headers);
     }
 
     @Override
-    public AsyncTask<NGEHttpResponse> httpRequestBuffer(
+    public AsyncTask<NGEHttpResponse> httpRequest(
         String method,
         String inurl,
         ByteBuffer body,
         Duration itimeout,
         Map<String, String> headers
     ) {
-        return httpRequestBufferInternal(method, inurl, body == null ? null : body.duplicate(), itimeout, headers);
+        return httpRequestInternal(method, inurl, body == null ? null : body.duplicate(), itimeout, headers);
     }
 
-    private AsyncTask<NGEHttpResponse> httpRequestBufferInternal(
+    private AsyncTask<NGEHttpResponse> httpRequestInternal(
         String method,
         String inurl,
         ByteBuffer body,
