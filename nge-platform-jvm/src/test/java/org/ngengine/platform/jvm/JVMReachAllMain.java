@@ -51,6 +51,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
@@ -134,7 +135,21 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
-        safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
+        safeRun(
+            "secp256k1-shared-secret-and-recover",
+            () -> {
+                byte[] ss = platform.secp256k1SharedSecret(privateKey, publicKey);
+                try {
+                    Secp256k1RecoverableSignature sig = platform.secp256k1SignRecoverable(platform.sha256("deadbeef").getBytes(StandardCharsets.UTF_8), privateKey);
+                    byte[] rec = platform.secp256k1RecoverPublicKey(platform.sha256("deadbeef").getBytes(StandardCharsets.UTF_8), sig.getSignature64(), sig.getRecoveryId(), true);
+                    // touch recovered key
+                    if (rec != null) {
+                        platform.secp256k1PublicKeyVerify(rec);
+                    }
+                } catch (Throwable ignored) {}
+                return ss;
+            }
+        );
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
         safeRun(
             "hkdf",
@@ -674,6 +689,19 @@ public final class JVMReachAllMain {
                         .body()
                         .close();
                 } catch (Throwable ignored) {}
+
+                // Exercise ByteBuffer body publisher path
+                safeRun(
+                    "http-bytebuffer-body",
+                    () -> {
+                        try {
+                            ByteBuffer buf = ByteBuffer.wrap("hello-buf".getBytes(StandardCharsets.UTF_8));
+                            await(platform.httpRequest("POST", "http://127.0.0.1:" + port + "/", buf, Duration.ofSeconds(5), null));
+                        } catch (Throwable ignored) {}
+                        return null;
+                    }
+                );
+
                 return null;
             }
         );
