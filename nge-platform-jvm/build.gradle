@@ -67,7 +67,14 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.Point$JacobianPoint',
         'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
         'org.ngengine.platform.jvm.JVMReachAllMain$ReachDto',
-        'org.ngengine.saferalloc.SaferAlloc'
+        'org.ngengine.saferalloc.SaferAlloc',
+        // Deterministic forced hints added because the GraalVM tracing agent could not run in this environment.
+        // These classes are conditional/native or accessed reflectively by the harness and must be present in
+        // native-image builds even when the tracing agent is unavailable.
+        'org.ngengine.platform.jvm.JVMWebsocketTransport',
+        'org.ngengine.platform.jvm.JVMRTCTransport',
+        'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
+        'org.ngengine.platform.jvm.JVMNetworkSecurity'
 ]
 
 def ensureJavaExecutableAvailable = { File executable, String taskName ->
