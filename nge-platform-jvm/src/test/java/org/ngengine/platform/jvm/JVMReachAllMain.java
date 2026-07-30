@@ -80,6 +80,8 @@ public final class JVMReachAllMain {
         exerciseDirectInvocations(platform);
         exerciseCryptoAndEncoding(platform);
         exerciseAllocators(platform);
+        exerciseAllocatorGuardAdaptive(platform);
+        exerciseAsyncPlatformPrivateInvocations(platform);
         exerciseAsyncAndTasks(platform);
         exerciseStorage(platform);
         exerciseTransports(platform);
@@ -971,6 +973,109 @@ public final class JVMReachAllMain {
                     byte[] sk = Schnorr.generatePrivateKey();
                     byte[] pk = Schnorr.genPubKey(sk);
                     Schnorr.sign("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8), sk, new byte[32]);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseAllocatorGuardAdaptive(JVMAsyncPlatform platform) {
+        safeRun(
+            "allocator-guard-adaptive",
+            () -> {
+                try {
+                    // Reset state and install deterministic test hooks to drive adaptive behavior
+                    JVMNGEAllocatorGuard.resetStateForTests();
+
+                    final long adaptIntervalMillis = 2100L; // slightly above default adapt interval
+                    final java.util.concurrent.atomic.AtomicLong now = new java.util.concurrent.atomic.AtomicLong(0L);
+
+                    java.util.function.LongSupplier nowSupplier = new java.util.function.LongSupplier() {
+                        public long getAsLong() {
+                            return now.addAndGet(adaptIntervalMillis);
+                        }
+                    };
+
+                    java.util.function.LongSupplier highAllocated = new java.util.function.LongSupplier() {
+                        public long getAsLong() {
+                            // report near-soft-budget usage to trigger growth paths
+                            return JVMNGEAllocatorGuard.getSoftBudgetForTests() - 1L;
+                        }
+                    };
+
+                    // No-op GC action
+                    Runnable noGC = new Runnable() {
+                        public void run() {}
+                    };
+
+                    JVMNGEAllocatorGuard.setTestHooks(highAllocated, nowSupplier, noGC);
+
+                    // Trigger a few allocations to accumulate high-pressure counts
+                    for (int i = 0; i < 5; i++) {
+                        JVMNGEAllocatorGuard.beforeAlloc((int) Math.max(1L, JVMNGEAllocatorGuard.getSoftBudgetForTests() / 2L));
+                    }
+
+                    // Now simulate low usage to drive shrink path
+                    java.util.function.LongSupplier lowAllocated = new java.util.function.LongSupplier() {
+                        public long getAsLong() {
+                            return 0L;
+                        }
+                    };
+                    JVMNGEAllocatorGuard.setTestHooks(lowAllocated, nowSupplier, noGC);
+                    for (int i = 0; i < 10; i++) {
+                        JVMNGEAllocatorGuard.beforeAlloc(1);
+                    }
+
+                    // Cleanup hooks and reset
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                    JVMNGEAllocatorGuard.setTestHooks(null, null, null);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseAsyncPlatformPrivateInvocations(JVMAsyncPlatform platform) {
+        safeRun(
+            "invoke-buildValidatedRedirectRequest",
+            () -> {
+                try {
+                    Class<?> cls = JVMAsyncPlatform.class;
+                    java.lang.reflect.Method m = null;
+                    try {
+                        m = cls.getDeclaredMethod(
+                            "buildValidatedRedirectRequest",
+                            java.net.http.HttpRequest.class,
+                            java.net.http.HttpResponse.class,
+                            byte[].class,
+                            java.util.Map.class,
+                            java.time.Duration.class,
+                            int.class
+                        );
+                    } catch (NoSuchMethodException e) {
+                        try {
+                            m = cls.getDeclaredMethod(
+                                "buildValidatedRedirectRequest",
+                                java.net.http.HttpRequest.class,
+                                java.net.http.HttpResponse.class,
+                                byte[].class,
+                                java.util.Map.class,
+                                java.time.Duration.class
+                            );
+                        } catch (Throwable ignored) {}
+                    }
+
+                    if (m != null) {
+                        m.setAccessible(true);
+                        java.net.http.HttpRequest req = java.net.http.HttpRequest.newBuilder().uri(java.net.URI.create("http://example.com/")).build();
+                        try {
+                            m.invoke(platform, req, null, new byte[0], new java.util.HashMap<String, Object>(), java.time.Duration.ofSeconds(1), 0);
+                        } catch (Throwable ignored) {
+                            try {
+                                m.invoke(platform, req, null, new byte[0], new java.util.HashMap<String, Object>(), java.time.Duration.ofSeconds(1));
+                            } catch (Throwable ignored2) {}
+                        }
+                    }
                 } catch (Throwable ignored) {}
                 return null;
             }
