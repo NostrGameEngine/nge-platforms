@@ -39,6 +39,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.teavm.classlib.PlatformDetector;
+import org.teavm.jso.JSBody;
 import org.teavm.junit.JsModuleTest;
 import org.teavm.junit.ServeJS;
 import org.teavm.junit.SkipJVM;
@@ -57,7 +59,7 @@ public class TeaVMBackendParityTest {
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void binaryAndCryptoVectorsMatchAcrossCompiledBackends() {
-        TeaVMPlatform platform = new TeaVMTestPlatform();
+        TeaVMPlatform platform = new TeaVMPlatform();
         byte[] message = utf8("TeaVM/Wasm parity");
 
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", hex(platform.sha256(utf8("abc"))));
@@ -103,7 +105,7 @@ public class TeaVMBackendParityTest {
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void directBuffersUseTheSameCryptoVectors() {
-        TeaVMPlatform platform = new TeaVMTestPlatform();
+        TeaVMPlatform platform = new TeaVMPlatform();
         ByteBuffer message = direct(platform, utf8("TeaVM/Wasm parity"));
         ByteBuffer key = direct(platform, new byte[32]);
         ByteBuffer nonce12 = direct(platform, new byte[12]);
@@ -145,6 +147,39 @@ public class TeaVMBackendParityTest {
         assertEquals(0, key.position());
     }
 
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void platformNameIdentifiesTheCompiledBackend() {
+        String expectedBackend = PlatformDetector.isWebAssemblyGC() ? "TeaVM Wasm GC" : "TeaVM JavaScript";
+        String platformName = new TeaVMPlatform().getPlatformName();
+        assertTrue(platformName, platformName.startsWith(expectedBackend + " ("));
+        assertTrue(platformName, platformName.contains("browser"));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void httpResponseBodyCrossesTheCompiledBoundaryWithoutBase64() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        assertArrayEquals(
+            new byte[] { 0, 1, 2, 3, 127, (byte) 128, (byte) 254, (byte) 255, 0, 78, 71, 69 },
+            TeaVMPlatform.readHttpResponseBody(binaryHttpResponse(), platform)
+        );
+        assertArrayEquals(new byte[0], TeaVMPlatform.readHttpResponseBody(emptyHttpResponse(), platform));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void cleanerRunsExplicitCleanupExactlyOnce() throws Exception {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        int[] cleanupCount = { 0 };
+        Runnable cleanup = platform.registerFinalizer(new Object(), () -> cleanupCount[0]++);
+
+        cleanup.run();
+        cleanup.run();
+
+        assertEquals(1, cleanupCount[0]);
+    }
+
     private static byte[] ascending(int start, int length) {
         byte[] out = new byte[length];
         for (int i = 0; i < length; i++) {
@@ -152,6 +187,12 @@ public class TeaVMBackendParityTest {
         }
         return out;
     }
+
+    @JSBody(script = "return { body: new Uint8Array([0, 1, 2, 3, 127, 128, 254, 255, 0, 78, 71, 69]) };")
+    private static native TeaVMHttpResponse binaryHttpResponse();
+
+    @JSBody(script = "return { body: new Uint8Array(0) };")
+    private static native TeaVMHttpResponse emptyHttpResponse();
 
     private static byte[] utf8(String value) {
         return value.getBytes(StandardCharsets.UTF_8);
@@ -186,15 +227,5 @@ public class TeaVMBackendParityTest {
         byte[] bytes = new byte[source.remaining()];
         source.get(bytes);
         return bytes;
-    }
-
-    private static final class TeaVMTestPlatform extends TeaVMPlatform {
-
-        @Override
-        public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-            return () -> {
-                // TeaVM JUnit does not install the application finalizer bridge.
-            };
-        }
     }
 }

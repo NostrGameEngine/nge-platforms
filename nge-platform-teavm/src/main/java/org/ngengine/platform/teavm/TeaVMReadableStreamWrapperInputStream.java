@@ -32,10 +32,6 @@ package org.ngengine.platform.teavm;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.function.Consumer;
-import org.ngengine.platform.AsyncTask;
-import org.ngengine.platform.NGEPlatform;
-import org.teavm.jso.core.JSPromise;
 import org.teavm.jso.core.JSString;
 import org.teavm.jso.streams.ReadableStream;
 import org.teavm.jso.streams.ReadableStreamDefaultReader;
@@ -63,31 +59,14 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
         return reader;
     }
 
-    private AsyncTask<ReadableStreamReadResult> fetch() {
-        return NGEPlatform
-            .get()
-            .wrapPromise((Consumer<ReadableStreamReadResult> res, Consumer<Throwable> rej) -> {
-                JSPromise<ReadableStreamReadResult> p = getReader().read();
-                p.catchError(e -> {
-                    rej.accept(new Exception(e.toString()));
-                    return null;
-                });
-                p.then(rx -> {
-                    res.accept((ReadableStreamReadResult) rx);
-                    return null;
-                });
-            });
+    private ReadableStreamReadResult fetch() {
+        return getReader().read().await();
     }
 
     @Override
     public void close() {
         try {
-            getReader()
-                .cancel(JSString.valueOf("Closed"))
-                .catchError(e -> {
-                    // Ignore
-                    return null;
-                });
+            getReader().cancel(JSString.valueOf("Closed")).await();
             getReader().releaseLock();
         } catch (Exception e) {
             // Ignore
@@ -98,7 +77,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     public synchronized int read() throws IOException {
         try {
             while (buffer == null || bufferPos >= bufferLength) {
-                ReadableStreamReadResult r = fetch().await();
+                ReadableStreamReadResult r = fetch();
                 if (r.isDone()) {
                     return -1;
                 }

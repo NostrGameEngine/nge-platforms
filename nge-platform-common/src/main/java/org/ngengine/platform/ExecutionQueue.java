@@ -54,7 +54,8 @@ public class ExecutionQueue implements Closeable {
     protected ExecutionQueue(AsyncExecutor executor) {
         if (executor == null) {
             this.executor = NGEUtils.getPlatform().newAsyncExecutor(ExecutionQueue.class);
-            close = NGEPlatform.get().registerFinalizer(this, () -> this.executor.close());
+            AsyncExecutor executorToClose = this.executor;
+            close = NGEPlatform.get().registerFinalizer(this, executorToClose::close);
         } else {
             this.executor = executor;
             close = () -> {};
@@ -117,14 +118,8 @@ public class ExecutionQueue implements Closeable {
 
             if (logger.isLoggable(Level.FINEST)) {
                 leakGuard.incrementAndGet();
-                NGEPlatform
-                    .get()
-                    .registerFinalizer(
-                        current,
-                        () -> {
-                            leakGuard.decrementAndGet();
-                        }
-                    );
+                AtomicInteger guard = leakGuard;
+                NGEPlatform.get().registerFinalizer(current, guard::decrementAndGet);
             }
         });
     }

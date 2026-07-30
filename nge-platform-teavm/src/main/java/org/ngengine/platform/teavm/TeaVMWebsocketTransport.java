@@ -36,7 +36,6 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.AsyncExecutor;
@@ -46,9 +45,8 @@ import org.ngengine.platform.transport.WebsocketTransportListener;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.JSProperty;
-import org.teavm.jso.dom.events.Event;
-import org.teavm.jso.dom.events.EventListener;
-import org.teavm.jso.typedarrays.Uint8Array;
+import org.teavm.jso.core.JSPromise;
+import org.teavm.jso.core.JSUndefined;
 
 public class TeaVMWebsocketTransport implements WebsocketTransport {
 
@@ -88,18 +86,6 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
         @JSProperty
         int getReadyState();
 
-        @JSProperty("onopen")
-        void setOnOpen(EventListener handler);
-
-        @JSProperty("onclose")
-        void setOnClose(EventListener handler);
-
-        @JSProperty("onmessage")
-        void setOnMessage(EventListener handler);
-
-        @JSProperty("onerror")
-        void setOnError(EventListener handler);
-
         @JSProperty("binaryType")
         void setBinaryType(String type);
 
@@ -113,169 +99,126 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     @JSBody(params = { "url" }, script = "return new WebSocket(url);")
     private static native BrowserWebSocket createWebSocket(String url);
 
-    private interface MessageEvent extends Event {
-        @JSProperty("data")
-        Object getData();
-    }
-
-    private interface CloseEvent extends Event {
-        @JSProperty("code")
-        int getCode();
-
-        @JSProperty("reason")
-        String getReason();
-    }
-
-    @JSBody(params = { "data" }, script = "return typeof data === 'string';")
-    private static native boolean isStringData(Object data);
-
-    @JSBody(params = { "data" }, script = "return data;")
-    private static native String asStringData(Object data);
-
-    @JSBody(params = { "data" }, script = "return new Uint8Array(data);")
-    private static native Uint8Array asUint8Array(Object data);
-
     @Override
     public AsyncTask<Void> connect(String url) {
-        return this.platform.wrapPromise((res, rej) -> {
-                try {
-                    if (this.ws == null) {
-                        this.ws = createWebSocket(url);
-                        this.ws.setBinaryType("arraybuffer");
-
-                        AtomicBoolean done = new AtomicBoolean(false);
-
-                        // timeout
-                        TeaVMBinds.setTimeout(
-                            () -> {
-                                if (!done.getAndSet(true)) {
-                                    this.asyncExecutor.run(() -> {
-                                            rej.accept(new IOException("WebSocket connection timeout"));
-                                            return null;
-                                        });
-                                }
-                            },
-                            (int) CONNECT_TIMEOUT.toMillis()
-                        );
-
-                        this.ws.setOnOpen(evt -> {
-                                if (!done.getAndSet(true)) {
-                                    this.asyncExecutor.run(() -> {
-                                            for (WebsocketTransportListener listener : listeners) {
-                                                try {
-                                                    listener.onConnectionOpen();
-                                                } catch (Exception e) {
-                                                    logger.log(Level.WARNING, "Error in onConnectionOpen listener", e);
-                                                }
-                                            }
-                                            res.accept(null);
-                                            return null;
-                                        });
-                                }
-                            });
-
-                        this.ws.setOnMessage(evt -> {
-                                this.asyncExecutor.run(() -> {
-                                        Object data = ((MessageEvent) evt).getData();
-                                        if (isStringData(data)) {
-                                            String message = asStringData(data);
-                                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
-                                            if (message.length() > effectiveMaxMessageSize) {
-                                                IllegalArgumentException error = new IllegalArgumentException(
-                                                    "Incoming text message too large: " +
-                                                    message.length() +
-                                                    " chars (max " +
-                                                    effectiveMaxMessageSize +
-                                                    ")"
-                                                );
-                                                for (WebsocketTransportListener listener : listeners) {
-                                                    try {
-                                                        listener.onConnectionError(error);
-                                                    } catch (Exception e) {
-                                                        logger.log(Level.WARNING, "Error in onConnectionError listener", e);
-                                                    }
-                                                }
-                                                if (ws != null) {
-                                                    ws.close(1009, "Message too big");
-                                                }
-                                                return null;
-                                            }
-                                            for (WebsocketTransportListener listener : listeners) {
-                                                try {
-                                                    listener.onConnectionMessage(message);
-                                                } catch (Exception e) {
-                                                    logger.log(Level.WARNING, "Error in onConnectionMessage listener", e);
-                                                }
-                                            }
-                                        } else {
-                                            Uint8Array arr = asUint8Array(data);
-                                            int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
-                                            if (arr.getLength() > effectiveMaxMessageSize) {
-                                                IllegalArgumentException error = new IllegalArgumentException(
-                                                    "Incoming binary message too large: " +
-                                                    arr.getLength() +
-                                                    " bytes (max " +
-                                                    effectiveMaxMessageSize +
-                                                    ")"
-                                                );
-                                                for (WebsocketTransportListener listener : listeners) {
-                                                    try {
-                                                        listener.onConnectionError(error);
-                                                    } catch (Exception e) {
-                                                        logger.log(Level.WARNING, "Error in onConnectionError listener", e);
-                                                    }
-                                                }
-                                                if (ws != null) {
-                                                    ws.close(1009, "Message too big");
-                                                }
-                                                return null;
-                                            }
-                                            byte[] bytes = new byte[arr.getLength()];
-                                            for (int i = 0; i < bytes.length; i++) {
-                                                bytes[i] = (byte) arr.get(i);
-                                            }
-                                            ByteBuffer message = ByteBuffer.wrap(bytes);
-                                            for (WebsocketTransportListener listener : listeners) {
-                                                try {
-                                                    listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
-                                                } catch (Exception e) {
-                                                    logger.log(Level.WARNING, "Error in onConnectionBinaryMessage listener", e);
-                                                }
-                                            }
-                                        }
-                                        return null;
-                                    });
-                            });
-
-                        this.ws.setOnClose(evt -> {
-                                this.asyncExecutor.run(() -> {
-                                        CloseEvent closeEvent = (CloseEvent) evt;
-                                        String reason = closeEvent.getReason();
-                                        if (ws != null) {
-                                            ws = null;
-                                            for (WebsocketTransportListener listener : listeners) {
-                                                listener.onConnectionClosedByServer(reason);
-                                            }
-                                        }
-
-                                        return null;
-                                    });
-                            });
-
-                        this.ws.setOnError(evt -> {
-                                this.asyncExecutor.run(() -> {
-                                        rej.accept(new IOException("WebSocket error"));
-
-                                        return null;
-                                    });
-                            });
-                    } else {
-                        res.accept(null);
-                    }
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
+        if (this.ws != null) {
+            return platform.runAsync(() -> null);
+        }
+        try {
+            this.ws = createWebSocket(url);
+            this.ws.setBinaryType("arraybuffer");
+            TeaVMBinds.websocketInitEventQueue(this.ws);
+            JSPromise<JSUndefined> openPromise = TeaVMBinds.websocketOpenPromise(this.ws, (int) CONNECT_TIMEOUT.toMillis());
+            BrowserWebSocket socket = this.ws;
+            platform.runAsync(() -> {
+                pumpEvents(socket);
+                return null;
             });
+            return platform.runAsync(() -> {
+                openPromise.await();
+                for (WebsocketTransportListener listener : listeners) {
+                    try {
+                        listener.onConnectionOpen();
+                    } catch (Exception error) {
+                        logger.log(Level.WARNING, "Error in onConnectionOpen listener", error);
+                    }
+                }
+                return null;
+            });
+        } catch (Throwable error) {
+            return platform.wrapPromise((resolve, reject) -> reject.accept(error));
+        }
+    }
+
+    private void pumpEvents(BrowserWebSocket socket) {
+        try {
+            while (this.ws == socket) {
+                int type = TeaVMBinds.websocketEventType(socket);
+                if (type == 0) {
+                    TeaVMBinds.eventQueueWaitPromise(socket).await();
+                    continue;
+                }
+                try {
+                    if (type == 1) {
+                        dispatchText(socket, TeaVMBinds.websocketEventText(socket));
+                    } else if (type == 2) {
+                        dispatchBinary(socket);
+                    } else if (type == 3) {
+                        this.ws = null;
+                        String reason = TeaVMBinds.websocketEventText(socket);
+                        for (WebsocketTransportListener listener : listeners) {
+                            listener.onConnectionClosedByServer(reason);
+                        }
+                    } else if (type == 4) {
+                        IOException error = new IOException(TeaVMBinds.websocketEventText(socket));
+                        for (WebsocketTransportListener listener : listeners) {
+                            listener.onConnectionError(error);
+                        }
+                    }
+                } finally {
+                    TeaVMBinds.websocketConsumeEvent(socket);
+                }
+            }
+        } finally {
+            TeaVMBinds.eventQueueDispose(socket);
+        }
+    }
+
+    private void dispatchText(BrowserWebSocket socket, String message) {
+        int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+        if (message.length() > effectiveMaxMessageSize) {
+            rejectOversizedIncoming(socket, "text", message.length(), effectiveMaxMessageSize);
+            return;
+        }
+        for (WebsocketTransportListener listener : listeners) {
+            try {
+                listener.onConnectionMessage(message);
+            } catch (Exception error) {
+                logger.log(Level.WARNING, "Error in onConnectionMessage listener", error);
+            }
+        }
+    }
+
+    private void dispatchBinary(BrowserWebSocket socket) {
+        int length = TeaVMBinds.websocketEventBinaryLength(socket);
+        int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
+        if (length > effectiveMaxMessageSize) {
+            rejectOversizedIncoming(socket, "binary", length, effectiveMaxMessageSize);
+            return;
+        }
+        ByteBuffer message = platform.getNativeAllocator().malloc(Math.max(1, length));
+        message.limit(length);
+        int written = TeaVMBinds.websocketReadBinaryEvent(socket, message);
+        message.position(0);
+        message.limit(written);
+        for (WebsocketTransportListener listener : listeners) {
+            try {
+                listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
+            } catch (Exception error) {
+                logger.log(Level.WARNING, "Error in onConnectionBinaryMessage listener", error);
+            }
+        }
+    }
+
+    private void rejectOversizedIncoming(BrowserWebSocket socket, String kind, int length, int limit) {
+        IllegalArgumentException error = new IllegalArgumentException(
+            "Incoming " +
+            kind +
+            " message too large: " +
+            length +
+            (kind.equals("text") ? " chars" : " bytes") +
+            " (max " +
+            limit +
+            ")"
+        );
+        for (WebsocketTransportListener listener : listeners) {
+            try {
+                listener.onConnectionError(error);
+            } catch (Exception listenerError) {
+                logger.log(Level.WARNING, "Error in onConnectionError listener", listenerError);
+            }
+        }
+        socket.close(1009, "Message too big");
     }
 
     @Override
@@ -286,6 +229,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                         final String r = reason != null ? reason : "Closed by client";
                         BrowserWebSocket wsToClose = this.ws;
                         this.ws = null;
+                        TeaVMBinds.eventQueueDispose(wsToClose);
 
                         for (WebsocketTransportListener listener : listeners) {
                             try {

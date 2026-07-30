@@ -151,13 +151,6 @@ public class TeaVMWebsocketTransportUnitTest {
                 public void close() {}
             };
         }
-
-        @Override
-        public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-            return () -> {
-                // TeaVM JUnit runtime does not provide the full finalizer bridge used in app runtime.
-            };
-        }
     }
 
     private static final class ImmediateAsyncTask<T> implements AsyncTask<T> {

@@ -23,7 +23,7 @@ fi
 EMULATOR_BIN="${SDK_DIR}/emulator/emulator"
 ADB_BIN="${SDK_DIR}/platform-tools/adb"
 TEST_FILTER="${ANDROID_RTC_TEST_FILTER:-org.ngengine.platform.android.AndroidRTCTransportInstrumentedTest}"
-EMULATOR_GPU_MODE="${ANDROID_EMULATOR_GPU_MODE:-auto-no-window}"
+EMULATOR_GPU_MODE="${ANDROID_EMULATOR_GPU_MODE:-software}"
 EMULATOR_SNAPSHOT_FLAGS=("${ANDROID_EMULATOR_SNAPSHOT_FLAGS:-"-no-snapshot"}")
 ANDROID_SIGNAL_BASE="${ANDROID_RTC_SIGNAL_BASE:-}"
 ANDROID_WS_URL="${ANDROID_RTC_WS_URL:-}"
@@ -93,14 +93,14 @@ printf '%s\n' "${AVAILABLE_AVDS[@]}" | grep -Fx "${AVD_NAME}" >/dev/null || {
 "${ADB_BIN}" start-server
 
 if [[ "${ANDROID_REUSE_RUNNING_EMULATOR}" != "1" ]]; then
-  mapfile -t STALE_EMULATORS < <("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+(device|offline|unauthorized)$/ {print $1}')
+  mapfile -t STALE_EMULATORS < <("${ADB_BIN}" devices | awk '/^emulator-[0-9]+[[:space:]]+(device|offline|unauthorized)$/ {print $1}')
   if [[ ${#STALE_EMULATORS[@]} -gt 0 ]]; then
     echo "Stopping existing emulator(s): ${STALE_EMULATORS[*]}"
     for SERIAL in "${STALE_EMULATORS[@]}"; do
       "${ADB_BIN}" -s "${SERIAL}" emu kill >/dev/null 2>&1 || true
     done
     for _ in $(seq 1 30); do
-      LEFT="$(${ADB_BIN} devices | awk '/^emulator-[0-9]+\s+(device|offline|unauthorized)$/ {print $1}' | wc -l)"
+      LEFT="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+[[:space:]]+(device|offline|unauthorized)$/ {print $1}' | wc -l)"
       [[ "${LEFT}" == "0" ]] && break
       sleep 1
     done
@@ -109,7 +109,7 @@ fi
 
 RUNNING_SERIAL=""
 if [[ "${ANDROID_REUSE_RUNNING_EMULATOR}" == "1" ]]; then
-  RUNNING_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+device$/ {print $1; exit}')"
+  RUNNING_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}')"
 fi
 
 if [[ -n "${RUNNING_SERIAL}" ]]; then
@@ -136,7 +136,7 @@ else
       tail -200 /tmp/nge-android-emulator.log >&2 || true
       exit 1
     fi
-    EMULATOR_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+\s+device$/ {print $1; exit}')"
+    EMULATOR_SERIAL="$("${ADB_BIN}" devices | awk '/^emulator-[0-9]+[[:space:]]+device$/ {print $1; exit}')"
     [[ -n "${EMULATOR_SERIAL}" ]] && break
     sleep 2
   done
@@ -151,19 +151,36 @@ fi
 
 echo "Waiting for Android boot..."
 export ANDROID_SERIAL="${EMULATOR_SERIAL}"
-"${ADB_BIN}" -s "${EMULATOR_SERIAL}" wait-for-device
-for _ in $(seq 1 120); do
+BOOT_STABLE_COUNT=0
+for _ in $(seq 1 150); do
   if [[ -n "${EMULATOR_PID:-}" ]] && ! kill -0 "${EMULATOR_PID}" >/dev/null 2>&1; then
     echo "Emulator process exited before boot completed. See /tmp/nge-android-emulator.log" >&2
     tail -200 /tmp/nge-android-emulator.log >&2 || true
     exit 1
   fi
-  BOOT_COMPLETED="$("${ADB_BIN}" -s "${EMULATOR_SERIAL}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
-  if [[ "${BOOT_COMPLETED}" == "1" ]]; then
-    break
+  DEVICE_STATE="$("${ADB_BIN}" -s "${EMULATOR_SERIAL}" get-state 2>/dev/null || true)"
+  if [[ "${DEVICE_STATE}" == "device" ]]; then
+    BOOT_COMPLETED="$("${ADB_BIN}" -s "${EMULATOR_SERIAL}" shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')"
+    if [[ "${BOOT_COMPLETED}" == "1" ]]; then
+      BOOT_STABLE_COUNT=$((BOOT_STABLE_COUNT + 1))
+      if [[ "${BOOT_STABLE_COUNT}" -ge 3 ]]; then
+        break
+      fi
+    else
+      BOOT_STABLE_COUNT=0
+    fi
+  else
+    BOOT_STABLE_COUNT=0
   fi
   sleep 2
 done
+
+if [[ "${BOOT_STABLE_COUNT}" -lt 3 ]]; then
+  echo "Emulator did not remain online after boot: ${EMULATOR_SERIAL}" >&2
+  "${ADB_BIN}" devices -l >&2 || true
+  tail -200 /tmp/nge-android-emulator.log >&2 || true
+  exit 1
+fi
 
 "${ADB_BIN}" -s "${EMULATOR_SERIAL}" shell input keyevent 82 >/dev/null 2>&1 || true
 

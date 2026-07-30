@@ -72,7 +72,11 @@ public class JVMTeaVMRtcInteropMain {
         }
         String signalBase = args[0];
 
-        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        HttpClient http = HttpClient
+            .newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
         AtomicInteger cursor = new AtomicInteger(0);
         AtomicBoolean stopPolling = new AtomicBoolean(false);
         AtomicReference<String> answerSdp = new AtomicReference<>();

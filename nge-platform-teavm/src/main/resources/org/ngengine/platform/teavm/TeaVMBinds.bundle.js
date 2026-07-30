@@ -10152,13 +10152,21 @@ var __webpack_exports__ = {};
 /* harmony export */   base64encode: () => (/* binding */ base64encode),
 /* harmony export */   base64encodeBuffer: () => (/* binding */ base64encodeBuffer),
 /* harmony export */   callFunction: () => (/* binding */ callFunction),
+/* harmony export */   callFunctionPromise: () => (/* binding */ callFunctionPromise),
 /* harmony export */   canCallFunction: () => (/* binding */ canCallFunction),
+/* harmony export */   canCallFunctionPromise: () => (/* binding */ canCallFunctionPromise),
 /* harmony export */   chacha20: () => (/* binding */ chacha20),
 /* harmony export */   chacha20Buffer: () => (/* binding */ chacha20Buffer),
+/* harmony export */   copyHttpResponseBody: () => (/* binding */ copyHttpResponseBody),
+/* harmony export */   delayPromise: () => (/* binding */ delayPromise),
+/* harmony export */   eventQueueDispose: () => (/* binding */ eventQueueDispose),
+/* harmony export */   eventQueueWaitPromise: () => (/* binding */ eventQueueWaitPromise),
 /* harmony export */   fetchAsync: () => (/* binding */ fetchAsync),
 /* harmony export */   fetchBufferAsync: () => (/* binding */ fetchBufferAsync),
+/* harmony export */   fetchBufferPromise: () => (/* binding */ fetchBufferPromise),
+/* harmony export */   fetchPromise: () => (/* binding */ fetchPromise),
 /* harmony export */   fetchStreamAsync: () => (/* binding */ fetchStreamAsync),
-/* harmony export */   freePromise: () => (/* binding */ freePromise),
+/* harmony export */   fetchStreamPromise: () => (/* binding */ fetchStreamPromise),
 /* harmony export */   fromJSON: () => (/* binding */ fromJSON),
 /* harmony export */   genPubKey: () => (/* binding */ genPubKey),
 /* harmony export */   genPubKeyBuffer: () => (/* binding */ genPubKeyBuffer),
@@ -10166,7 +10174,10 @@ var __webpack_exports__ = {};
 /* harmony export */   generatePrivateKeyBuffer: () => (/* binding */ generatePrivateKeyBuffer),
 /* harmony export */   getBundledResource: () => (/* binding */ getBundledResource),
 /* harmony export */   getClipboardContentAsync: () => (/* binding */ getClipboardContentAsync),
+/* harmony export */   getClipboardContentPromise: () => (/* binding */ getClipboardContentPromise),
 /* harmony export */   getPlatformName: () => (/* binding */ getPlatformName),
+/* harmony export */   getPromise: () => (/* binding */ getPromise),
+/* harmony export */   getRuntimeName: () => (/* binding */ getRuntimeName),
 /* harmony export */   hasBundledResource: () => (/* binding */ hasBundledResource),
 /* harmony export */   hkdfExpandBuffer: () => (/* binding */ hkdfExpandBuffer),
 /* harmony export */   hkdfExtractBuffer: () => (/* binding */ hkdfExtractBuffer),
@@ -10174,21 +10185,28 @@ var __webpack_exports__ = {};
 /* harmony export */   hkdf_extract: () => (/* binding */ hkdf_extract),
 /* harmony export */   hmac: () => (/* binding */ hmac),
 /* harmony export */   hmacBuffer: () => (/* binding */ hmacBuffer),
+/* harmony export */   httpResponseBodyLength: () => (/* binding */ httpResponseBodyLength),
 /* harmony export */   newPromise: () => (/* binding */ newPromise),
 /* harmony export */   nfkc: () => (/* binding */ nfkc),
 /* harmony export */   openURL: () => (/* binding */ openURL),
 /* harmony export */   panic: () => (/* binding */ panic),
 /* harmony export */   randomBytes: () => (/* binding */ randomBytes),
 /* harmony export */   randomBytesBuffer: () => (/* binding */ randomBytesBuffer),
-/* harmony export */   registerFinalizer: () => (/* binding */ registerFinalizer),
 /* harmony export */   rejectPromise: () => (/* binding */ rejectPromise),
 /* harmony export */   resolvePromise: () => (/* binding */ resolvePromise),
 /* harmony export */   rtcAddIceCandidateAsync: () => (/* binding */ rtcAddIceCandidateAsync),
+/* harmony export */   rtcAddIceCandidatePromise: () => (/* binding */ rtcAddIceCandidatePromise),
 /* harmony export */   rtcCreateAnswerAsync: () => (/* binding */ rtcCreateAnswerAsync),
+/* harmony export */   rtcCreateAnswerPromise: () => (/* binding */ rtcCreateAnswerPromise),
 /* harmony export */   rtcCreateDataChannel: () => (/* binding */ rtcCreateDataChannel),
 /* harmony export */   rtcCreateIceCandidate: () => (/* binding */ rtcCreateIceCandidate),
 /* harmony export */   rtcCreateOfferAsync: () => (/* binding */ rtcCreateOfferAsync),
+/* harmony export */   rtcCreateOfferPromise: () => (/* binding */ rtcCreateOfferPromise),
 /* harmony export */   rtcCreatePeerConnection: () => (/* binding */ rtcCreatePeerConnection),
+/* harmony export */   rtcDataChannelConsumeEvent: () => (/* binding */ rtcDataChannelConsumeEvent),
+/* harmony export */   rtcDataChannelEventBinaryLength: () => (/* binding */ rtcDataChannelEventBinaryLength),
+/* harmony export */   rtcDataChannelEventError: () => (/* binding */ rtcDataChannelEventError),
+/* harmony export */   rtcDataChannelEventType: () => (/* binding */ rtcDataChannelEventType),
 /* harmony export */   rtcDataChannelGetAvailableAmount: () => (/* binding */ rtcDataChannelGetAvailableAmount),
 /* harmony export */   rtcDataChannelGetBufferedAmount: () => (/* binding */ rtcDataChannelGetBufferedAmount),
 /* harmony export */   rtcDataChannelGetMaxPacketLifeTime: () => (/* binding */ rtcDataChannelGetMaxPacketLifeTime),
@@ -10198,10 +10216,21 @@ var __webpack_exports__ = {};
 /* harmony export */   rtcDataChannelIsReliable: () => (/* binding */ rtcDataChannelIsReliable),
 /* harmony export */   rtcDataChannelSetBufferedAmountLowThreshold: () => (/* binding */ rtcDataChannelSetBufferedAmountLowThreshold),
 /* harmony export */   rtcGetMaxMessageSize: () => (/* binding */ rtcGetMaxMessageSize),
+/* harmony export */   rtcInitDataChannelEventQueue: () => (/* binding */ rtcInitDataChannelEventQueue),
+/* harmony export */   rtcInitPeerEventQueue: () => (/* binding */ rtcInitPeerEventQueue),
+/* harmony export */   rtcPeerConsumeEvent: () => (/* binding */ rtcPeerConsumeEvent),
+/* harmony export */   rtcPeerEventCandidate: () => (/* binding */ rtcPeerEventCandidate),
+/* harmony export */   rtcPeerEventChannel: () => (/* binding */ rtcPeerEventChannel),
+/* harmony export */   rtcPeerEventState: () => (/* binding */ rtcPeerEventState),
+/* harmony export */   rtcPeerEventType: () => (/* binding */ rtcPeerEventType),
+/* harmony export */   rtcReadDataChannelBinaryEvent: () => (/* binding */ rtcReadDataChannelBinaryEvent),
 /* harmony export */   rtcSetLocalDescriptionAsync: () => (/* binding */ rtcSetLocalDescriptionAsync),
+/* harmony export */   rtcSetLocalDescriptionPromise: () => (/* binding */ rtcSetLocalDescriptionPromise),
 /* harmony export */   rtcSetOnMessageHandler: () => (/* binding */ rtcSetOnMessageHandler),
 /* harmony export */   rtcSetRemoteDescriptionAsync: () => (/* binding */ rtcSetRemoteDescriptionAsync),
+/* harmony export */   rtcSetRemoteDescriptionPromise: () => (/* binding */ rtcSetRemoteDescriptionPromise),
 /* harmony export */   scryptAsync: () => (/* binding */ scryptAsync),
+/* harmony export */   scryptBufferPromise: () => (/* binding */ scryptBufferPromise),
 /* harmony export */   secp256k1PrivateKeyVerify: () => (/* binding */ secp256k1PrivateKeyVerify),
 /* harmony export */   secp256k1PrivateKeyVerifyBuffer: () => (/* binding */ secp256k1PrivateKeyVerifyBuffer),
 /* harmony export */   secp256k1PublicKeyCreate: () => (/* binding */ secp256k1PublicKeyCreate),
@@ -10224,11 +10253,22 @@ var __webpack_exports__ = {};
 /* harmony export */   verify: () => (/* binding */ verify),
 /* harmony export */   verifyBuffer: () => (/* binding */ verifyBuffer),
 /* harmony export */   vfileDeleteAsync: () => (/* binding */ vfileDeleteAsync),
+/* harmony export */   vfileDeletePromise: () => (/* binding */ vfileDeletePromise),
 /* harmony export */   vfileExistsAsync: () => (/* binding */ vfileExistsAsync),
+/* harmony export */   vfileExistsPromise: () => (/* binding */ vfileExistsPromise),
 /* harmony export */   vfileListAllAsync: () => (/* binding */ vfileListAllAsync),
+/* harmony export */   vfileListAllPromise: () => (/* binding */ vfileListAllPromise),
 /* harmony export */   vfileReadAsync: () => (/* binding */ vfileReadAsync),
+/* harmony export */   vfileReadPromise: () => (/* binding */ vfileReadPromise),
 /* harmony export */   vfileWriteAsync: () => (/* binding */ vfileWriteAsync),
-/* harmony export */   waitPromiseAsync: () => (/* binding */ waitPromiseAsync),
+/* harmony export */   vfileWritePromise: () => (/* binding */ vfileWritePromise),
+/* harmony export */   websocketConsumeEvent: () => (/* binding */ websocketConsumeEvent),
+/* harmony export */   websocketEventBinaryLength: () => (/* binding */ websocketEventBinaryLength),
+/* harmony export */   websocketEventText: () => (/* binding */ websocketEventText),
+/* harmony export */   websocketEventType: () => (/* binding */ websocketEventType),
+/* harmony export */   websocketInitEventQueue: () => (/* binding */ websocketInitEventQueue),
+/* harmony export */   websocketOpenPromise: () => (/* binding */ websocketOpenPromise),
+/* harmony export */   websocketReadBinaryEvent: () => (/* binding */ websocketReadBinaryEvent),
 /* harmony export */   xchacha20poly1305: () => (/* binding */ xchacha20poly1305),
 /* harmony export */   xchacha20poly1305Buffer: () => (/* binding */ xchacha20poly1305Buffer)
 /* harmony export */ });
@@ -11048,6 +11088,156 @@ var TeaVMBinds_setTimeout = function setTimeout(callback, delay) {
   //void
   return _s().setTimeout(callback, delay);
 };
+var delayPromise = function delayPromise(delay) {
+  return new Promise(function (resolve) {
+    return _s().setTimeout(resolve, delay);
+  });
+};
+var websocketOpenPromise = function websocketOpenPromise(socket, timeoutMs) {
+  return new Promise(function (resolve, reject) {
+    var settled = false;
+    var timeoutId = _s().setTimeout(function () {
+      if (!settled) {
+        settled = true;
+        reject(new Error('WebSocket connection timeout'));
+      }
+    }, timeoutMs);
+    socket.addEventListener('open', function () {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeoutId);
+        resolve();
+      }
+    }, {
+      once: true
+    });
+    socket.addEventListener('error', function () {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timeoutId);
+        reject(new Error('WebSocket connection failed'));
+      }
+    }, {
+      once: true
+    });
+  });
+};
+var _initEventQueue = function _initEventQueue(target) {
+  var current = target._ngeEventQueueState;
+  if (current && !current.disposed) {
+    return current;
+  }
+  var state = {
+    queue: [],
+    waitPromise: null,
+    wake: null,
+    disposed: false
+  };
+  target._ngeEventQueueState = state;
+  return state;
+};
+var _enqueueEvent = function _enqueueEvent(target, event) {
+  var state = target._ngeEventQueueState;
+  if (!state || state.disposed) {
+    return;
+  }
+  state.queue.push(event);
+  if (state.wake) {
+    var wake = state.wake;
+    state.wake = null;
+    state.waitPromise = null;
+    wake();
+  }
+};
+var _currentEvent = function _currentEvent(target) {
+  var _target$_ngeEventQueu;
+  return (_target$_ngeEventQueu = target._ngeEventQueueState) === null || _target$_ngeEventQueu === void 0 || (_target$_ngeEventQueu = _target$_ngeEventQueu.queue) === null || _target$_ngeEventQueu === void 0 ? void 0 : _target$_ngeEventQueu[0];
+};
+var eventQueueWaitPromise = function eventQueueWaitPromise(target) {
+  var current = target === null || target === void 0 ? void 0 : target._ngeEventQueueState;
+  if (current !== null && current !== void 0 && current.disposed) {
+    return Promise.resolve();
+  }
+  var state = current !== null && current !== void 0 ? current : _initEventQueue(target);
+  if (state.queue.length > 0) {
+    return Promise.resolve();
+  }
+  if (!state.waitPromise) {
+    state.waitPromise = new Promise(function (resolve) {
+      state.wake = resolve;
+    });
+  }
+  return state.waitPromise;
+};
+var eventQueueDispose = function eventQueueDispose(target) {
+  var state = target === null || target === void 0 ? void 0 : target._ngeEventQueueState;
+  if (!state || state.disposed) {
+    return;
+  }
+  state.disposed = true;
+  state.queue.length = 0;
+  if (state.wake) {
+    var wake = state.wake;
+    state.wake = null;
+    state.waitPromise = null;
+    wake();
+  }
+};
+var websocketInitEventQueue = function websocketInitEventQueue(socket) {
+  if (socket._ngeEventQueueState && !socket._ngeEventQueueState.disposed) {
+    return;
+  }
+  _initEventQueue(socket);
+  socket.addEventListener('message', function (event) {
+    if (typeof event.data === 'string') {
+      _enqueueEvent(socket, {
+        type: 1,
+        text: event.data
+      });
+    } else {
+      _enqueueEvent(socket, {
+        type: 2,
+        binary: _u(event.data)
+      });
+    }
+  });
+  socket.addEventListener('close', function (event) {
+    var _event$reason;
+    _enqueueEvent(socket, {
+      type: 3,
+      text: (_event$reason = event.reason) !== null && _event$reason !== void 0 ? _event$reason : ''
+    });
+  });
+  socket.addEventListener('error', function () {
+    _enqueueEvent(socket, {
+      type: 4,
+      text: 'WebSocket error'
+    });
+  });
+};
+var websocketEventType = function websocketEventType(socket) {
+  var _currentEvent$type, _currentEvent2;
+  return (_currentEvent$type = (_currentEvent2 = _currentEvent(socket)) === null || _currentEvent2 === void 0 ? void 0 : _currentEvent2.type) !== null && _currentEvent$type !== void 0 ? _currentEvent$type : 0;
+};
+var websocketEventText = function websocketEventText(socket) {
+  var _currentEvent$text, _currentEvent3;
+  return (_currentEvent$text = (_currentEvent3 = _currentEvent(socket)) === null || _currentEvent3 === void 0 ? void 0 : _currentEvent3.text) !== null && _currentEvent$text !== void 0 ? _currentEvent$text : null;
+};
+var websocketEventBinaryLength = function websocketEventBinaryLength(socket) {
+  var _currentEvent$binary$, _currentEvent4;
+  return (_currentEvent$binary$ = (_currentEvent4 = _currentEvent(socket)) === null || _currentEvent4 === void 0 || (_currentEvent4 = _currentEvent4.binary) === null || _currentEvent4 === void 0 ? void 0 : _currentEvent4.byteLength) !== null && _currentEvent$binary$ !== void 0 ? _currentEvent$binary$ : 0;
+};
+var websocketReadBinaryEvent = function websocketReadBinaryEvent(socket, output) {
+  var event = _currentEvent(socket);
+  if (!event || event.type !== 2) {
+    throw new Error('Current WebSocket event is not binary');
+  }
+  return _writeBytes(output, event.binary);
+};
+var websocketConsumeEvent = function websocketConsumeEvent(socket) {
+  var _socket$_ngeEventQueu;
+  (_socket$_ngeEventQueu = socket._ngeEventQueueState) === null || _socket$_ngeEventQueu === void 0 || (_socket$_ngeEventQueu = _socket$_ngeEventQueu.queue) === null || _socket$_ngeEventQueu === void 0 || _socket$_ngeEventQueu.shift();
+};
 var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   //str
   _getClipboard().then(function (clipboard) {
@@ -11060,6 +11250,16 @@ var getClipboardContentAsync = function getClipboardContentAsync(res, rej) {
   })["catch"](function (err) {
     console.error('Failed to read clipboard contents: ', err);
     res('');
+  });
+};
+var getClipboardContentPromise = function getClipboardContentPromise() {
+  return _getClipboard().then(function (clipboard) {
+    if (!clipboard || typeof clipboard.readText !== 'function') {
+      return '';
+    }
+    return clipboard.readText();
+  }).then(function (text) {
+    return text !== null && text !== void 0 ? text : '';
   });
 };
 var setClipboardContent = function setClipboardContent(text) {
@@ -11134,35 +11334,51 @@ function getVFileStore(_x3) {
   return _getVFileStore.apply(this, arguments);
 }
 function _getVFileStore() {
-  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(name) {
-    var globalObj, _t11;
-    return _regenerator().w(function (_context30) {
-      while (1) switch (_context30.p = _context30.n) {
+  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(name) {
+    var globalObj, injectedStore, _t14;
+    return _regenerator().w(function (_context34) {
+      while (1) switch (_context34.p = _context34.n) {
         case 0:
-          globalObj = _s(); // Check if IndexedDB is available in the current environment
+          globalObj = _s();
+          if (!(typeof (globalObj === null || globalObj === void 0 ? void 0 : globalObj.ngeVStoreFactory) === 'function')) {
+            _context34.n = 3;
+            break;
+          }
+          _context34.n = 1;
+          return globalObj.ngeVStoreFactory(name);
+        case 1:
+          injectedStore = _context34.v;
+          if (injectedStore) {
+            _context34.n = 2;
+            break;
+          }
+          throw new Error("Injected VStore factory returned no store for ".concat(name));
+        case 2:
+          return _context34.a(2, injectedStore);
+        case 3:
           if (_hasIndexedDB()) {
-            _context30.n = 5;
+            _context34.n = 8;
             break;
           }
           if (!_isNodeRuntime()) {
-            _context30.n = 4;
+            _context34.n = 7;
             break;
           }
-          _context30.p = 1;
-          _context30.n = 2;
+          _context34.p = 4;
+          _context34.n = 5;
           return _getNodeFSVFileStore(name);
-        case 2:
-          return _context30.a(2, _context30.v);
-        case 3:
-          _context30.p = 3;
-          _t11 = _context30.v;
-          console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', _t11);
-          return _context30.a(2, _getMemoryVFileStore(name));
-        case 4:
-          console.warn('IndexedDB is not supported in this environment. Falling back to an in-memory VStore.');
-          return _context30.a(2, _getMemoryVFileStore(name));
         case 5:
-          return _context30.a(2, new Promise(function (resolve, reject) {
+          return _context34.a(2, _context34.v);
+        case 6:
+          _context34.p = 6;
+          _t14 = _context34.v;
+          console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', _t14);
+          return _context34.a(2, _getMemoryVFileStore(name));
+        case 7:
+          console.warn('IndexedDB is not supported in this environment. Falling back to an in-memory VStore.');
+          return _context34.a(2, _getMemoryVFileStore(name));
+        case 8:
+          return _context34.a(2, new Promise(function (resolve, reject) {
             var request = globalObj.indexedDB.open('nge-vstore-' + name, 1);
             request.onupgradeneeded = function (event) {
               var db = event.target.result;
@@ -11188,11 +11404,11 @@ function _getVFileStore() {
                   db.close();
                 },
                 exists: function exists(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25() {
-                    return _regenerator().w(function (_context25) {
-                      while (1) switch (_context25.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
+                    return _regenerator().w(function (_context29) {
+                      while (1) switch (_context29.n) {
                         case 0:
-                          return _context25.a(2, new Promise(function (resolve, reject) {
+                          return _context29.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.count(path);
@@ -11205,15 +11421,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee25);
+                    }, _callee29);
                   }))();
                 },
                 read: function read(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26() {
-                    return _regenerator().w(function (_context26) {
-                      while (1) switch (_context26.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30() {
+                    return _regenerator().w(function (_context30) {
+                      while (1) switch (_context30.n) {
                         case 0:
-                          return _context26.a(2, new Promise(function (resolve, reject) {
+                          return _context30.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
                             var request = store.get(path);
@@ -11226,15 +11442,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee26);
+                    }, _callee30);
                   }))();
                 },
                 write: function write(path, data) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27() {
-                    return _regenerator().w(function (_context27) {
-                      while (1) switch (_context27.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
+                    return _regenerator().w(function (_context31) {
+                      while (1) switch (_context31.n) {
                         case 0:
-                          return _context27.a(2, new Promise(function (resolve, reject) {
+                          return _context31.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store.put(data, path);
@@ -11247,15 +11463,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee27);
+                    }, _callee31);
                   }))();
                 },
                 "delete": function _delete(path) {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
-                    return _regenerator().w(function (_context28) {
-                      while (1) switch (_context28.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32() {
+                    return _regenerator().w(function (_context32) {
+                      while (1) switch (_context32.n) {
                         case 0:
-                          return _context28.a(2, new Promise(function (resolve, reject) {
+                          return _context32.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
                             var request = store["delete"](path);
@@ -11268,15 +11484,15 @@ function _getVFileStore() {
                             };
                           }));
                       }
-                    }, _callee28);
+                    }, _callee32);
                   }))();
                 },
                 listAll: function listAll() {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
-                    return _regenerator().w(function (_context29) {
-                      while (1) switch (_context29.n) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33() {
+                    return _regenerator().w(function (_context33) {
+                      while (1) switch (_context33.n) {
                         case 0:
-                          return _context29.a(2, new Promise(function (resolve, reject) {
+                          return _context33.a(2, new Promise(function (resolve, reject) {
                             try {
                               var transaction = db.transaction(["files"], 'readonly');
                               var store = transaction.objectStore("files");
@@ -11294,7 +11510,7 @@ function _getVFileStore() {
                             }
                           }));
                       }
-                    }, _callee29);
+                    }, _callee33);
                   }))();
                 }
               };
@@ -11302,7 +11518,7 @@ function _getVFileStore() {
             };
           }));
       }
-    }, _callee30, null, [[1, 3]]);
+    }, _callee34, null, [[4, 6]]);
   }));
   return _getVFileStore.apply(this, arguments);
 }
@@ -11446,6 +11662,28 @@ var vfileListAll = /*#__PURE__*/function () {
     return _ref0.apply(this, arguments);
   };
 }();
+var vfileExistsPromise = vfileExists;
+var vfileReadPromise = /*#__PURE__*/function () {
+  var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(name, path) {
+    var _t0;
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.n) {
+        case 0:
+          _t0 = _bw;
+          _context21.n = 1;
+          return vfileRead(name, path);
+        case 1:
+          return _context21.a(2, _t0(_context21.v));
+      }
+    }, _callee21);
+  }));
+  return function vfileReadPromise(_x12, _x13) {
+    return _ref1.apply(this, arguments);
+  };
+}();
+var vfileWritePromise = vfileWrite;
+var vfileDeletePromise = vfileDelete;
+var vfileListAllPromise = vfileListAll;
 var vfileExistsAsync = function vfileExistsAsync(name, path, res, rej) {
   // void
   vfileExists(name, path).then(function (result) {
@@ -11491,7 +11729,7 @@ var vfileListAllAsync = function vfileListAllAsync(name, res, rej) {
     rej(String(error));
   });
 };
-var getPlatformName = function getPlatformName() {
+var getRuntimeName = function getRuntimeName() {
   // str
   var runtime = "runtime";
   if (typeof Capacitor !== 'undefined' && Capacitor && Capacitor.getPlatform) {
@@ -11503,8 +11741,11 @@ var getPlatformName = function getPlatformName() {
   } else if (typeof window !== 'undefined') {
     runtime = "browser";
   }
-  var pl = 'JavaScript (' + runtime + ')';
-  return pl;
+  return runtime;
+};
+var getPlatformName = function getPlatformName() {
+  // str
+  return 'JavaScript (' + getRuntimeName() + ')';
 };
 function toFunction(f) {
   // Function
@@ -11545,69 +11786,197 @@ function toFunction(f) {
   return fun.bind(obj);
 }
 var callFunction = /*#__PURE__*/function () {
-  var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(functionName, data, res, rej) {
-    var result, _t0;
-    return _regenerator().w(function (_context21) {
-      while (1) switch (_context21.p = _context21.n) {
+  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(functionName, data, res, rej) {
+    var _s8, args, executor, result, _t1;
+    return _regenerator().w(function (_context22) {
+      while (1) switch (_context22.p = _context22.n) {
         case 0:
-          _context21.p = 0;
-          _context21.n = 1;
-          return toFunction(functionName).apply(void 0, _toConsumableArray(JSON.parse(data).args));
+          _context22.p = 0;
+          args = JSON.parse(data).args;
+          executor = (_s8 = _s()) === null || _s8 === void 0 ? void 0 : _s8.ngeFunctionExecutor;
+          if (!(typeof executor === 'function')) {
+            _context22.n = 2;
+            break;
+          }
+          _context22.n = 1;
+          return executor(functionName, args);
         case 1:
-          result = _context21.v;
+          result = _context22.v;
+          _context22.n = 6;
+          break;
+        case 2:
+          if (!(executor && typeof executor.execute === 'function')) {
+            _context22.n = 4;
+            break;
+          }
+          _context22.n = 3;
+          return executor.execute(functionName, args);
+        case 3:
+          result = _context22.v;
+          _context22.n = 6;
+          break;
+        case 4:
+          _context22.n = 5;
+          return toFunction(functionName).apply(void 0, _toConsumableArray(args));
+        case 5:
+          result = _context22.v;
+        case 6:
           res(JSON.stringify({
             result: result
           }));
-          _context21.n = 3;
+          _context22.n = 8;
+          break;
+        case 7:
+          _context22.p = 7;
+          _t1 = _context22.v;
+          console.error("Error executing function ".concat(functionName, ":"), _t1);
+          rej(String(_t1));
+        case 8:
+          return _context22.a(2);
+      }
+    }, _callee22, null, [[0, 7]]);
+  }));
+  return function callFunction(_x14, _x15, _x16, _x17) {
+    return _ref10.apply(this, arguments);
+  };
+}();
+var callFunctionPromise = /*#__PURE__*/function () {
+  var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(functionName, data) {
+    var _s9;
+    var args, executor, result;
+    return _regenerator().w(function (_context23) {
+      while (1) switch (_context23.n) {
+        case 0:
+          args = JSON.parse(data).args;
+          executor = (_s9 = _s()) === null || _s9 === void 0 ? void 0 : _s9.ngeFunctionExecutor;
+          if (!(typeof executor === 'function')) {
+            _context23.n = 2;
+            break;
+          }
+          _context23.n = 1;
+          return executor(functionName, args);
+        case 1:
+          result = _context23.v;
+          _context23.n = 6;
           break;
         case 2:
-          _context21.p = 2;
-          _t0 = _context21.v;
-          console.error("Error executing function ".concat(functionName, ":"), _t0);
-          rej(String(_t0));
+          if (!(executor && typeof executor.execute === 'function')) {
+            _context23.n = 4;
+            break;
+          }
+          _context23.n = 3;
+          return executor.execute(functionName, args);
         case 3:
-          return _context21.a(2);
+          result = _context23.v;
+          _context23.n = 6;
+          break;
+        case 4:
+          _context23.n = 5;
+          return toFunction(functionName).apply(void 0, _toConsumableArray(args));
+        case 5:
+          result = _context23.v;
+        case 6:
+          return _context23.a(2, JSON.stringify({
+            result: result
+          }));
       }
-    }, _callee21, null, [[0, 2]]);
+    }, _callee23);
   }));
-  return function callFunction(_x12, _x13, _x14, _x15) {
-    return _ref1.apply(this, arguments);
+  return function callFunctionPromise(_x18, _x19) {
+    return _ref11.apply(this, arguments);
   };
 }();
 var canCallFunction = /*#__PURE__*/function () {
-  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(functionName, res) {
-    var canCall;
-    return _regenerator().w(function (_context22) {
-      while (1) switch (_context22.n) {
+  var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(functionName, res) {
+    var _s0, executor, canCall, _t10;
+    return _regenerator().w(function (_context24) {
+      while (1) switch (_context24.p = _context24.n) {
         case 0:
-          // void
-          try {
+          _context24.p = 0;
+          executor = (_s0 = _s()) === null || _s0 === void 0 ? void 0 : _s0.ngeFunctionExecutor;
+          if (!(executor && typeof executor.canExecute === 'function')) {
+            _context24.n = 2;
+            break;
+          }
+          _context24.n = 1;
+          return executor.canExecute(functionName);
+        case 1:
+          canCall = !!_context24.v;
+          _context24.n = 3;
+          break;
+        case 2:
+          if (typeof executor === 'function' || executor && typeof executor.execute === 'function') {
+            canCall = true;
+          } else {
             canCall = !!toFunction(functionName);
-            if (canCall) {
-              console.log("Function ".concat(functionName, " can be called:"), canCall);
-              res(true);
-            } else {
-              console.warn("Function ".concat(functionName, " cannot be called."));
-              res(false);
-            }
-          } catch (error) {
-            console.error("Error checking function ".concat(functionName, ":"), error);
+          }
+        case 3:
+          if (canCall) {
+            console.log("Function ".concat(functionName, " can be called:"), canCall);
+            res(true);
+          } else {
+            console.warn("Function ".concat(functionName, " cannot be called."));
             res(false);
           }
-        case 1:
-          return _context22.a(2);
+          _context24.n = 5;
+          break;
+        case 4:
+          _context24.p = 4;
+          _t10 = _context24.v;
+          console.error("Error checking function ".concat(functionName, ":"), _t10);
+          res(false);
+        case 5:
+          return _context24.a(2);
       }
-    }, _callee22);
+    }, _callee24, null, [[0, 4]]);
   }));
-  return function canCallFunction(_x16, _x17) {
-    return _ref10.apply(this, arguments);
+  return function canCallFunction(_x20, _x21) {
+    return _ref12.apply(this, arguments);
+  };
+}();
+var canCallFunctionPromise = /*#__PURE__*/function () {
+  var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(functionName) {
+    var _s1;
+    var executor, _t11;
+    return _regenerator().w(function (_context25) {
+      while (1) switch (_context25.p = _context25.n) {
+        case 0:
+          executor = (_s1 = _s()) === null || _s1 === void 0 ? void 0 : _s1.ngeFunctionExecutor;
+          if (!(executor && typeof executor.canExecute === 'function')) {
+            _context25.n = 2;
+            break;
+          }
+          _context25.n = 1;
+          return executor.canExecute(functionName);
+        case 1:
+          return _context25.a(2, !!_context25.v);
+        case 2:
+          if (!(typeof executor === 'function' || executor && typeof executor.execute === 'function')) {
+            _context25.n = 3;
+            break;
+          }
+          return _context25.a(2, true);
+        case 3:
+          _context25.p = 3;
+          return _context25.a(2, !!toFunction(functionName));
+        case 4:
+          _context25.p = 4;
+          _t11 = _context25.v;
+          return _context25.a(2, false);
+      }
+    }, _callee25, null, [[3, 4]]);
+  }));
+  return function canCallFunctionPromise(_x22) {
+    return _ref13.apply(this, arguments);
   };
 }();
 var openURL = function openURL(url) {
   // void
   try {
     var globalObj = _s();
-    if (globalObj && globalObj.open) {
+    if (globalObj && typeof globalObj.ngeOpenURL === 'function') {
+      globalObj.ngeOpenURL(url);
+    } else if (globalObj && globalObj.open) {
       globalObj.open(url, '_blank');
     } else {
       console.warn('Cannot open URL: No suitable global object found.');
@@ -11645,6 +12014,29 @@ res, rej) {
     rej(String(error));
   });
 };
+var scryptBufferPromise = /*#__PURE__*/function () {
+  var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(password, salt, n, r, p, dkLen, output) {
+    var derived;
+    return _regenerator().w(function (_context26) {
+      while (1) switch (_context26.n) {
+        case 0:
+          _context26.n = 1;
+          return (0,_noble_hashes_scrypt__WEBPACK_IMPORTED_MODULE_8__.scryptAsync)(_u(password), _u(salt), {
+            N: n,
+            r: r,
+            p: p,
+            dkLen: dkLen
+          });
+        case 1:
+          derived = _context26.v;
+          return _context26.a(2, _writeBytes(output, derived));
+      }
+    }, _callee26);
+  }));
+  return function scryptBufferPromise(_x23, _x24, _x25, _x26, _x27, _x28, _x29) {
+    return _ref14.apply(this, arguments);
+  };
+}();
 var xchacha20poly1305 = function xchacha20poly1305(key, /*byte[]*/
 nonce, /*byte[]*/
 data, /*byte[]*/
@@ -11666,46 +12058,6 @@ forEncryption /*bool*/) {
 var xchacha20poly1305Buffer = function xchacha20poly1305Buffer(key, nonce, data, associatedData, forEncryption, output) {
   return _writeBytes(output, xchacha20poly1305(key, nonce, data, associatedData, forEncryption));
 };
-var registerFinalizer = function registerFinalizer(obj, callback) {
-  // void
-
-  if (typeof FinalizationRegistry === 'undefined') {
-    return function () {
-      callback();
-    };
-  }
-  var s = _s();
-  if (typeof s._ngeTeaVMFinalizerMap == 'undefined') {
-    s._ngeTeaVMFinalizerMap = {};
-  }
-  if (typeof s._ngeTeaVMFinalizerMap_counter == 'undefined') {
-    s._ngeTeaVMFinalizerMap_counter = 1;
-  }
-  var id = "finalizer_" + s._ngeTeaVMFinalizerMap_counter++;
-  s._ngeTeaVMFinalizerMap[id] = callback;
-  if (typeof s.ngeTeaVMFinalizationRegistry == 'undefined') {
-    s.ngeTeaVMFinalizationRegistry = new FinalizationRegistry(function (id) {
-      if (s._ngeTeaVMFinalizerMap[id]) {
-        try {
-          s._ngeTeaVMFinalizerMap[id]();
-        } catch (e) {
-          console.error('Error in finalizer callback:', e);
-        }
-        delete s._ngeTeaVMFinalizerMap[id];
-      }
-    });
-  }
-  s.ngeTeaVMFinalizationRegistry.register(obj, id, obj);
-  return function () {
-    if (s.ngeTeaVMFinalizationRegistry && id) {
-      s.ngeTeaVMFinalizationRegistry.unregister(obj);
-      if (s._ngeTeaVMFinalizerMap[id]) {
-        delete s._ngeTeaVMFinalizerMap[id];
-      }
-      callback();
-    }
-  };
-};
 var rtcSetLocalDescriptionAsync = function rtcSetLocalDescriptionAsync(conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) {
   // void
   conn.setLocalDescription({
@@ -11717,6 +12069,137 @@ var rtcSetLocalDescriptionAsync = function rtcSetLocalDescriptionAsync(conn /*RT
     console.error('Error setting local description:', error);
     rej(String(error));
   });
+};
+var rtcSetLocalDescriptionPromise = function rtcSetLocalDescriptionPromise(conn, sdp, type) {
+  return conn.setLocalDescription({
+    type: type,
+    sdp: sdp
+  });
+};
+var rtcSetRemoteDescriptionPromise = function rtcSetRemoteDescriptionPromise(conn, sdp, type) {
+  return conn.setRemoteDescription({
+    type: type,
+    sdp: sdp
+  });
+};
+var rtcAddIceCandidatePromise = function rtcAddIceCandidatePromise(conn, candidate) {
+  return conn.addIceCandidate(candidate);
+};
+var rtcCreateAnswerPromise = function rtcCreateAnswerPromise(conn) {
+  return conn.createAnswer();
+};
+var rtcCreateOfferPromise = function rtcCreateOfferPromise(conn) {
+  return conn.createOffer();
+};
+var rtcInitPeerEventQueue = function rtcInitPeerEventQueue(conn) {
+  if (conn._ngeEventQueueState && !conn._ngeEventQueueState.disposed) {
+    return;
+  }
+  _initEventQueue(conn);
+  conn.addEventListener('icecandidate', function (event) {
+    if (event.candidate) {
+      _enqueueEvent(conn, {
+        type: 1,
+        candidate: event.candidate
+      });
+    }
+  });
+  conn.addEventListener('iceconnectionstatechange', function () {
+    _enqueueEvent(conn, {
+      type: 2,
+      state: conn.iceConnectionState
+    });
+  });
+  conn.addEventListener('connectionstatechange', function () {
+    _enqueueEvent(conn, {
+      type: 3,
+      state: conn.connectionState
+    });
+  });
+  conn.addEventListener('datachannel', function (event) {
+    _enqueueEvent(conn, {
+      type: 4,
+      channel: event.channel
+    });
+  });
+};
+var rtcPeerEventType = function rtcPeerEventType(conn) {
+  var _currentEvent$type2, _currentEvent5;
+  return (_currentEvent$type2 = (_currentEvent5 = _currentEvent(conn)) === null || _currentEvent5 === void 0 ? void 0 : _currentEvent5.type) !== null && _currentEvent$type2 !== void 0 ? _currentEvent$type2 : 0;
+};
+var rtcPeerEventCandidate = function rtcPeerEventCandidate(conn) {
+  var _currentEvent$candida, _currentEvent6;
+  return (_currentEvent$candida = (_currentEvent6 = _currentEvent(conn)) === null || _currentEvent6 === void 0 ? void 0 : _currentEvent6.candidate) !== null && _currentEvent$candida !== void 0 ? _currentEvent$candida : null;
+};
+var rtcPeerEventState = function rtcPeerEventState(conn) {
+  var _currentEvent$state, _currentEvent7;
+  return (_currentEvent$state = (_currentEvent7 = _currentEvent(conn)) === null || _currentEvent7 === void 0 ? void 0 : _currentEvent7.state) !== null && _currentEvent$state !== void 0 ? _currentEvent$state : null;
+};
+var rtcPeerEventChannel = function rtcPeerEventChannel(conn) {
+  var _currentEvent$channel, _currentEvent8;
+  return (_currentEvent$channel = (_currentEvent8 = _currentEvent(conn)) === null || _currentEvent8 === void 0 ? void 0 : _currentEvent8.channel) !== null && _currentEvent$channel !== void 0 ? _currentEvent$channel : null;
+};
+var rtcPeerConsumeEvent = function rtcPeerConsumeEvent(conn) {
+  var _conn$_ngeEventQueueS;
+  (_conn$_ngeEventQueueS = conn._ngeEventQueueState) === null || _conn$_ngeEventQueueS === void 0 || (_conn$_ngeEventQueueS = _conn$_ngeEventQueueS.queue) === null || _conn$_ngeEventQueueS === void 0 || _conn$_ngeEventQueueS.shift();
+};
+var rtcInitDataChannelEventQueue = function rtcInitDataChannelEventQueue(channel) {
+  if (channel._ngeEventQueueState && !channel._ngeEventQueueState.disposed) {
+    return;
+  }
+  _initEventQueue(channel);
+  channel.binaryType = 'arraybuffer';
+  channel.addEventListener('open', function () {
+    return _enqueueEvent(channel, {
+      type: 1
+    });
+  });
+  channel.addEventListener('close', function () {
+    return _enqueueEvent(channel, {
+      type: 2
+    });
+  });
+  channel.addEventListener('error', function (event) {
+    var _event$error;
+    _enqueueEvent(channel, {
+      type: 3,
+      error: String((_event$error = event === null || event === void 0 ? void 0 : event.error) !== null && _event$error !== void 0 ? _event$error : 'RTC data channel error')
+    });
+  });
+  channel.addEventListener('bufferedamountlow', function () {
+    return _enqueueEvent(channel, {
+      type: 4
+    });
+  });
+  channel.addEventListener('message', function (event) {
+    _enqueueEvent(channel, {
+      type: 5,
+      binary: _u(event.data)
+    });
+  });
+};
+var rtcDataChannelEventType = function rtcDataChannelEventType(channel) {
+  var _currentEvent$type3, _currentEvent9;
+  return (_currentEvent$type3 = (_currentEvent9 = _currentEvent(channel)) === null || _currentEvent9 === void 0 ? void 0 : _currentEvent9.type) !== null && _currentEvent$type3 !== void 0 ? _currentEvent$type3 : 0;
+};
+var rtcDataChannelEventError = function rtcDataChannelEventError(channel) {
+  var _currentEvent$error, _currentEvent0;
+  return (_currentEvent$error = (_currentEvent0 = _currentEvent(channel)) === null || _currentEvent0 === void 0 ? void 0 : _currentEvent0.error) !== null && _currentEvent$error !== void 0 ? _currentEvent$error : null;
+};
+var rtcDataChannelEventBinaryLength = function rtcDataChannelEventBinaryLength(channel) {
+  var _currentEvent$binary$2, _currentEvent1;
+  return (_currentEvent$binary$2 = (_currentEvent1 = _currentEvent(channel)) === null || _currentEvent1 === void 0 || (_currentEvent1 = _currentEvent1.binary) === null || _currentEvent1 === void 0 ? void 0 : _currentEvent1.byteLength) !== null && _currentEvent$binary$2 !== void 0 ? _currentEvent$binary$2 : 0;
+};
+var rtcReadDataChannelBinaryEvent = function rtcReadDataChannelBinaryEvent(channel, output) {
+  var event = _currentEvent(channel);
+  if (!event || event.type !== 5) {
+    throw new Error('Current RTC data channel event is not binary');
+  }
+  return _writeBytes(output, event.binary);
+};
+var rtcDataChannelConsumeEvent = function rtcDataChannelConsumeEvent(channel) {
+  var _channel$_ngeEventQue;
+  (_channel$_ngeEventQue = channel._ngeEventQueueState) === null || _channel$_ngeEventQue === void 0 || (_channel$_ngeEventQue = _channel$_ngeEventQue.queue) === null || _channel$_ngeEventQue === void 0 || _channel$_ngeEventQue.shift();
 };
 var rtcSetRemoteDescriptionAsync = function rtcSetRemoteDescriptionAsync(conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) {
   // void
@@ -11837,7 +12320,8 @@ var rtcDataChannelGetAvailableAmount = function rtcDataChannelGetAvailableAmount
 var rtcDataChannelSetBufferedAmountLowThreshold = function rtcDataChannelSetBufferedAmountLowThreshold(channel, threshold) {
   channel.bufferedAmountLowThreshold = Number(threshold);
 };
-var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res, rej) {
+var fetchPromise = function fetchPromise(method, url, headers, body, timeoutMs) {
+  var _s10, _s11;
   var controller = new AbortController();
   var timeoutId = TeaVMBinds_setTimeout(function () {
     return controller.abort();
@@ -11850,45 +12334,68 @@ var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res,
   if (body && method !== 'GET' && method !== 'HEAD') {
     options.body = _u(body);
   }
-  fetch(url, options).then(/*#__PURE__*/function () {
-    var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(response) {
-      var respHeaders, respBody, out, _t1, _t10;
-      return _regenerator().w(function (_context23) {
-        while (1) switch (_context23.n) {
+  var fetchImpl = ((_s10 = _s()) === null || _s10 === void 0 ? void 0 : _s10.ngeFetch) || ((_s11 = _s()) === null || _s11 === void 0 ? void 0 : _s11.fetch);
+  if (typeof fetchImpl !== 'function') {
+    clearTimeout(timeoutId);
+    return Promise.reject(new Error('Fetch is not available in this runtime'));
+  }
+  return fetchImpl.call(_s(), url, options).then(/*#__PURE__*/function () {
+    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(response) {
+      var respHeaders, respBody, _t12, _t13;
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
             response.headers.forEach(function (value, key) {
               respHeaders[key] = value;
             });
-            _t1 = Uint8Array;
-            _context23.n = 1;
+            _t12 = Uint8Array;
+            _context27.n = 1;
             return response.arrayBuffer();
           case 1:
-            _t10 = _context23.v;
-            respBody = new _t1(_t10);
-            out = {
+            _t13 = _context27.v;
+            respBody = new _t12(_t13);
+            return _context27.a(2, {
               status: response.status,
               statusText: response.statusText,
               headers: JSON.stringify(respHeaders),
-              body: new Uint8Array(respBody)
-            };
-            res(out);
-          case 2:
-            return _context23.a(2);
+              body: respBody
+            });
         }
-      }, _callee23);
+      }, _callee27);
     }));
-    return function (_x18) {
-      return _ref11.apply(this, arguments);
+    return function (_x30) {
+      return _ref15.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
-    rej(String(error));
+    throw error;
+  });
+};
+var fetchAsync = function fetchAsync(method, url, headers, body, timeoutMs, res, rej) {
+  fetchPromise(method, url, headers, body, timeoutMs).then(function (response) {
+    return res(response.status, response.headers, response.body);
+  })["catch"](function (error) {
+    return rej(String(error));
   });
 };
 var fetchBufferAsync = fetchAsync;
-var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, timeoutMs, res, rej) {
+var fetchBufferPromise = fetchPromise;
+var _httpResponseBody = function _httpResponseBody(response) {
+  if (!response || response.body == null) {
+    return new Uint8Array(0);
+  }
+  return _u(response.body);
+};
+var httpResponseBodyLength = function httpResponseBodyLength(response) {
+  return _httpResponseBody(response).byteLength;
+};
+var copyHttpResponseBody = function copyHttpResponseBody(response, output) {
+  return _writeBytes(output, _httpResponseBody(response));
+};
+var fetchStreamPromise = function fetchStreamPromise(method, url, headers, body, timeoutMs) {
+  var _s12, _s13;
   var controller = new AbortController();
   var timeoutId = TeaVMBinds_setTimeout(function () {
     return controller.abort();
@@ -11902,11 +12409,16 @@ var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, tim
   if (body && method !== 'GET' && method !== 'HEAD') {
     options.body = _u(body);
   }
-  fetch(url, options).then(/*#__PURE__*/function () {
-    var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(response) {
-      var respHeaders, stream, out;
-      return _regenerator().w(function (_context24) {
-        while (1) switch (_context24.n) {
+  var fetchImpl = ((_s12 = _s()) === null || _s12 === void 0 ? void 0 : _s12.ngeFetch) || ((_s13 = _s()) === null || _s13 === void 0 ? void 0 : _s13.fetch);
+  if (typeof fetchImpl !== 'function') {
+    clearTimeout(timeoutId);
+    return Promise.reject(new Error('Fetch is not available in this runtime'));
+  }
+  return fetchImpl.call(_s(), url, options).then(/*#__PURE__*/function () {
+    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(response) {
+      var respHeaders, stream;
+      return _regenerator().w(function (_context28) {
+        while (1) switch (_context28.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
@@ -11914,90 +12426,53 @@ var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, tim
               respHeaders[key] = value;
             });
             stream = response.body;
-            out = {
+            return _context28.a(2, {
               status: response.status,
               statusText: response.statusText,
               headers: JSON.stringify(respHeaders),
               body: stream
-            };
-            res(out);
-          case 1:
-            return _context24.a(2);
+            });
         }
-      }, _callee24);
+      }, _callee28);
     }));
-    return function (_x19) {
-      return _ref12.apply(this, arguments);
+    return function (_x31) {
+      return _ref16.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
-    rej(String(error));
+    throw error;
   });
 };
-var pendingPromises = {};
-var promiseCounter = 1;
-
-// setInterval(() => {
-//     const pn = Object.entries(pendingPromises).filter(([id, p]) => !p.done).map(([id, p]) => id);
-//     console.log(`Pending promises: ${pn.length}`);
-//     for (const id of pn) {
-//         const p = pendingPromises[id];
-//         console.log(`  Promise (pending) ${id}: ${p.debug}`);
-//     }
-// }, 60000);
-
+var fetchStreamAsync = function fetchStreamAsync(method, url, headers, body, timeoutMs, res, rej) {
+  fetchStreamPromise(method, url, headers, body, timeoutMs).then(function (response) {
+    return res(response.status, response.headers, response.body);
+  })["catch"](function (error) {
+    return rej(String(error));
+  });
+};
 var newPromise = function newPromise() {
-  var debug = new Error().stack.split('\n').slice(1).join('\n');
-  promiseCounter++;
-  var id = promiseCounter;
   var res, rej;
   var p = new Promise(function (resolve, reject) {
     res = resolve;
     rej = reject;
   }).then(function () {})["catch"](function (e) {});
-  pendingPromises[id] = {
+  return {
     promise: p,
     resolve: res,
     reject: rej,
-    debug: debug,
     done: false
   };
-  return id;
 };
-var freePromise = function freePromise(id) {
-  if (pendingPromises[id]) {
-    delete pendingPromises[id];
-  }
+var resolvePromise = function resolvePromise(handle) {
+  handle.done = true;
+  handle.resolve();
 };
-var resolvePromise = function resolvePromise(id) {
-  if (pendingPromises[id]) {
-    var p = pendingPromises[id];
-    p.done = true;
-    p.resolve();
-  } else {
-    console.warn("Promise with id ".concat(id, " not found for resolution."));
-  }
+var rejectPromise = function rejectPromise(handle) {
+  handle.done = true;
+  handle.reject(new Error('Promise rejected'));
 };
-var rejectPromise = function rejectPromise(id) {
-  if (pendingPromises[id]) {
-    var p = pendingPromises[id];
-    p.done = true;
-    p.reject(new Error('Promise rejected'));
-  } else {
-    console.warn("Promise with id ".concat(id, " not found for rejection."));
-  }
-};
-var waitPromiseAsync = function waitPromiseAsync(id, res, rej) {
-  if (pendingPromises[id]) {
-    pendingPromises[id].promise.then(function () {
-      return res();
-    })["catch"](function (error) {
-      return rej(String(error));
-    });
-  } else {
-    console.warn("Promise with id ".concat(id, " not found for waiting."));
-    rej(String("Promise with id ".concat(id, " not found.")));
-  }
+var getPromise = function getPromise(handle) {
+  return handle.promise;
 };
 var rtcSetOnMessageHandler = function rtcSetOnMessageHandler(channel, callback) {
   // void
@@ -12046,13 +12521,21 @@ const __webpack_exports__base64decodeBuffer = __webpack_exports__.base64decodeBu
 const __webpack_exports__base64encode = __webpack_exports__.base64encode;
 const __webpack_exports__base64encodeBuffer = __webpack_exports__.base64encodeBuffer;
 const __webpack_exports__callFunction = __webpack_exports__.callFunction;
+const __webpack_exports__callFunctionPromise = __webpack_exports__.callFunctionPromise;
 const __webpack_exports__canCallFunction = __webpack_exports__.canCallFunction;
+const __webpack_exports__canCallFunctionPromise = __webpack_exports__.canCallFunctionPromise;
 const __webpack_exports__chacha20 = __webpack_exports__.chacha20;
 const __webpack_exports__chacha20Buffer = __webpack_exports__.chacha20Buffer;
+const __webpack_exports__copyHttpResponseBody = __webpack_exports__.copyHttpResponseBody;
+const __webpack_exports__delayPromise = __webpack_exports__.delayPromise;
+const __webpack_exports__eventQueueDispose = __webpack_exports__.eventQueueDispose;
+const __webpack_exports__eventQueueWaitPromise = __webpack_exports__.eventQueueWaitPromise;
 const __webpack_exports__fetchAsync = __webpack_exports__.fetchAsync;
 const __webpack_exports__fetchBufferAsync = __webpack_exports__.fetchBufferAsync;
+const __webpack_exports__fetchBufferPromise = __webpack_exports__.fetchBufferPromise;
+const __webpack_exports__fetchPromise = __webpack_exports__.fetchPromise;
 const __webpack_exports__fetchStreamAsync = __webpack_exports__.fetchStreamAsync;
-const __webpack_exports__freePromise = __webpack_exports__.freePromise;
+const __webpack_exports__fetchStreamPromise = __webpack_exports__.fetchStreamPromise;
 const __webpack_exports__fromJSON = __webpack_exports__.fromJSON;
 const __webpack_exports__genPubKey = __webpack_exports__.genPubKey;
 const __webpack_exports__genPubKeyBuffer = __webpack_exports__.genPubKeyBuffer;
@@ -12060,7 +12543,10 @@ const __webpack_exports__generatePrivateKey = __webpack_exports__.generatePrivat
 const __webpack_exports__generatePrivateKeyBuffer = __webpack_exports__.generatePrivateKeyBuffer;
 const __webpack_exports__getBundledResource = __webpack_exports__.getBundledResource;
 const __webpack_exports__getClipboardContentAsync = __webpack_exports__.getClipboardContentAsync;
+const __webpack_exports__getClipboardContentPromise = __webpack_exports__.getClipboardContentPromise;
 const __webpack_exports__getPlatformName = __webpack_exports__.getPlatformName;
+const __webpack_exports__getPromise = __webpack_exports__.getPromise;
+const __webpack_exports__getRuntimeName = __webpack_exports__.getRuntimeName;
 const __webpack_exports__hasBundledResource = __webpack_exports__.hasBundledResource;
 const __webpack_exports__hkdfExpandBuffer = __webpack_exports__.hkdfExpandBuffer;
 const __webpack_exports__hkdfExtractBuffer = __webpack_exports__.hkdfExtractBuffer;
@@ -12068,21 +12554,28 @@ const __webpack_exports__hkdf_expand = __webpack_exports__.hkdf_expand;
 const __webpack_exports__hkdf_extract = __webpack_exports__.hkdf_extract;
 const __webpack_exports__hmac = __webpack_exports__.hmac;
 const __webpack_exports__hmacBuffer = __webpack_exports__.hmacBuffer;
+const __webpack_exports__httpResponseBodyLength = __webpack_exports__.httpResponseBodyLength;
 const __webpack_exports__newPromise = __webpack_exports__.newPromise;
 const __webpack_exports__nfkc = __webpack_exports__.nfkc;
 const __webpack_exports__openURL = __webpack_exports__.openURL;
 const __webpack_exports__panic = __webpack_exports__.panic;
 const __webpack_exports__randomBytes = __webpack_exports__.randomBytes;
 const __webpack_exports__randomBytesBuffer = __webpack_exports__.randomBytesBuffer;
-const __webpack_exports__registerFinalizer = __webpack_exports__.registerFinalizer;
 const __webpack_exports__rejectPromise = __webpack_exports__.rejectPromise;
 const __webpack_exports__resolvePromise = __webpack_exports__.resolvePromise;
 const __webpack_exports__rtcAddIceCandidateAsync = __webpack_exports__.rtcAddIceCandidateAsync;
+const __webpack_exports__rtcAddIceCandidatePromise = __webpack_exports__.rtcAddIceCandidatePromise;
 const __webpack_exports__rtcCreateAnswerAsync = __webpack_exports__.rtcCreateAnswerAsync;
+const __webpack_exports__rtcCreateAnswerPromise = __webpack_exports__.rtcCreateAnswerPromise;
 const __webpack_exports__rtcCreateDataChannel = __webpack_exports__.rtcCreateDataChannel;
 const __webpack_exports__rtcCreateIceCandidate = __webpack_exports__.rtcCreateIceCandidate;
 const __webpack_exports__rtcCreateOfferAsync = __webpack_exports__.rtcCreateOfferAsync;
+const __webpack_exports__rtcCreateOfferPromise = __webpack_exports__.rtcCreateOfferPromise;
 const __webpack_exports__rtcCreatePeerConnection = __webpack_exports__.rtcCreatePeerConnection;
+const __webpack_exports__rtcDataChannelConsumeEvent = __webpack_exports__.rtcDataChannelConsumeEvent;
+const __webpack_exports__rtcDataChannelEventBinaryLength = __webpack_exports__.rtcDataChannelEventBinaryLength;
+const __webpack_exports__rtcDataChannelEventError = __webpack_exports__.rtcDataChannelEventError;
+const __webpack_exports__rtcDataChannelEventType = __webpack_exports__.rtcDataChannelEventType;
 const __webpack_exports__rtcDataChannelGetAvailableAmount = __webpack_exports__.rtcDataChannelGetAvailableAmount;
 const __webpack_exports__rtcDataChannelGetBufferedAmount = __webpack_exports__.rtcDataChannelGetBufferedAmount;
 const __webpack_exports__rtcDataChannelGetMaxPacketLifeTime = __webpack_exports__.rtcDataChannelGetMaxPacketLifeTime;
@@ -12092,10 +12585,21 @@ const __webpack_exports__rtcDataChannelIsOrdered = __webpack_exports__.rtcDataCh
 const __webpack_exports__rtcDataChannelIsReliable = __webpack_exports__.rtcDataChannelIsReliable;
 const __webpack_exports__rtcDataChannelSetBufferedAmountLowThreshold = __webpack_exports__.rtcDataChannelSetBufferedAmountLowThreshold;
 const __webpack_exports__rtcGetMaxMessageSize = __webpack_exports__.rtcGetMaxMessageSize;
+const __webpack_exports__rtcInitDataChannelEventQueue = __webpack_exports__.rtcInitDataChannelEventQueue;
+const __webpack_exports__rtcInitPeerEventQueue = __webpack_exports__.rtcInitPeerEventQueue;
+const __webpack_exports__rtcPeerConsumeEvent = __webpack_exports__.rtcPeerConsumeEvent;
+const __webpack_exports__rtcPeerEventCandidate = __webpack_exports__.rtcPeerEventCandidate;
+const __webpack_exports__rtcPeerEventChannel = __webpack_exports__.rtcPeerEventChannel;
+const __webpack_exports__rtcPeerEventState = __webpack_exports__.rtcPeerEventState;
+const __webpack_exports__rtcPeerEventType = __webpack_exports__.rtcPeerEventType;
+const __webpack_exports__rtcReadDataChannelBinaryEvent = __webpack_exports__.rtcReadDataChannelBinaryEvent;
 const __webpack_exports__rtcSetLocalDescriptionAsync = __webpack_exports__.rtcSetLocalDescriptionAsync;
+const __webpack_exports__rtcSetLocalDescriptionPromise = __webpack_exports__.rtcSetLocalDescriptionPromise;
 const __webpack_exports__rtcSetOnMessageHandler = __webpack_exports__.rtcSetOnMessageHandler;
 const __webpack_exports__rtcSetRemoteDescriptionAsync = __webpack_exports__.rtcSetRemoteDescriptionAsync;
+const __webpack_exports__rtcSetRemoteDescriptionPromise = __webpack_exports__.rtcSetRemoteDescriptionPromise;
 const __webpack_exports__scryptAsync = __webpack_exports__.scryptAsync;
+const __webpack_exports__scryptBufferPromise = __webpack_exports__.scryptBufferPromise;
 const __webpack_exports__secp256k1PrivateKeyVerify = __webpack_exports__.secp256k1PrivateKeyVerify;
 const __webpack_exports__secp256k1PrivateKeyVerifyBuffer = __webpack_exports__.secp256k1PrivateKeyVerifyBuffer;
 const __webpack_exports__secp256k1PublicKeyCreate = __webpack_exports__.secp256k1PublicKeyCreate;
@@ -12118,11 +12622,22 @@ const __webpack_exports__toJSON = __webpack_exports__.toJSON;
 const __webpack_exports__verify = __webpack_exports__.verify;
 const __webpack_exports__verifyBuffer = __webpack_exports__.verifyBuffer;
 const __webpack_exports__vfileDeleteAsync = __webpack_exports__.vfileDeleteAsync;
+const __webpack_exports__vfileDeletePromise = __webpack_exports__.vfileDeletePromise;
 const __webpack_exports__vfileExistsAsync = __webpack_exports__.vfileExistsAsync;
+const __webpack_exports__vfileExistsPromise = __webpack_exports__.vfileExistsPromise;
 const __webpack_exports__vfileListAllAsync = __webpack_exports__.vfileListAllAsync;
+const __webpack_exports__vfileListAllPromise = __webpack_exports__.vfileListAllPromise;
 const __webpack_exports__vfileReadAsync = __webpack_exports__.vfileReadAsync;
+const __webpack_exports__vfileReadPromise = __webpack_exports__.vfileReadPromise;
 const __webpack_exports__vfileWriteAsync = __webpack_exports__.vfileWriteAsync;
-const __webpack_exports__waitPromiseAsync = __webpack_exports__.waitPromiseAsync;
+const __webpack_exports__vfileWritePromise = __webpack_exports__.vfileWritePromise;
+const __webpack_exports__websocketConsumeEvent = __webpack_exports__.websocketConsumeEvent;
+const __webpack_exports__websocketEventBinaryLength = __webpack_exports__.websocketEventBinaryLength;
+const __webpack_exports__websocketEventText = __webpack_exports__.websocketEventText;
+const __webpack_exports__websocketEventType = __webpack_exports__.websocketEventType;
+const __webpack_exports__websocketInitEventQueue = __webpack_exports__.websocketInitEventQueue;
+const __webpack_exports__websocketOpenPromise = __webpack_exports__.websocketOpenPromise;
+const __webpack_exports__websocketReadBinaryEvent = __webpack_exports__.websocketReadBinaryEvent;
 const __webpack_exports__xchacha20poly1305 = __webpack_exports__.xchacha20poly1305;
 const __webpack_exports__xchacha20poly1305Buffer = __webpack_exports__.xchacha20poly1305Buffer;
-export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__aes256cbcBuffer as aes256cbcBuffer, __webpack_exports__base64decode as base64decode, __webpack_exports__base64decodeBuffer as base64decodeBuffer, __webpack_exports__base64encode as base64encode, __webpack_exports__base64encodeBuffer as base64encodeBuffer, __webpack_exports__callFunction as callFunction, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__chacha20 as chacha20, __webpack_exports__chacha20Buffer as chacha20Buffer, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchBufferAsync as fetchBufferAsync, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__freePromise as freePromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__genPubKeyBuffer as genPubKeyBuffer, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__generatePrivateKeyBuffer as generatePrivateKeyBuffer, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdfExpandBuffer as hkdfExpandBuffer, __webpack_exports__hkdfExtractBuffer as hkdfExtractBuffer, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__hmacBuffer as hmacBuffer, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__panic as panic, __webpack_exports__randomBytes as randomBytes, __webpack_exports__randomBytesBuffer as randomBytesBuffer, __webpack_exports__registerFinalizer as registerFinalizer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcAddIceCandidateAsync as rtcAddIceCandidateAsync, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateDataChannel as rtcCreateDataChannel, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcDataChannelGetAvailableAmount as rtcDataChannelGetAvailableAmount, __webpack_exports__rtcDataChannelGetBufferedAmount as rtcDataChannelGetBufferedAmount, __webpack_exports__rtcDataChannelGetMaxPacketLifeTime as rtcDataChannelGetMaxPacketLifeTime, __webpack_exports__rtcDataChannelGetMaxRetransmits as rtcDataChannelGetMaxRetransmits, __webpack_exports__rtcDataChannelGetProtocol as rtcDataChannelGetProtocol, __webpack_exports__rtcDataChannelIsOrdered as rtcDataChannelIsOrdered, __webpack_exports__rtcDataChannelIsReliable as rtcDataChannelIsReliable, __webpack_exports__rtcDataChannelSetBufferedAmountLowThreshold as rtcDataChannelSetBufferedAmountLowThreshold, __webpack_exports__rtcGetMaxMessageSize as rtcGetMaxMessageSize, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__secp256k1PrivateKeyVerify as secp256k1PrivateKeyVerify, __webpack_exports__secp256k1PrivateKeyVerifyBuffer as secp256k1PrivateKeyVerifyBuffer, __webpack_exports__secp256k1PublicKeyCreate as secp256k1PublicKeyCreate, __webpack_exports__secp256k1PublicKeyCreateBuffer as secp256k1PublicKeyCreateBuffer, __webpack_exports__secp256k1PublicKeyVerify as secp256k1PublicKeyVerify, __webpack_exports__secp256k1PublicKeyVerifyBuffer as secp256k1PublicKeyVerifyBuffer, __webpack_exports__secp256k1RecoverPublicKey as secp256k1RecoverPublicKey, __webpack_exports__secp256k1RecoverPublicKeyBuffer as secp256k1RecoverPublicKeyBuffer, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__secp256k1SharedSecretBuffer as secp256k1SharedSecretBuffer, __webpack_exports__secp256k1SignRecoverable as secp256k1SignRecoverable, __webpack_exports__secp256k1SignRecoverableBuffer as secp256k1SignRecoverableBuffer, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sha256Buffer as sha256Buffer, __webpack_exports__sign as sign, __webpack_exports__signBuffer as signBuffer, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__verifyBuffer as verifyBuffer, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__waitPromiseAsync as waitPromiseAsync, __webpack_exports__xchacha20poly1305 as xchacha20poly1305, __webpack_exports__xchacha20poly1305Buffer as xchacha20poly1305Buffer };
+export { __webpack_exports___bw as _bw, __webpack_exports__aes256cbc as aes256cbc, __webpack_exports__aes256cbcBuffer as aes256cbcBuffer, __webpack_exports__base64decode as base64decode, __webpack_exports__base64decodeBuffer as base64decodeBuffer, __webpack_exports__base64encode as base64encode, __webpack_exports__base64encodeBuffer as base64encodeBuffer, __webpack_exports__callFunction as callFunction, __webpack_exports__callFunctionPromise as callFunctionPromise, __webpack_exports__canCallFunction as canCallFunction, __webpack_exports__canCallFunctionPromise as canCallFunctionPromise, __webpack_exports__chacha20 as chacha20, __webpack_exports__chacha20Buffer as chacha20Buffer, __webpack_exports__copyHttpResponseBody as copyHttpResponseBody, __webpack_exports__delayPromise as delayPromise, __webpack_exports__eventQueueDispose as eventQueueDispose, __webpack_exports__eventQueueWaitPromise as eventQueueWaitPromise, __webpack_exports__fetchAsync as fetchAsync, __webpack_exports__fetchBufferAsync as fetchBufferAsync, __webpack_exports__fetchBufferPromise as fetchBufferPromise, __webpack_exports__fetchPromise as fetchPromise, __webpack_exports__fetchStreamAsync as fetchStreamAsync, __webpack_exports__fetchStreamPromise as fetchStreamPromise, __webpack_exports__fromJSON as fromJSON, __webpack_exports__genPubKey as genPubKey, __webpack_exports__genPubKeyBuffer as genPubKeyBuffer, __webpack_exports__generatePrivateKey as generatePrivateKey, __webpack_exports__generatePrivateKeyBuffer as generatePrivateKeyBuffer, __webpack_exports__getBundledResource as getBundledResource, __webpack_exports__getClipboardContentAsync as getClipboardContentAsync, __webpack_exports__getClipboardContentPromise as getClipboardContentPromise, __webpack_exports__getPlatformName as getPlatformName, __webpack_exports__getPromise as getPromise, __webpack_exports__getRuntimeName as getRuntimeName, __webpack_exports__hasBundledResource as hasBundledResource, __webpack_exports__hkdfExpandBuffer as hkdfExpandBuffer, __webpack_exports__hkdfExtractBuffer as hkdfExtractBuffer, __webpack_exports__hkdf_expand as hkdf_expand, __webpack_exports__hkdf_extract as hkdf_extract, __webpack_exports__hmac as hmac, __webpack_exports__hmacBuffer as hmacBuffer, __webpack_exports__httpResponseBodyLength as httpResponseBodyLength, __webpack_exports__newPromise as newPromise, __webpack_exports__nfkc as nfkc, __webpack_exports__openURL as openURL, __webpack_exports__panic as panic, __webpack_exports__randomBytes as randomBytes, __webpack_exports__randomBytesBuffer as randomBytesBuffer, __webpack_exports__rejectPromise as rejectPromise, __webpack_exports__resolvePromise as resolvePromise, __webpack_exports__rtcAddIceCandidateAsync as rtcAddIceCandidateAsync, __webpack_exports__rtcAddIceCandidatePromise as rtcAddIceCandidatePromise, __webpack_exports__rtcCreateAnswerAsync as rtcCreateAnswerAsync, __webpack_exports__rtcCreateAnswerPromise as rtcCreateAnswerPromise, __webpack_exports__rtcCreateDataChannel as rtcCreateDataChannel, __webpack_exports__rtcCreateIceCandidate as rtcCreateIceCandidate, __webpack_exports__rtcCreateOfferAsync as rtcCreateOfferAsync, __webpack_exports__rtcCreateOfferPromise as rtcCreateOfferPromise, __webpack_exports__rtcCreatePeerConnection as rtcCreatePeerConnection, __webpack_exports__rtcDataChannelConsumeEvent as rtcDataChannelConsumeEvent, __webpack_exports__rtcDataChannelEventBinaryLength as rtcDataChannelEventBinaryLength, __webpack_exports__rtcDataChannelEventError as rtcDataChannelEventError, __webpack_exports__rtcDataChannelEventType as rtcDataChannelEventType, __webpack_exports__rtcDataChannelGetAvailableAmount as rtcDataChannelGetAvailableAmount, __webpack_exports__rtcDataChannelGetBufferedAmount as rtcDataChannelGetBufferedAmount, __webpack_exports__rtcDataChannelGetMaxPacketLifeTime as rtcDataChannelGetMaxPacketLifeTime, __webpack_exports__rtcDataChannelGetMaxRetransmits as rtcDataChannelGetMaxRetransmits, __webpack_exports__rtcDataChannelGetProtocol as rtcDataChannelGetProtocol, __webpack_exports__rtcDataChannelIsOrdered as rtcDataChannelIsOrdered, __webpack_exports__rtcDataChannelIsReliable as rtcDataChannelIsReliable, __webpack_exports__rtcDataChannelSetBufferedAmountLowThreshold as rtcDataChannelSetBufferedAmountLowThreshold, __webpack_exports__rtcGetMaxMessageSize as rtcGetMaxMessageSize, __webpack_exports__rtcInitDataChannelEventQueue as rtcInitDataChannelEventQueue, __webpack_exports__rtcInitPeerEventQueue as rtcInitPeerEventQueue, __webpack_exports__rtcPeerConsumeEvent as rtcPeerConsumeEvent, __webpack_exports__rtcPeerEventCandidate as rtcPeerEventCandidate, __webpack_exports__rtcPeerEventChannel as rtcPeerEventChannel, __webpack_exports__rtcPeerEventState as rtcPeerEventState, __webpack_exports__rtcPeerEventType as rtcPeerEventType, __webpack_exports__rtcReadDataChannelBinaryEvent as rtcReadDataChannelBinaryEvent, __webpack_exports__rtcSetLocalDescriptionAsync as rtcSetLocalDescriptionAsync, __webpack_exports__rtcSetLocalDescriptionPromise as rtcSetLocalDescriptionPromise, __webpack_exports__rtcSetOnMessageHandler as rtcSetOnMessageHandler, __webpack_exports__rtcSetRemoteDescriptionAsync as rtcSetRemoteDescriptionAsync, __webpack_exports__rtcSetRemoteDescriptionPromise as rtcSetRemoteDescriptionPromise, __webpack_exports__scryptAsync as scryptAsync, __webpack_exports__scryptBufferPromise as scryptBufferPromise, __webpack_exports__secp256k1PrivateKeyVerify as secp256k1PrivateKeyVerify, __webpack_exports__secp256k1PrivateKeyVerifyBuffer as secp256k1PrivateKeyVerifyBuffer, __webpack_exports__secp256k1PublicKeyCreate as secp256k1PublicKeyCreate, __webpack_exports__secp256k1PublicKeyCreateBuffer as secp256k1PublicKeyCreateBuffer, __webpack_exports__secp256k1PublicKeyVerify as secp256k1PublicKeyVerify, __webpack_exports__secp256k1PublicKeyVerifyBuffer as secp256k1PublicKeyVerifyBuffer, __webpack_exports__secp256k1RecoverPublicKey as secp256k1RecoverPublicKey, __webpack_exports__secp256k1RecoverPublicKeyBuffer as secp256k1RecoverPublicKeyBuffer, __webpack_exports__secp256k1SharedSecret as secp256k1SharedSecret, __webpack_exports__secp256k1SharedSecretBuffer as secp256k1SharedSecretBuffer, __webpack_exports__secp256k1SignRecoverable as secp256k1SignRecoverable, __webpack_exports__secp256k1SignRecoverableBuffer as secp256k1SignRecoverableBuffer, __webpack_exports__setClipboardContent as setClipboardContent, __webpack_exports__setTimeout as setTimeout, __webpack_exports__sha256 as sha256, __webpack_exports__sha256Buffer as sha256Buffer, __webpack_exports__sign as sign, __webpack_exports__signBuffer as signBuffer, __webpack_exports__toJSON as toJSON, __webpack_exports__verify as verify, __webpack_exports__verifyBuffer as verifyBuffer, __webpack_exports__vfileDeleteAsync as vfileDeleteAsync, __webpack_exports__vfileDeletePromise as vfileDeletePromise, __webpack_exports__vfileExistsAsync as vfileExistsAsync, __webpack_exports__vfileExistsPromise as vfileExistsPromise, __webpack_exports__vfileListAllAsync as vfileListAllAsync, __webpack_exports__vfileListAllPromise as vfileListAllPromise, __webpack_exports__vfileReadAsync as vfileReadAsync, __webpack_exports__vfileReadPromise as vfileReadPromise, __webpack_exports__vfileWriteAsync as vfileWriteAsync, __webpack_exports__vfileWritePromise as vfileWritePromise, __webpack_exports__websocketConsumeEvent as websocketConsumeEvent, __webpack_exports__websocketEventBinaryLength as websocketEventBinaryLength, __webpack_exports__websocketEventText as websocketEventText, __webpack_exports__websocketEventType as websocketEventType, __webpack_exports__websocketInitEventQueue as websocketInitEventQueue, __webpack_exports__websocketOpenPromise as websocketOpenPromise, __webpack_exports__websocketReadBinaryEvent as websocketReadBinaryEvent, __webpack_exports__xchacha20poly1305 as xchacha20poly1305, __webpack_exports__xchacha20poly1305Buffer as xchacha20poly1305Buffer };

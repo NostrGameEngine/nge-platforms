@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id "war"
-    id "org.teavm" version "0.14.1"
+    id "org.teavm" version "0.15.0"
     id "com.github.node-gradle.node" version "7.1.0" 
 }
 
@@ -11,7 +11,9 @@ repositories {
 
 dependencies {
     testImplementation libs.junit4
-    testImplementation "org.teavm:teavm-junit:0.14.1"
+    testImplementation "org.teavm:teavm-junit:0.15.0"
+    testImplementation "org.teavm:teavm-core:0.15.0"
+    compileOnly "org.teavm:teavm-core:0.15.0"
  
     api project(':nge-platform-common')
     testImplementation teavm.libs.jsoApis
@@ -59,7 +61,7 @@ tasks.named('sourcesJar') {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(11) 
+        languageVersion = JavaLanguageVersion.of(17)
         vendor = JvmVendorSpec.ADOPTIUM
     }
 }
@@ -67,8 +69,8 @@ java {
 tasks.named('test') {
     useJUnit()
     // Compile every TeaVM JUnit test through both browser backends. TeaVM
-    // 0.14.1 exposes the Wasm GC test DSL but does not forward it to the test
-    // worker, so keep the explicit runner properties until that is fixed.
+    // Keep the target properties explicit so local and CI runs compile the
+    // same parity suite through both browser backends.
     systemProperty 'teavm.junit.target', "${buildDir}/js-tests"
     systemProperty 'teavm.junit.js', 'true'
     systemProperty 'teavm.junit.js.runner', System.getProperty('teavm.junit.js.runner', 'browser-chrome')
@@ -77,6 +79,7 @@ tasks.named('test') {
     doFirst {
         def jsModuleTests = [
             "TeaVMBackendParityTest",
+            "TeaVMCompiledWasmInteropTest",
             "TeaVMSecp256k1Test",
             "TeaVMWebsocketTransportUnitTest"
         ]
@@ -93,7 +96,7 @@ tasks.named('test') {
         exceptionFormat "full"
     }
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
         vendor = JvmVendorSpec.ADOPTIUM
     }
 }

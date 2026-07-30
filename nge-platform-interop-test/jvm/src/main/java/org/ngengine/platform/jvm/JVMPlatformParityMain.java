@@ -32,6 +32,7 @@ package org.ngengine.platform.jvm;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -73,7 +74,11 @@ public class JVMPlatformParityMain {
         String signalBase = args[0];
         String httpParityUrl = args[1];
 
-        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(5)).build();
+        HttpClient http = HttpClient
+            .newBuilder()
+            .version(HttpClient.Version.HTTP_1_1)
+            .connectTimeout(Duration.ofSeconds(5))
+            .build();
         JsonObject result = new JsonObject();
         try {
             JVMAsyncPlatform._NO_AUX_RANDOM = true;
@@ -159,6 +164,50 @@ public class JVMPlatformParityMain {
         ) {
             throw new AssertionError("ByteBuffer HTTP request differs from byte[] request");
         }
+        var httpBinaryRes = p
+            .httpRequest("POST", httpParityUrl + "?binary=1", new byte[0], Duration.ofSeconds(10), Map.of())
+            .await();
+        if (
+            !httpBinaryRes.status() ||
+            httpBinaryRes.statusCode() != 201 ||
+            !"000102037f80feff004e4745".equals(hex(httpBinaryRes.body()))
+        ) {
+            throw new AssertionError("Binary HTTP response differs from expected bytes");
+        }
+        var httpEmptyRes = p
+            .httpRequest("POST", httpParityUrl + "?empty=1", new byte[0], Duration.ofSeconds(10), Map.of())
+            .await();
+        if (!httpEmptyRes.status() || httpEmptyRes.statusCode() != 201 || httpEmptyRes.body().length != 0) {
+            throw new AssertionError("Empty HTTP response differs from expected bytes");
+        }
+        var httpStreamRes = p
+            .httpRequestStream(
+                "POST",
+                httpParityUrl,
+                "parity-stream-body".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+                Duration.ofSeconds(10),
+                Map.of("X-Parity-Req", "stream")
+            )
+            .await();
+        String httpStreamBody;
+        try (InputStream body = httpStreamRes.body()) {
+            httpStreamBody = new String(body.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        }
+        if (
+            !httpStreamRes.status() ||
+            httpStreamRes.statusCode() != 201 ||
+            !"echo:parity-stream-body|req:stream".equals(httpStreamBody)
+        ) {
+            throw new AssertionError("Streaming HTTP request differs from buffered request");
+        }
+        byte[] scrypt = p.scrypt(
+            "pw".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            "salt".getBytes(java.nio.charset.StandardCharsets.UTF_8),
+            1024,
+            8,
+            1,
+            32
+        );
         String httpHdr = "";
         if (httpRes.headers() != null) {
             for (Map.Entry<String, List<String>> e : httpRes.headers().entrySet()) {
@@ -197,7 +246,12 @@ public class JVMPlatformParityMain {
         out.addProperty("httpRequest_status", httpRes.status());
         out.addProperty("httpRequest_statusCode", httpRes.statusCode());
         out.addProperty("httpRequest_body", httpRes.bodyAsString());
+        out.addProperty("httpRequest_binary", hex(httpBinaryRes.body()));
+        out.addProperty("httpRequest_emptyLength", httpEmptyRes.body().length);
         out.addProperty("httpRequest_replyHeader", httpHdr);
+        out.addProperty("httpRequestStream_statusCode", httpStreamRes.statusCode());
+        out.addProperty("httpRequestStream_body", httpStreamBody);
+        out.addProperty("scrypt", hex(scrypt));
         out.addProperty("bufferOverridesVerified", true);
     }
 
@@ -210,7 +264,9 @@ public class JVMPlatformParityMain {
             .build();
         HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() / 100 != 2) {
-            throw new IllegalStateException("POST failed: " + res.statusCode() + " " + res.body());
+            throw new IllegalStateException(
+                "POST " + url + " failed: " + res.statusCode() + " " + res.body() + " headers=" + res.headers().map()
+            );
         }
     }
 

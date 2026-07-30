@@ -9,12 +9,14 @@ const state = {
   nextId: 1,
   queues: { jvm: [], android: [] },
   results: { jvm: null, android: null },
+  polling: { jvm: false, android: false },
 };
 
 function resetState() {
   state.nextId = 1;
   state.queues = { jvm: [], android: [] };
   state.results = { jvm: null, android: null };
+  state.polling = { jvm: false, android: false };
 }
 
 function json(res, status, body) {
@@ -47,6 +49,7 @@ function makeServer() {
         const to = reqUrl.searchParams.get('to');
         const after = Number(reqUrl.searchParams.get('after') || '0');
         if (to !== 'jvm' && to !== 'android') return json(res, 400, { error: 'invalid target' });
+        state.polling[to] = true;
         const messages = state.queues[to].filter((m) => (m.id || 0) > after);
         return json(res, 200, { cursor: state.nextId - 1, messages });
       }
@@ -123,12 +126,6 @@ async function runOnce(attempt) {
   const jvmSignalBase = `http://127.0.0.1:${port}/signal`;
   const androidSignalBase = `http://10.0.2.2:${port}/signal`;
 
-  const jvmPromise = spawnCapture('./gradlew', [
-    ':nge-platform-interop-test:jvm:jvmAndroidInteropJvmSide',
-    `-PinteropSignalBase=${jvmSignalBase}`,
-    '--console=plain',
-  ], { cwd: repoRoot, label: 'jvm' });
-
   const androidPromise = spawnCapture('./gradlew', [
     ':nge-platform-interop-test:android:androidRtcEmulatorHarness',
     '--console=plain',
@@ -141,7 +138,43 @@ async function runOnce(attempt) {
     },
   });
 
-  const timeoutMs = 180000;
+  const startupTimeoutMs = 300000;
+  let startupTimeoutId = null;
+  const startupTimeout = new Promise((_, reject) => {
+    startupTimeoutId = setTimeout(
+      () => reject(new Error(`Android harness did not start signaling within ${startupTimeoutMs}ms`)),
+      startupTimeoutMs
+    );
+    startupTimeoutId.unref?.();
+  });
+  const waitForAndroidPolling = async () => {
+    while (!state.polling.android) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+  };
+
+  try {
+    await Promise.race([
+      waitForAndroidPolling(),
+      androidPromise.then((out) => {
+        throw new Error(`Android harness exited before signaling (exit=${out.code})\n${out.stderr || out.stdout}`);
+      }),
+      startupTimeout,
+    ]);
+  } catch (error) {
+    server.close();
+    throw error;
+  } finally {
+    if (startupTimeoutId) clearTimeout(startupTimeoutId);
+  }
+
+  const jvmPromise = spawnCapture('./gradlew', [
+    ':nge-platform-interop-test:jvm:jvmAndroidInteropJvmSide',
+    `-PinteropSignalBase=${jvmSignalBase}`,
+    '--console=plain',
+  ], { cwd: repoRoot, label: 'jvm' });
+
+  const timeoutMs = 240000;
   let timeoutId = null;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(`Interop harness timed out after ${timeoutMs}ms`)), timeoutMs);
