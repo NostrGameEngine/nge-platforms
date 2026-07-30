@@ -48,6 +48,24 @@ function makeServer() {
       if (reqUrl.pathname === '/parity-http') {
         if (method !== 'POST') return json(res, 405, { error: 'method not allowed' });
         const body = await readBody(req);
+        if (reqUrl.searchParams.get('binary') === '1') {
+          res.writeHead(201, {
+            'Content-Type': 'application/octet-stream',
+            'X-Parity-Reply': 'binary',
+            'Cache-Control': 'no-store'
+          });
+          res.end(Buffer.from([0x00, 0x01, 0x02, 0x03, 0x7f, 0x80, 0xfe, 0xff, 0x00, 0x4e, 0x47, 0x45]));
+          return;
+        }
+        if (reqUrl.searchParams.get('empty') === '1') {
+          res.writeHead(201, {
+            'Content-Type': 'application/octet-stream',
+            'X-Parity-Reply': 'empty',
+            'Cache-Control': 'no-store'
+          });
+          res.end();
+          return;
+        }
         const reqHdr = req.headers['x-parity-req'] || '';
         res.writeHead(201, {
           'Content-Type': 'text/plain; charset=utf-8',
