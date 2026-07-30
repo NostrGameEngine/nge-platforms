@@ -59,6 +59,20 @@ task teaVMBackendParityHarness {
     dependsOn ":nge-platform-teavm:teaVMBackendParity"
 }
 
+task compiledWasmInteropHarness(type: Exec) {
+    group = "verification"
+    description = "Runs the actual Java TeaVM Wasm GC backend against JVM over HTTP, WebSocket, and RTC"
+    dependsOn npmInstallHarness
+    dependsOn ":nge-platform-teavm:test"
+    dependsOn ":nge-platform-interop-test:jvm:writeInteropRuntimeMetadata"
+    workingDir project.projectDir
+    commandLine "node", "scripts/run-compiled-wasm-interop-harness.mjs"
+
+    doFirst {
+        println "Running compiled TeaVM Wasm GC parity and JVM interoperability harness"
+    }
+}
+
 if (hasAndroidInterop) {
     task jvmAndroidInteropHarness(type: Exec) {
         dependsOn npmInstallHarness
@@ -142,6 +156,7 @@ task interopMatrix {
     group = "verification"
     description = "Runs all interoperability harnesses across backends"
     dependsOn teaVMBackendParityHarness
+    dependsOn compiledWasmInteropHarness
     dependsOn rtcBrowserHarness
     dependsOn jvmTeaVMInteropHarness
     dependsOn jvmTeaVMNodeInteropHarness

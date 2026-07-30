@@ -996,6 +996,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             .connectTimeout(timeout)
             .followRedirects(HttpClient.Redirect.NEVER)
             .executor(executor);
+        if (Boolean.getBoolean("nge-platforms.forceHttp1")) {
+            b.version(HttpClient.Version.HTTP_1_1);
+        }
 
         HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {
@@ -1097,6 +1100,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             .connectTimeout(timeout)
             .followRedirects(HttpClient.Redirect.NEVER)
             .executor(executor);
+        if (Boolean.getBoolean("nge-platforms.forceHttp1")) {
+            b.version(HttpClient.Version.HTTP_1_1);
+        }
 
         HttpClient httpClient = b.build();
         return wrapPromise((res, rej) -> {

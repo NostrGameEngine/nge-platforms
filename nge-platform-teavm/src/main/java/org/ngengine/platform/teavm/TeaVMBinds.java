@@ -47,14 +47,28 @@ import org.teavm.jso.JSTopLevel;
 import org.teavm.jso.browser.TimerHandler;
 import org.teavm.jso.core.JSArray;
 import org.teavm.jso.core.JSBoolean;
+import org.teavm.jso.core.JSNumber;
+import org.teavm.jso.core.JSPromise;
 import org.teavm.jso.core.JSString;
+import org.teavm.jso.core.JSUndefined;
 import org.teavm.jso.function.JSConsumer;
+import org.teavm.jso.streams.ReadableStream;
 
 /**
  * Run ./gradlew build to generate the TeaVMBinds.bundle.js file
  */
 @JSClass
 public class TeaVMBinds implements JSObject {
+
+    @JSFunctor
+    public interface HttpResponseCallback extends JSObject {
+        void accept(int status, String headersJson, String bodyBase64);
+    }
+
+    @JSFunctor
+    public interface HttpStreamResponseCallback extends JSObject {
+        void accept(int status, String headersJson, ReadableStream body);
+    }
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -306,11 +320,47 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSString> getClipboardContentPromise();
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void setClipboardContent(String content);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void setTimeout(TimerHandler fn, int delay);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> delayPromise(int delay);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> websocketOpenPromise(JSObject socket, int timeoutMs);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void websocketInitEventQueue(JSObject socket);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int websocketEventType(JSObject socket);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String websocketEventText(JSObject socket);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int websocketEventBinaryLength(JSObject socket);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int websocketReadBinaryEvent(JSObject socket, @JSBuffer(JSBufferType.UINT8) ByteBuffer output);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void websocketConsumeEvent(JSObject socket);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -374,7 +424,35 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSBoolean> vfileExistsPromise(String name, String path);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<BytesWrapper> vfileReadPromise(String name, String path);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> vfileWritePromise(
+        String name,
+        String path,
+        @JSByRef(optional = true) byte[] data
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> vfileDeletePromise(String name, String path);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSArray<JSString>> vfileListAllPromise(String name);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native String getPlatformName();
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String getRuntimeName();
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -382,7 +460,15 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSString> callFunctionPromise(String function, String args);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native void canCallFunction(String function, JSConsumer<JSBoolean> res);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSBoolean> canCallFunctionPromise(String function);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -407,6 +493,18 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSNumber> scryptBufferPromise(
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer password,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer salt,
+        int n,
+        int r,
+        int p,
+        int dkLen,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef(optional = true)
     public static native byte[] xchacha20poly1305(
         @JSByRef(optional = true) byte[] key,
@@ -426,15 +524,6 @@ public class TeaVMBinds implements JSObject {
         boolean forEncryption,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer output
     );
-
-    @JSFunctor
-    public interface FinalizerCallback extends JSObject {
-        void call();
-    }
-
-    @JSTopLevel
-    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native FinalizerCallback registerFinalizer(Object obj, FinalizerCallback callback);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -480,6 +569,85 @@ public class TeaVMBinds implements JSObject {
         JSConsumer<RTCSessionDescription> res,
         JSConsumer<String> rej
     );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> rtcSetLocalDescriptionPromise(RTCPeerConnection conn, String sdp, String type);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> rtcSetRemoteDescriptionPromise(RTCPeerConnection conn, String sdp, String type);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> rtcAddIceCandidatePromise(RTCPeerConnection conn, RTCIceCandidate candidate);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<RTCSessionDescription> rtcCreateAnswerPromise(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<RTCSessionDescription> rtcCreateOfferPromise(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<JSUndefined> eventQueueWaitPromise(JSObject target);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void eventQueueDispose(JSObject target);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcInitPeerEventQueue(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcPeerEventType(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native RTCIceCandidate rtcPeerEventCandidate(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String rtcPeerEventState(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native RTCDataChannel rtcPeerEventChannel(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcPeerConsumeEvent(RTCPeerConnection conn);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcInitDataChannelEventQueue(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcDataChannelEventType(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String rtcDataChannelEventError(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcDataChannelEventBinaryLength(RTCDataChannel channel);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native int rtcReadDataChannelBinaryEvent(
+        RTCDataChannel channel,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer output
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void rtcDataChannelConsumeEvent(RTCDataChannel channel);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -545,7 +713,7 @@ public class TeaVMBinds implements JSObject {
         String headersJson,
         @JSByRef(optional = true) byte[] body,
         int timeoutMs,
-        JSConsumer<TeaVMHttpResponse> res,
+        HttpResponseCallback res,
         JSConsumer<String> rej
     );
 
@@ -557,8 +725,28 @@ public class TeaVMBinds implements JSObject {
         String headersJson,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer body,
         int timeoutMs,
-        JSConsumer<TeaVMHttpResponse> res,
+        HttpResponseCallback res,
         JSConsumer<String> rej
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<TeaVMHttpResponse> fetchPromise(
+        String method,
+        String url,
+        String headersJson,
+        @JSByRef(optional = true) byte[] body,
+        int timeoutMs
+    );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native JSPromise<TeaVMHttpResponse> fetchBufferPromise(
+        String method,
+        String url,
+        String headersJson,
+        @JSBuffer(JSBufferType.UINT8) ByteBuffer body,
+        int timeoutMs
     );
 
     @JSTopLevel
@@ -569,29 +757,35 @@ public class TeaVMBinds implements JSObject {
         String headersJson,
         @JSByRef(optional = true) byte[] body,
         int timeoutMs,
-        JSConsumer<TeaVMHttpStreamResponse> res,
+        HttpStreamResponseCallback res,
         JSConsumer<String> rej
     );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native int newPromise();
+    public static native JSPromise<TeaVMHttpStreamResponse> fetchStreamPromise(
+        String method,
+        String url,
+        String headersJson,
+        @JSByRef(optional = true) byte[] body,
+        int timeoutMs
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void resolvePromise(int id);
+    public static native JSObject newPromise();
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void rejectPromise(int id);
+    public static native void resolvePromise(JSObject handle);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void waitPromiseAsync(int id, JSConsumer<Void> res, JSConsumer<String> rej);
+    public static native void rejectPromise(JSObject handle);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void freePromise(int id);
+    public static native JSPromise<JSUndefined> getPromise(JSObject handle);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

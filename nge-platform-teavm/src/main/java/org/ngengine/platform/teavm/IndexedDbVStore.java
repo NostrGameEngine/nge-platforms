@@ -51,25 +51,7 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<InputStream> read(String path) {
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                try {
-                    TeaVMBinds.vfileReadAsync(
-                        name,
-                        path,
-                        data -> {
-                            ByteArrayInputStream bais = new ByteArrayInputStream(data.getData());
-                            res.accept(bais);
-                        },
-                        error -> {
-                            rej.accept(new IOException("Error reading file: " + error));
-                        }
-                    );
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            });
+        return platform().runAsync(() -> new ByteArrayInputStream(TeaVMBinds.vfileReadPromise(name, path).await().getData()));
     }
 
     @Override
@@ -88,7 +70,11 @@ public class IndexedDbVStore implements VStoreBackend {
 
                         @Override
                         public void flush() throws IOException {
-                            TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
+                            try {
+                                TeaVMBinds.vfileWritePromise(name, path, baos.toByteArray()).await();
+                            } catch (RuntimeException error) {
+                                throw new IOException("Error writing file: " + path, error);
+                            }
                         }
 
                         @Override
@@ -108,72 +94,34 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<Boolean> exists(String path) {
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                try {
-                    TeaVMBinds.vfileExistsAsync(
-                        name,
-                        path,
-                        exists -> {
-                            res.accept(exists.booleanValue());
-                        },
-                        error -> {
-                            rej.accept(new IOException("Error checking file existence: " + error));
-                        }
-                    );
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            });
+        return platform().runAsync(() -> TeaVMBinds.vfileExistsPromise(name, path).await().booleanValue());
     }
 
     @Override
     public AsyncTask<Void> delete(String path) {
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                try {
-                    TeaVMBinds.vfileDeleteAsync(
-                        name,
-                        path,
-                        r -> {
-                            res.accept(null);
-                        },
-                        error -> {
-                            rej.accept(new IOException("Error deleting file: " + error));
-                        }
-                    );
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
+        return platform()
+            .runAsync(() -> {
+                TeaVMBinds.vfileDeletePromise(name, path).await();
+                return null;
             });
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
-        return NGEPlatform
-            .get()
-            .wrapPromise((res, rej) -> {
-                try {
-                    TeaVMBinds.vfileListAllAsync(
-                        name,
-                        files -> {
-                            ArrayList<String> list = new ArrayList<>();
-                            if (files != null) {
-                                for (int i = 0; i < files.getLength(); i++) {
-                                    list.add(files.get(i).stringValue());
-                                }
-                            }
-                            res.accept(list);
-                        },
-                        error -> {
-                            rej.accept(new IOException("Error listing files: " + error));
-                        }
-                    );
-                } catch (Exception e) {
-                    rej.accept(e);
+        return platform()
+            .runAsync(() -> {
+                ArrayList<String> list = new ArrayList<>();
+                var files = TeaVMBinds.vfileListAllPromise(name).await();
+                if (files != null) {
+                    for (int i = 0; i < files.getLength(); i++) {
+                        list.add(files.get(i).stringValue());
+                    }
                 }
+                return list;
             });
+    }
+
+    private static TeaVMPlatform platform() {
+        return (TeaVMPlatform) NGEPlatform.get();
     }
 }

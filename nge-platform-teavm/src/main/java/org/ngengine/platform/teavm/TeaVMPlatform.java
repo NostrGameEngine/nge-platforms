@@ -33,6 +33,7 @@ package org.ngengine.platform.teavm;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -40,16 +41,14 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.ngengine.platform.AsyncExecutor;
@@ -60,17 +59,18 @@ import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
-import org.ngengine.platform.teavm.TeaVMBinds.FinalizerCallback;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
+import org.teavm.classlib.PlatformDetector;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
 
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
+    private static final Cleaner CLEANER = Cleaner.create();
     private AsyncExecutor defaultExecutor = newAsyncExecutor();
 
     @Override
@@ -437,28 +437,10 @@ public class TeaVMPlatform extends NGEPlatform {
         public boolean failed = false;
         private final List<Consumer<T>> thenCallbacks = new ArrayList<>();
         private final List<Consumer<Throwable>> catchCallbacks = new ArrayList<>();
-        private int promiseId = -1;
+        private final JSObject promiseHandle;
 
         public TeaVMPromise() {
-            StringBuilder stackTrace = new StringBuilder("StackTrace:\n");
-            Exception e = new Exception();
-            for (StackTraceElement ste : e.getStackTrace()) {
-                stackTrace.append(ste.toString()).append("\n");
-            }
-            newPromise();
-        }
-
-        private void newPromise() {
-            int promiseId = TeaVMBinds.newPromise();
-            this.promiseId = promiseId;
-            NGEPlatform
-                .get()
-                .registerFinalizer(
-                    this,
-                    () -> {
-                        TeaVMBinds.freePromise(promiseId);
-                    }
-                );
+            promiseHandle = TeaVMBinds.newPromise();
         }
 
         public void resolve(T value) {
@@ -468,7 +450,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 for (Consumer<T> callback : thenCallbacks) {
                     callback.accept(value);
                 }
-                TeaVMBinds.resolvePromise(this.promiseId);
+                TeaVMBinds.resolvePromise(this.promiseHandle);
             }
         }
 
@@ -480,7 +462,7 @@ public class TeaVMPlatform extends NGEPlatform {
                 for (Consumer<Throwable> callback : catchCallbacks) {
                     callback.accept(error);
                 }
-                TeaVMBinds.rejectPromise(this.promiseId);
+                TeaVMBinds.rejectPromise(this.promiseHandle);
             }
         }
 
@@ -503,7 +485,7 @@ public class TeaVMPlatform extends NGEPlatform {
         }
 
         public Object await() throws Exception {
-            TeaVMBindsAsync.waitPromise(promiseId);
+            TeaVMBinds.getPromise(promiseHandle).await();
             if (this.failed) {
                 throw new ExecutionException("Promise failed with error", this.error);
             }
@@ -623,89 +605,25 @@ public class TeaVMPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
-    private class ExecutorThread implements Executor {
-
-        private String name = "Executor";
-        private final LinkedList<Runnable> tasks = new LinkedList<>();
-        private volatile boolean running = true;
-
-        public ExecutorThread(int n) {}
-
-        public void start() {
-            Thread t = new Thread(() -> {
-                while (running) {
-                    Runnable task = null;
-                    synchronized (tasks) {
-                        if (tasks.isEmpty()) {
-                            try {
-                                tasks.wait(100);
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                            continue;
-                        }
-                        if (!tasks.isEmpty()) {
-                            task = tasks.removeFirst();
-                        }
-                    }
-                    try {
-                        if (task != null) task.run();
-                    } catch (Throwable e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-            t.setName(name + " Worker");
-            t.start();
-        }
-
-        public void setName(String name) {
-            this.name = name;
-        }
-
-        @Override
-        public void execute(Runnable command) {
-            if (!running) throw new IllegalStateException("Executor already shutdown");
-            Thread t = new Thread(() -> {
-                synchronized (tasks) {
-                    tasks.add(command);
-                    tasks.notifyAll();
-                }
-            });
-            t.setName(name + " Scheduler");
-            t.start();
-        }
-
-        public void close() {
-            running = false;
-            Thread t = new Thread(() -> {
-                synchronized (tasks) {
-                    tasks.notifyAll();
-                }
-            });
-            t.setName(name + " Closer");
-            t.start();
-            tasks.clear();
-        }
-    }
-
     private AsyncExecutor newJsExecutor() {
-        ExecutorThread executorThread = new ExecutorThread(3);
-        executorThread.start();
-
-        AtomicReference<Runnable> closer = new AtomicReference<>();
+        AtomicBoolean closed = new AtomicBoolean();
 
         AsyncExecutor aexc = new AsyncExecutor() {
             @Override
             public <T> AsyncTask<T> run(Callable<T> r) {
+                if (closed.get()) {
+                    return wrapPromise((res, rej) -> rej.accept(new IllegalStateException("Executor already shutdown")));
+                }
                 return wrapPromise((res, rej) -> {
-                    executorThread.execute(() -> {
+                    Thread worker = new Thread(() -> {
                         try {
                             res.accept(r.call());
-                        } catch (Exception e) {
+                        } catch (Throwable e) {
                             rej.accept(e);
                         }
                     });
+                    worker.setName("TeaVM Executor");
+                    worker.start();
                 });
             }
 
@@ -717,30 +635,22 @@ public class TeaVMPlatform extends NGEPlatform {
                     return run(r);
                 }
 
-                return wrapPromise((res, rej) -> {
-                    TeaVMBinds.setTimeout(
-                        () -> {
-                            run(r)
-                                .then(result -> {
-                                    res.accept(result);
-                                    return null;
-                                })
-                                .catchException(exc -> {
-                                    rej.accept(exc);
-                                });
-                        },
-                        NGEUtils.safeInt(delayMs)
-                    );
+                return run(() -> {
+                    TeaVMBinds.delayPromise(NGEUtils.safeInt(delayMs)).await();
+                    return r.call();
                 });
             }
 
             @Override
             public void close() {
-                closer.get().run();
+                closed.set(true);
             }
         };
-        closer.set(registerFinalizer(aexc, () -> executorThread.close()));
         return aexc;
+    }
+
+    <T> AsyncTask<T> runAsync(Callable<T> task) {
+        return defaultExecutor.run(task);
     }
 
     @Override
@@ -821,19 +731,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> getClipboardContent() {
-        return promisify(
-            (res, rej) -> {
-                TeaVMBinds.getClipboardContentAsync(
-                    result -> {
-                        res.accept(result);
-                    },
-                    error -> {
-                        rej.accept(new Exception(error));
-                    }
-                );
-            },
-            defaultExecutor
-        );
+        return defaultExecutor.run(() -> TeaVMBinds.getClipboardContentPromise().await().stringValue());
     }
 
     @Override
@@ -849,39 +747,10 @@ public class TeaVMPlatform extends NGEPlatform {
         String reqHeaders = headers != null ? toJSON(headers) : null;
 
         byte[] reqBody = body != null ? body : new byte[0];
+        int timeoutMs = (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis());
 
-        return promisify(
-            (res, rej) -> {
-                TeaVMBinds.fetchAsync(
-                    method,
-                    url,
-                    reqHeaders,
-                    reqBody,
-                    (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
-                    r -> {
-                        new Thread(() -> {
-                            try {
-                                String jsonHeaders = r.getHeaders();
-                                int statusCode = r.getStatus();
-
-                                Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
-                                boolean status = statusCode >= 200 && statusCode < 300;
-                                byte[] data = status ? r.getBody() : new byte[0];
-
-                                NGEHttpResponse ngeResp = new NGEHttpResponse(statusCode, respHeaders, data, status);
-                                res.accept(ngeResp);
-                            } catch (Throwable e) {
-                                rej.accept(e);
-                            }
-                        })
-                            .start();
-                    },
-                    e -> {
-                        rej.accept(new RuntimeException("Fetch error: " + e));
-                    }
-                );
-            },
-            defaultExecutor
+        return defaultExecutor.run(() ->
+            toHttpResponse(TeaVMBinds.fetchPromise(method, url, reqHeaders, reqBody, timeoutMs).await())
         );
     }
 
@@ -896,34 +765,10 @@ public class TeaVMPlatform extends NGEPlatform {
         String url = NGEUtils.safeURI(inurl).toString();
         String reqHeaders = headers != null ? toJSON(headers) : null;
         ByteBuffer reqBody = body != null ? directInput(body) : directInput(ByteBuffer.allocate(0));
+        int timeoutMs = (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis());
 
-        return promisify(
-            (res, rej) -> {
-                TeaVMBinds.fetchBufferAsync(
-                    method,
-                    url,
-                    reqHeaders,
-                    reqBody,
-                    (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
-                    r -> {
-                        new Thread(() -> {
-                            try {
-                                String jsonHeaders = r.getHeaders();
-                                int statusCode = r.getStatus();
-                                Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
-                                boolean status = statusCode >= 200 && statusCode < 300;
-                                byte[] data = status ? r.getBody() : new byte[0];
-                                res.accept(new NGEHttpResponse(statusCode, respHeaders, data, status));
-                            } catch (Throwable e) {
-                                rej.accept(e);
-                            }
-                        })
-                            .start();
-                    },
-                    e -> rej.accept(new RuntimeException("Fetch error: " + e))
-                );
-            },
-            defaultExecutor
+        return defaultExecutor.run(() ->
+            toHttpResponse(TeaVMBinds.fetchBufferPromise(method, url, reqHeaders, reqBody, timeoutMs).await())
         );
     }
 
@@ -940,36 +785,18 @@ public class TeaVMPlatform extends NGEPlatform {
         String reqHeaders = headers != null ? toJSON(headers) : null;
 
         byte[] reqBody = body != null ? body : new byte[0];
+        int timeoutMs = (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis());
 
-        return promisify(
-            (res, rej) -> {
-                TeaVMBinds.fetchStreamAsync(
-                    method,
-                    url,
-                    reqHeaders,
-                    reqBody,
-                    (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis()),
-                    r -> {
-                        try {
-                            String jsonHeaders = r.getHeaders();
-                            int statusCode = r.getStatus();
-
-                            Map<String, List<String>> respHeaders = normalizeHttpHeaders(jsonHeaders);
-                            boolean status = statusCode >= 200 && statusCode < 300;
-                            TeaVMReadableStreamWrapperInputStream is = new TeaVMReadableStreamWrapperInputStream(r.getBody());
-                            NGEHttpResponseStream ngeResp = new NGEHttpResponseStream(statusCode, respHeaders, is, status);
-                            res.accept(ngeResp);
-                        } catch (Throwable e) {
-                            rej.accept(e);
-                        }
-                    },
-                    e -> {
-                        rej.accept(new RuntimeException("Fetch error: " + e));
-                    }
-                );
-            },
-            defaultExecutor
-        );
+        return defaultExecutor.run(() -> {
+            TeaVMHttpStreamResponse response = TeaVMBinds
+                .fetchStreamPromise(method, url, reqHeaders, reqBody, timeoutMs)
+                .await();
+            int statusCode = response.getStatus();
+            Map<String, List<String>> respHeaders = normalizeHttpHeaders(response.getHeaders());
+            boolean status = statusCode >= 200 && statusCode < 300;
+            TeaVMReadableStreamWrapperInputStream input = new TeaVMReadableStreamWrapperInputStream(response.getBody());
+            return new NGEHttpResponseStream(statusCode, respHeaders, input, status);
+        });
     }
 
     @Override
@@ -986,7 +813,20 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public byte[] scrypt(byte[] P, byte[] S, int N, int r, int p2, int dkLen) {
-        return TeaVMBindsAsync.scrypt(P, S, N, r, p2, dkLen);
+        ByteBuffer derived = scrypt(directInput(ByteBuffer.wrap(P)), directInput(ByteBuffer.wrap(S)), N, r, p2, dkLen);
+        byte[] result = new byte[derived.remaining()];
+        derived.get(result);
+        return result;
+    }
+
+    @Override
+    public ByteBuffer scrypt(ByteBuffer password, ByteBuffer salt, int n, int r, int p, int dkLen) {
+        ByteBuffer output = allocateOutput(dkLen);
+        int written = TeaVMBinds
+            .scryptBufferPromise(directInput(password), directInput(salt), n, r, p, dkLen, output)
+            .await()
+            .intValue();
+        return finishOutput(output, written);
     }
 
     @Override
@@ -1035,18 +875,8 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-        FinalizerCallback callable = TeaVMBinds.registerFinalizer(
-            obj,
-            () -> {
-                new Thread(() -> {
-                    finalizer.run();
-                })
-                    .start();
-            }
-        );
-        return () -> {
-            callable.call();
-        };
+        Cleaner.Cleanable cleanable = CLEANER.register(obj, finalizer);
+        return cleanable::clean;
     }
 
     @Override
@@ -1080,7 +910,8 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String getPlatformName() {
-        return TeaVMBinds.getPlatformName();
+        String backend = PlatformDetector.isWebAssemblyGC() ? "TeaVM Wasm GC" : "TeaVM JavaScript";
+        return backend + " (" + TeaVMBinds.getRuntimeName() + ")";
     }
 
     private static ByteBuffer allocateOutput(int capacity) {
@@ -1088,6 +919,13 @@ public class TeaVMPlatform extends NGEPlatform {
             throw new IllegalArgumentException("capacity must be non-negative");
         }
         return allocator.malloc(Math.max(1, capacity));
+    }
+
+    private NGEHttpResponse toHttpResponse(TeaVMHttpResponse response) {
+        int statusCode = response.getStatus();
+        Map<String, List<String>> headers = normalizeHttpHeaders(response.getHeaders());
+        byte[] body = base64decode(response.getBodyBase64());
+        return new NGEHttpResponse(statusCode, headers, body, statusCode >= 200 && statusCode < 300);
     }
 
     private static ByteBuffer directInput(ByteBuffer input) {
@@ -1146,32 +984,30 @@ public class TeaVMPlatform extends NGEPlatform {
     public void callFunction(String function, Object args, Consumer<Object> res, Consumer<Throwable> rej) {
         Map<String, Object> argsMap = new HashMap<>();
         argsMap.put("args", args);
-        TeaVMBinds.callFunction(
-            function,
-            toJSON(argsMap),
-            json -> {
-                Map<String, Object> r = fromJSON(json.stringValue(), Map.class);
-                res.accept(r.get("result"));
-            },
-            err -> {
-                rej.accept(new Exception(err));
-            }
-        );
+        defaultExecutor
+            .run(() -> {
+                String json = TeaVMBinds.callFunctionPromise(function, toJSON(argsMap)).await().stringValue();
+                Map<String, Object> result = fromJSON(json, Map.class);
+                return result.get("result");
+            })
+            .then(result -> {
+                res.accept(result);
+                return null;
+            })
+            .catchException(rej);
     }
 
     @Override
     public void canCallFunction(String function, Consumer<Boolean> res) {
-        TeaVMBinds.canCallFunction(
-            function,
-            canjs -> {
-                boolean can = canjs.booleanValue();
-                if (can) {
-                    res.accept(true);
-                } else {
-                    res.accept(false);
-                }
-            }
-        );
+        defaultExecutor
+            .run(() -> TeaVMBinds.canCallFunctionPromise(function).await().booleanValue())
+            .then(canCall -> {
+                res.accept(canCall);
+                return null;
+            })
+            .catchException(error -> {
+                res.accept(false);
+            });
     }
 
     @Override

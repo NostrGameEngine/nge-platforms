@@ -47,4 +47,7 @@ public interface TeaVMHttpResponse extends JSObject {
     @JSProperty("body")
     @JSByRef(optional = true)
     byte[] getBody();
+
+    @JSProperty("bodyBase64")
+    String getBodyBase64();
 }

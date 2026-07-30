@@ -63,7 +63,7 @@ public class TeaVMSecp256k1Test {
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void validatesSecp256k1PublicVectors() {
-        TeaVMPlatform platform = new TeaVMTestPlatform();
+        TeaVMPlatform platform = new TeaVMPlatform();
 
         byte[] privateKey = hex(PRIVATE_VALID);
         byte[] invalidPrivateZero = hex(PRIVATE_INVALID_ZERO);
@@ -100,15 +100,5 @@ public class TeaVMSecp256k1Test {
             out[i / 2] = (byte) ((Character.digit(value.charAt(i), 16) << 4) + Character.digit(value.charAt(i + 1), 16));
         }
         return out;
-    }
-
-    private static final class TeaVMTestPlatform extends TeaVMPlatform {
-
-        @Override
-        public Runnable registerFinalizer(Object obj, Runnable finalizer) {
-            return () -> {
-                // TeaVM JUnit runtime does not provide the full finalizer bridge used in app runtime.
-            };
-        }
     }
 }

@@ -50,7 +50,7 @@ tasks.register('jvmPlatformParityJvmSide', JavaExec) {
     dependsOn classes
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.ngengine.platform.jvm.JVMPlatformParityMain'
-    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true'
+    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true', '-Dnge-platforms.allowPrivateNetworkInURIs=true'
     doFirst {
         args = []
         if (project.hasProperty('interopSignalBase')) {
@@ -79,7 +79,7 @@ tasks.register('jvmWebsocketParityJvmSide', JavaExec) {
     dependsOn classes
     classpath = sourceSets.main.runtimeClasspath
     mainClass = 'org.ngengine.platform.jvm.JVMWebsocketParityMain'
-    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true'
+    jvmArgs '-Dnge-platforms.allowLoopbackInURIs=true', '-Dnge-platforms.allowPrivateNetworkInURIs=true'
     doFirst {
         args = []
         if (project.hasProperty('interopSignalBase')) {
@@ -88,6 +88,27 @@ tasks.register('jvmWebsocketParityJvmSide', JavaExec) {
         if (project.hasProperty('interopWsUrl')) {
             args project.property('interopWsUrl').toString()
         }
+    }
+}
+
+tasks.register('writeInteropRuntimeMetadata') {
+    group = 'verification'
+    description = 'Writes the JVM interop runtime classpath and Java executable for external harnesses'
+    dependsOn classes
+    dependsOn project(':nge-platform-common').tasks.named('jar')
+    dependsOn project(':nge-platform-jvm').tasks.named('jar')
+    def outputFile = layout.buildDirectory.file('interop-runtime.json')
+    outputs.file(outputFile)
+    doLast {
+        def launcher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(21)
+            vendor = JvmVendorSpec.ADOPTIUM
+        }.get()
+        def metadata = [
+            java: launcher.executablePath.asFile.absolutePath,
+            classpath: sourceSets.main.runtimeClasspath.asPath
+        ]
+        outputFile.get().asFile.text = groovy.json.JsonOutput.toJson(metadata)
     }
 }
 

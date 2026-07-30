@@ -574,6 +574,129 @@ export const setTimeout = (callback, delay) => { //void
     return _s().setTimeout(callback, delay);
 }
 
+export const delayPromise = delay => new Promise(resolve => _s().setTimeout(resolve, delay));
+
+export const websocketOpenPromise = (socket, timeoutMs) => new Promise((resolve, reject) => {
+    let settled = false;
+    const timeoutId = _s().setTimeout(() => {
+        if (!settled) {
+            settled = true;
+            reject(new Error('WebSocket connection timeout'));
+        }
+    }, timeoutMs);
+    socket.addEventListener('open', () => {
+        if (!settled) {
+            settled = true;
+            clearTimeout(timeoutId);
+            resolve();
+        }
+    }, { once: true });
+    socket.addEventListener('error', () => {
+        if (!settled) {
+            settled = true;
+            clearTimeout(timeoutId);
+            reject(new Error('WebSocket connection failed'));
+        }
+    }, { once: true });
+});
+
+const _initEventQueue = target => {
+    const current = target._ngeEventQueueState;
+    if (current && !current.disposed) {
+        return current;
+    }
+    const state = {
+        queue: [],
+        waitPromise: null,
+        wake: null,
+        disposed: false
+    };
+    target._ngeEventQueueState = state;
+    return state;
+};
+
+const _enqueueEvent = (target, event) => {
+    const state = target._ngeEventQueueState;
+    if (!state || state.disposed) {
+        return;
+    }
+    state.queue.push(event);
+    if (state.wake) {
+        const wake = state.wake;
+        state.wake = null;
+        state.waitPromise = null;
+        wake();
+    }
+};
+
+const _currentEvent = target => target._ngeEventQueueState?.queue?.[0];
+
+export const eventQueueWaitPromise = target => {
+    const current = target?._ngeEventQueueState;
+    if (current?.disposed) {
+        return Promise.resolve();
+    }
+    const state = current ?? _initEventQueue(target);
+    if (state.queue.length > 0) {
+        return Promise.resolve();
+    }
+    if (!state.waitPromise) {
+        state.waitPromise = new Promise(resolve => {
+            state.wake = resolve;
+        });
+    }
+    return state.waitPromise;
+};
+
+export const eventQueueDispose = target => {
+    const state = target?._ngeEventQueueState;
+    if (!state || state.disposed) {
+        return;
+    }
+    state.disposed = true;
+    state.queue.length = 0;
+    if (state.wake) {
+        const wake = state.wake;
+        state.wake = null;
+        state.waitPromise = null;
+        wake();
+    }
+};
+
+export const websocketInitEventQueue = socket => {
+    if (socket._ngeEventQueueState && !socket._ngeEventQueueState.disposed) {
+        return;
+    }
+    _initEventQueue(socket);
+    socket.addEventListener('message', event => {
+        if (typeof event.data === 'string') {
+            _enqueueEvent(socket, { type: 1, text: event.data });
+        } else {
+            _enqueueEvent(socket, { type: 2, binary: _u(event.data) });
+        }
+    });
+    socket.addEventListener('close', event => {
+        _enqueueEvent(socket, { type: 3, text: event.reason ?? '' });
+    });
+    socket.addEventListener('error', () => {
+        _enqueueEvent(socket, { type: 4, text: 'WebSocket error' });
+    });
+};
+
+export const websocketEventType = socket => _currentEvent(socket)?.type ?? 0;
+export const websocketEventText = socket => _currentEvent(socket)?.text ?? null;
+export const websocketEventBinaryLength = socket => _currentEvent(socket)?.binary?.byteLength ?? 0;
+export const websocketReadBinaryEvent = (socket, output) => {
+    const event = _currentEvent(socket);
+    if (!event || event.type !== 2) {
+        throw new Error('Current WebSocket event is not binary');
+    }
+    return _writeBytes(output, event.binary);
+};
+export const websocketConsumeEvent = socket => {
+    socket._ngeEventQueueState?.queue?.shift();
+};
+
 export const getClipboardContentAsync = (res,rej) => { //str
     _getClipboard()
         .then(clipboard => {
@@ -589,6 +712,17 @@ export const getClipboardContentAsync = (res,rej) => { //str
             console.error('Failed to read clipboard contents: ', err);
             res('');
         });
+}
+
+export const getClipboardContentPromise = () => {
+    return _getClipboard()
+        .then(clipboard => {
+            if (!clipboard || typeof clipboard.readText !== 'function') {
+                return '';
+            }
+            return clipboard.readText();
+        })
+        .then(text => text ?? '');
 }
 
 export const setClipboardContent = (text) => { //void
@@ -674,6 +808,13 @@ export const aes256cbcBuffer = (key, iv, data, forEncryption, output) => {
 
 async function getVFileStore(name) {
     const globalObj = _s();
+    if (typeof globalObj?.ngeVStoreFactory === 'function') {
+        const injectedStore = await globalObj.ngeVStoreFactory(name);
+        if (!injectedStore) {
+            throw new Error(`Injected VStore factory returned no store for ${name}`);
+        }
+        return injectedStore;
+    }
 
     // Check if IndexedDB is available in the current environment
     if (!_hasIndexedDB()) {
@@ -866,6 +1007,12 @@ const vfileListAll = async (name) => { // str[]
     }
 }
 
+export const vfileExistsPromise = vfileExists;
+export const vfileReadPromise = async (name, path) => _bw(await vfileRead(name, path));
+export const vfileWritePromise = vfileWrite;
+export const vfileDeletePromise = vfileDelete;
+export const vfileListAllPromise = vfileListAll;
+
 export const vfileExistsAsync = (name, path, res, rej) => { // void
     vfileExists(name, path)
         .then(result => res(result))
@@ -919,7 +1066,7 @@ export const vfileListAllAsync = (name, res, rej) => { // str[]
     );
 }
 
-export const getPlatformName = () => { // str
+export const getRuntimeName = () => { // str
     let runtime = "runtime";
     if (typeof Capacitor !== 'undefined' && Capacitor && Capacitor.getPlatform) {
         runtime = "capacitor " + Capacitor.getPlatform();
@@ -930,8 +1077,11 @@ export const getPlatformName = () => { // str
     } else if (typeof window !== 'undefined') {
         runtime = "browser";
     }
-    const pl =  'JavaScript (' + runtime + ')';
-    return pl;
+    return runtime;
+}
+
+export const getPlatformName = () => { // str
+    return 'JavaScript (' + getRuntimeName() + ')';
 }
 
 
@@ -978,7 +1128,16 @@ function toFunction(f) { // Function
 }
 export const callFunction = async (functionName, data, res, rej) => { // void
     try {
-        const result = await toFunction(functionName)(...(JSON.parse(data).args));
+        const args = JSON.parse(data).args;
+        const executor = _s()?.ngeFunctionExecutor;
+        let result;
+        if (typeof executor === 'function') {
+            result = await executor(functionName, args);
+        } else if (executor && typeof executor.execute === 'function') {
+            result = await executor.execute(functionName, args);
+        } else {
+            result = await toFunction(functionName)(...args);
+        }
         res(JSON.stringify({ result: result }));
     } catch (error) {
         console.error(`Error executing function ${functionName}:`, error);
@@ -986,9 +1145,31 @@ export const callFunction = async (functionName, data, res, rej) => { // void
     }
 };
 
+export const callFunctionPromise = async (functionName, data) => {
+    const args = JSON.parse(data).args;
+    const executor = _s()?.ngeFunctionExecutor;
+    let result;
+    if (typeof executor === 'function') {
+        result = await executor(functionName, args);
+    } else if (executor && typeof executor.execute === 'function') {
+        result = await executor.execute(functionName, args);
+    } else {
+        result = await toFunction(functionName)(...args);
+    }
+    return JSON.stringify({ result });
+};
+
 export const canCallFunction = async (functionName, res) => { // void
     try {
-        const canCall = !!toFunction(functionName);
+        const executor = _s()?.ngeFunctionExecutor;
+        let canCall;
+        if (executor && typeof executor.canExecute === 'function') {
+            canCall = !!(await executor.canExecute(functionName));
+        } else if (typeof executor === 'function' || (executor && typeof executor.execute === 'function')) {
+            canCall = true;
+        } else {
+            canCall = !!toFunction(functionName);
+        }
         if (canCall){
             console.log(`Function ${functionName} can be called:`, canCall);
             res(true);
@@ -1002,12 +1183,29 @@ export const canCallFunction = async (functionName, res) => { // void
     }
 };
 
+export const canCallFunctionPromise = async (functionName) => {
+    const executor = _s()?.ngeFunctionExecutor;
+    if (executor && typeof executor.canExecute === 'function') {
+        return !!(await executor.canExecute(functionName));
+    }
+    if (typeof executor === 'function' || (executor && typeof executor.execute === 'function')) {
+        return true;
+    }
+    try {
+        return !!toFunction(functionName);
+    } catch (_error) {
+        return false;
+    }
+};
+
 
 export const openURL = (url) => { // void
     try {
         const globalObj = _s();
 
-        if (globalObj && globalObj.open) {
+        if (globalObj && typeof globalObj.ngeOpenURL === 'function') {
+            globalObj.ngeOpenURL(url);
+        } else if (globalObj && globalObj.open) {
             globalObj.open(url, '_blank');
         } else {
             console.warn('Cannot open URL: No suitable global object found.');
@@ -1051,6 +1249,11 @@ export const scryptAsync = (
         });
 }
 
+export const scryptBufferPromise = async (password, salt, n, r, p, dkLen, output) => {
+    const derived = await _scryptAsync(_u(password), _u(salt), { N: n, r, p, dkLen });
+    return _writeBytes(output, derived);
+};
+
 
 export const xchacha20poly1305 = (
     key, /*byte[]*/
@@ -1077,54 +1280,6 @@ export const xchacha20poly1305Buffer = (key, nonce, data, associatedData, forEnc
     return _writeBytes(output, xchacha20poly1305(key, nonce, data, associatedData, forEncryption));
 };
 
-export const registerFinalizer = (obj, callback) => { // void
-
-    if (typeof FinalizationRegistry === 'undefined') {
-        return ()=>{
-            callback();
-        }
-    }
-
-    const s = _s();
-
-    if(typeof s._ngeTeaVMFinalizerMap=='undefined'){
-        s._ngeTeaVMFinalizerMap = {};
-    }
-
-    if (typeof s._ngeTeaVMFinalizerMap_counter=='undefined'){
-        s._ngeTeaVMFinalizerMap_counter = 1;
-    }
-
-    const id = "finalizer_" + (s._ngeTeaVMFinalizerMap_counter++);
-    s._ngeTeaVMFinalizerMap[id] = callback;
-    
-    if(typeof s.ngeTeaVMFinalizationRegistry=='undefined'){
-        s.ngeTeaVMFinalizationRegistry = new FinalizationRegistry((id) => {
-            if (s._ngeTeaVMFinalizerMap[id]){
-                try {
-                    s._ngeTeaVMFinalizerMap[id]();
-                } catch (e) {
-                    console.error('Error in finalizer callback:', e);
-                }
-                delete s._ngeTeaVMFinalizerMap[id];
-            }
-        });
-    }
-
-    s.ngeTeaVMFinalizationRegistry.register(obj, id, obj);
-
-    return () => {  
-        if (s.ngeTeaVMFinalizationRegistry && id) {
-            s.ngeTeaVMFinalizationRegistry.unregister(obj);
-            if (s._ngeTeaVMFinalizerMap[id]){
-                delete s._ngeTeaVMFinalizerMap[id];
-            }
-            callback();
-        }
-    }
-
-}
-
 export const rtcSetLocalDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) => { // void
     conn.setLocalDescription({ type: type, sdp: sdp })
         .then(() => res())
@@ -1133,6 +1288,72 @@ export const rtcSetLocalDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*st
             rej(String(error));
         });
 }
+
+export const rtcSetLocalDescriptionPromise = (conn, sdp, type) => conn.setLocalDescription({ type, sdp });
+export const rtcSetRemoteDescriptionPromise = (conn, sdp, type) => conn.setRemoteDescription({ type, sdp });
+export const rtcAddIceCandidatePromise = (conn, candidate) => conn.addIceCandidate(candidate);
+export const rtcCreateAnswerPromise = conn => conn.createAnswer();
+export const rtcCreateOfferPromise = conn => conn.createOffer();
+
+export const rtcInitPeerEventQueue = conn => {
+    if (conn._ngeEventQueueState && !conn._ngeEventQueueState.disposed) {
+        return;
+    }
+    _initEventQueue(conn);
+    conn.addEventListener('icecandidate', event => {
+        if (event.candidate) {
+            _enqueueEvent(conn, { type: 1, candidate: event.candidate });
+        }
+    });
+    conn.addEventListener('iceconnectionstatechange', () => {
+        _enqueueEvent(conn, { type: 2, state: conn.iceConnectionState });
+    });
+    conn.addEventListener('connectionstatechange', () => {
+        _enqueueEvent(conn, { type: 3, state: conn.connectionState });
+    });
+    conn.addEventListener('datachannel', event => {
+        _enqueueEvent(conn, { type: 4, channel: event.channel });
+    });
+};
+
+export const rtcPeerEventType = conn => _currentEvent(conn)?.type ?? 0;
+export const rtcPeerEventCandidate = conn => _currentEvent(conn)?.candidate ?? null;
+export const rtcPeerEventState = conn => _currentEvent(conn)?.state ?? null;
+export const rtcPeerEventChannel = conn => _currentEvent(conn)?.channel ?? null;
+export const rtcPeerConsumeEvent = conn => {
+    conn._ngeEventQueueState?.queue?.shift();
+};
+
+export const rtcInitDataChannelEventQueue = channel => {
+    if (channel._ngeEventQueueState && !channel._ngeEventQueueState.disposed) {
+        return;
+    }
+    _initEventQueue(channel);
+    channel.binaryType = 'arraybuffer';
+    channel.addEventListener('open', () => _enqueueEvent(channel, { type: 1 }));
+    channel.addEventListener('close', () => _enqueueEvent(channel, { type: 2 }));
+    channel.addEventListener('error', event => {
+        _enqueueEvent(channel, { type: 3, error: String(event?.error ?? 'RTC data channel error') });
+    });
+    channel.addEventListener('bufferedamountlow', () => _enqueueEvent(channel, { type: 4 }));
+    channel.addEventListener('message', event => {
+        _enqueueEvent(channel, { type: 5, binary: _u(event.data) });
+    });
+};
+
+export const rtcDataChannelEventType = channel => _currentEvent(channel)?.type ?? 0;
+export const rtcDataChannelEventError = channel => _currentEvent(channel)?.error ?? null;
+export const rtcDataChannelEventBinaryLength = channel => _currentEvent(channel)?.binary?.byteLength ?? 0;
+export const rtcReadDataChannelBinaryEvent = (channel, output) => {
+    const event = _currentEvent(channel);
+    if (!event || event.type !== 5) {
+        throw new Error('Current RTC data channel event is not binary');
+    }
+    return _writeBytes(output, event.binary);
+};
+export const rtcDataChannelConsumeEvent = channel => {
+    channel._ngeEventQueueState?.queue?.shift();
+};
 
 export const rtcSetRemoteDescriptionAsync = (conn /*RTCPeerConnection*/, sdp /*str*/, type /*str*/, res, rej) => { // void
     conn.setRemoteDescription({ type: type, sdp: sdp })
@@ -1269,7 +1490,7 @@ export const rtcDataChannelSetBufferedAmountLowThreshold = (channel, threshold) 
     channel.bufferedAmountLowThreshold = Number(threshold);
 }
 
-export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
+export const fetchPromise = (method, url, headers, body, timeoutMs) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -1285,7 +1506,13 @@ export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
         options.body = _u(body);
     }
 
-    fetch(url, options).then(async (response) => {
+    const fetchImpl = _s()?.ngeFetch || _s()?.fetch;
+    if (typeof fetchImpl !== 'function') {
+        clearTimeout(timeoutId);
+        return Promise.reject(new Error('Fetch is not available in this runtime'));
+    }
+
+    return fetchImpl.call(_s(), url, options).then(async (response) => {
         clearTimeout(timeoutId);
 
         const respHeaders = {};
@@ -1293,24 +1520,29 @@ export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
             respHeaders[key] = value;
         });
         const respBody = new Uint8Array(await response.arrayBuffer());
-        const out ={
+        return {
             status: response.status,
             statusText: response.statusText,
             headers: JSON.stringify(respHeaders),
-            body: new Uint8Array(respBody)
+            bodyBase64: _base64.encode(respBody)
         };
-        res(out);
     }).catch(error => {
         clearTimeout(timeoutId);
-
-        rej(String(error));
+        throw error;
     });
 }
 
+export const fetchAsync = (method, url, headers, body, timeoutMs, res, rej) => {
+    fetchPromise(method, url, headers, body, timeoutMs)
+        .then(response => res(response.status, response.headers, response.bodyBase64))
+        .catch(error => rej(String(error)));
+};
+
 export const fetchBufferAsync = fetchAsync;
+export const fetchBufferPromise = fetchPromise;
 
 
-export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej) => {
+export const fetchStreamPromise = (method, url, headers, body, timeoutMs) => {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -1327,7 +1559,13 @@ export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej)
         options.body = _u(body);
     }
 
-    fetch(url, options).then(async (response) => {
+    const fetchImpl = _s()?.ngeFetch || _s()?.fetch;
+    if (typeof fetchImpl !== 'function') {
+        clearTimeout(timeoutId);
+        return Promise.reject(new Error('Fetch is not available in this runtime'));
+    }
+
+    return fetchImpl.call(_s(), url, options).then(async (response) => {
         clearTimeout(timeoutId);
 
         const respHeaders = {};
@@ -1335,36 +1573,25 @@ export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res,rej)
             respHeaders[key] = value;
         });
         const stream = response.body;
-        const out = {
+        return {
             status: response.status,
             statusText: response.statusText,
             headers: JSON.stringify(respHeaders),
             body: stream
         };
-        res(out);
     }).catch(error => {
         clearTimeout(timeoutId);
-
-        rej(String(error));
+        throw error;
     });
 }
 
-const pendingPromises = {};
-let promiseCounter = 1;
-
-// setInterval(() => {
-//     const pn = Object.entries(pendingPromises).filter(([id, p]) => !p.done).map(([id, p]) => id);
-//     console.log(`Pending promises: ${pn.length}`);
-//     for (const id of pn) {
-//         const p = pendingPromises[id];
-//         console.log(`  Promise (pending) ${id}: ${p.debug}`);
-//     }
-// }, 60000);
+export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res, rej) => {
+    fetchStreamPromise(method, url, headers, body, timeoutMs)
+        .then(response => res(response.status, response.headers, response.body))
+        .catch(error => rej(String(error)));
+};
 
 export const newPromise = ()=>{
-    const debug = new Error().stack.split('\n').slice(1).join('\n');
-    promiseCounter++;
-    const id =   promiseCounter;
     let res, rej;
     const p = new Promise((resolve, reject) => {
         res = resolve;
@@ -1372,46 +1599,20 @@ export const newPromise = ()=>{
     }).then(()=>{
     }).catch((e)=>{
     });
-    pendingPromises[id] = { promise: p, resolve: res, reject: rej, debug, done: false };
-    return id;
+    return { promise: p, resolve: res, reject: rej, done: false };
 }
 
-export const freePromise = (id) => {
-    if (pendingPromises[id]) {
-        delete pendingPromises[id];
-    }
+export const resolvePromise = (handle) => {
+    handle.done = true;
+    handle.resolve();
 }
 
-export const resolvePromise = (id) => {
-    if (pendingPromises[id]) {
-        const  p =pendingPromises[id];
-        p.done = true;
-        p.resolve();
-    } else {
-        console.warn(`Promise with id ${id} not found for resolution.`);
-    }
+export const rejectPromise = (handle) => {
+    handle.done = true;
+    handle.reject(new Error('Promise rejected'));
 }
 
-export const rejectPromise = (id) => {
-    if (pendingPromises[id]) {
-        const p = pendingPromises[id];
-        p.done = true;
-        p.reject(new Error('Promise rejected'));
-    } else {
-        console.warn(`Promise with id ${id} not found for rejection.`);
-    }
-}
-
-export const waitPromiseAsync = (id, res, rej) => {
-    if (pendingPromises[id]) {
-        pendingPromises[id].promise
-            .then(() => res())
-            .catch((error) => rej(String(error)));
-    } else {
-        console.warn(`Promise with id ${id} not found for waiting.`);
-        rej(String(`Promise with id ${id} not found.`));
-    }
-}
+export const getPromise = (handle) => handle.promise;
 
 export const rtcSetOnMessageHandler = (channel, callback) => { // void
     channel.onmessage = (event) => {

@@ -121,68 +121,15 @@ public class TeaVMRTCTransport implements RTCTransport {
         logger.finer("Using STUN servers: " + stunServers);
 
         this.peerConnection = TeaVMBinds.rtcCreatePeerConnection(iceUrls);
+        TeaVMBinds.rtcInitPeerEventQueue(this.peerConnection);
         logger.finer("RTCPeerConnection created with ID: " + connId);
 
-        this.peerConnection.setOnIceCandidateHandler(event -> {
-                RTCIceCandidate candidate = event.getCandidate();
-                if (candidate == null) {
-                    logger.fine("ICE candidate gathering complete");
-                    return;
-                }
-                logger.fine("Local ICE candidate: " + candidate.getCandidate());
-                for (RTCTransportListener listener : listeners) {
-                    try {
-                        listener.onLocalRTCIceCandidate(
-                            new RTCTransportIceCandidate(candidate.getCandidate(), candidate.getSdpMid())
-                        );
-                    } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error sending local candidate", e);
-                    }
-                }
-            });
-
-        this.peerConnection.setOnIceConnectionStateChangeHandler(() -> {
-                String state = peerConnection.getIceConnectionState();
-                logger.finer("ICE connection state changed: " + state);
-                if ("failed".equals(state)) {
-                    close();
-                }
-            });
-
-        this.peerConnection.setOnConnectionStateChangeHandler(() -> {
-                String state = peerConnection.getConnectionState();
-                logger.fine("Connection state changed: " + state);
-
-                if ("connected".equals(state)) {
-                    this.connected = true;
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCConnected();
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying connection", e);
-                        }
-                    }
-                } else if ("disconnected".equals(state) || "failed".equals(state) || "closed".equals(state)) {
-                    this.connected = false;
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCDisconnected(state);
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error notifying disconnect", e);
-                        }
-                    }
-                }
-            });
-
-        this.peerConnection.setOnDataChannelHandler(event -> {
-                org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel = event.getChannel();
-                configureChannel(nativeChannel)
-                    .catchException(e -> logger.log(Level.WARNING, "Error configuring channel", e))
-                    .then(channel -> {
-                        resolvePendingIncomingChannel(channel);
-                        return null;
-                    });
-            });
+        RTCPeerConnection startedConnection = this.peerConnection;
+        this.asyncExecutor.run(() -> {
+                pumpPeerEvents(startedConnection);
+                return null;
+            })
+            .catchException(error -> logger.log(Level.WARNING, "RTC peer event pump failed", error));
 
         this.asyncExecutor.runLater(
                 () -> {
@@ -203,6 +150,82 @@ public class TeaVMRTCTransport implements RTCTransport {
                 Objects.requireNonNull(this.p2pAttemptTimeout).toMillis(),
                 TimeUnit.MILLISECONDS
             );
+    }
+
+    private void pumpPeerEvents(RTCPeerConnection connection) {
+        try {
+            while (peerConnection == connection) {
+                int eventType = TeaVMBinds.rtcPeerEventType(connection);
+                if (eventType == 0) {
+                    TeaVMBinds.eventQueueWaitPromise(connection).await();
+                    continue;
+                }
+                try {
+                    if (eventType == 1) {
+                        notifyLocalCandidate(TeaVMBinds.rtcPeerEventCandidate(connection));
+                    } else if (eventType == 2) {
+                        String state = TeaVMBinds.rtcPeerEventState(connection);
+                        logger.finer("ICE connection state changed: " + state);
+                        if ("failed".equals(state)) {
+                            close();
+                        }
+                    } else if (eventType == 3) {
+                        notifyConnectionState(TeaVMBinds.rtcPeerEventState(connection));
+                    } else if (eventType == 4) {
+                        org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel = TeaVMBinds.rtcPeerEventChannel(
+                            connection
+                        );
+                        configureChannel(nativeChannel)
+                            .catchException(error -> logger.log(Level.WARNING, "Error configuring channel", error))
+                            .then(channel -> {
+                                resolvePendingIncomingChannel(channel);
+                                return null;
+                            });
+                    }
+                } finally {
+                    TeaVMBinds.rtcPeerConsumeEvent(connection);
+                }
+            }
+        } finally {
+            TeaVMBinds.eventQueueDispose(connection);
+        }
+    }
+
+    private void notifyLocalCandidate(RTCIceCandidate candidate) {
+        if (candidate == null) {
+            return;
+        }
+        logger.fine("Local ICE candidate: " + candidate.getCandidate());
+        for (RTCTransportListener listener : listeners) {
+            try {
+                listener.onLocalRTCIceCandidate(new RTCTransportIceCandidate(candidate.getCandidate(), candidate.getSdpMid()));
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error sending local candidate", e);
+            }
+        }
+    }
+
+    private void notifyConnectionState(String state) {
+        logger.fine("Connection state changed: " + state);
+        if ("connected".equals(state)) {
+            this.connected = true;
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCConnected();
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying connection", e);
+                }
+            }
+        } else if ("disconnected".equals(state) || "failed".equals(state) || "closed".equals(state)) {
+            this.connected = false;
+            for (RTCTransportListener listener : listeners) {
+                try {
+                    listener.onRTCDisconnected(state);
+                } catch (Exception e) {
+                    logger.log(Level.WARNING, "Error notifying disconnect", e);
+                }
+            }
+        }
     }
 
     private RTCDataChannel wrapChannel(org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel) {
@@ -295,6 +318,7 @@ public class TeaVMRTCTransport implements RTCTransport {
     private void removeChannelReferences(org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel) {
         channelReadyTasks.remove(nativeChannel);
         channelWrappers.remove(nativeChannel);
+        TeaVMBinds.eventQueueDispose(nativeChannel);
     }
 
     public String getName() {
@@ -404,58 +428,12 @@ public class TeaVMRTCTransport implements RTCTransport {
             };
             pendingReadyRejectors.put(nativeChannel, failReady);
 
-            nativeChannel.setBinaryType("arraybuffer");
-
-            nativeChannel.setOnCloseHandler(() -> {
-                logger.fine("Data channel closed: " + wrapper.getName());
-                removeChannelReferences(nativeChannel);
-                for (RTCTransportListener listener : listeners) {
-                    try {
-                        listener.onRTCChannelClosed(wrapper);
-                    } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error notifying channel close", e);
-                    }
-                }
-                failReady.accept(new Exception("Channel closed"));
-            });
-
-            nativeChannel.setOnErrorHandler(error -> {
-                Exception channelError = new Exception(error.getError());
-                logger.log(Level.WARNING, "Data channel error: " + error.getError());
-                for (RTCTransportListener listener : listeners) {
-                    try {
-                        listener.onRTCChannelError(wrapper, channelError);
-                    } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error notifying channel error", e);
-                    }
-                }
-                failReady.accept(channelError);
-            });
-
-            nativeChannel.setOnBufferedAmountLowHandler(() -> {
-                for (RTCTransportListener listener : listeners) {
-                    try {
-                        listener.onRTCBufferedAmountLow(wrapper);
-                    } catch (Exception e) {
-                        logger.log(Level.WARNING, "Error notifying buffered amount low", e);
-                    }
-                }
-            });
-
-            TeaVMBinds.rtcSetOnMessageHandler(
-                nativeChannel,
-                buffer -> {
-                    assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
-                    ByteBuffer byteBuffer = ByteBuffer.wrap(buffer);
-                    for (RTCTransportListener listener : listeners) {
-                        try {
-                            listener.onRTCBinaryMessage(wrapper, byteBuffer);
-                        } catch (Exception e) {
-                            logger.log(Level.WARNING, "Error handling message", e);
-                        }
-                    }
-                }
-            );
+            TeaVMBinds.rtcInitDataChannelEventQueue(nativeChannel);
+            this.asyncExecutor.run(() -> {
+                    pumpDataChannelEvents(nativeChannel, wrapper, completeReady, failReady);
+                    return null;
+                })
+                .catchException(error -> logger.log(Level.WARNING, "RTC data channel event pump failed", error));
 
             this.asyncExecutor.runLater(
                     () -> {
@@ -477,8 +455,6 @@ public class TeaVMRTCTransport implements RTCTransport {
                     TimeUnit.MILLISECONDS
                 );
 
-            nativeChannel.setOnOpenHandler(completeReady::run);
-
             if ("open".equals(nativeChannel.getReadyState())) {
                 logger.fine("Data channel already opened: " + wrapper.getName());
                 completeReady.run();
@@ -486,6 +462,92 @@ public class TeaVMRTCTransport implements RTCTransport {
         });
         channelReadyTasks.put(nativeChannel, readyTask);
         return readyTask;
+    }
+
+    private void pumpDataChannelEvents(
+        org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel,
+        RTCDataChannel wrapper,
+        Runnable completeReady,
+        Consumer<Exception> failReady
+    ) {
+        try {
+            while (channelWrappers.get(nativeChannel) == wrapper) {
+                int eventType = TeaVMBinds.rtcDataChannelEventType(nativeChannel);
+                if (eventType == 0) {
+                    if ("closed".equals(nativeChannel.getReadyState())) {
+                        notifyChannelClosed(nativeChannel, wrapper, failReady);
+                        return;
+                    }
+                    TeaVMBinds.eventQueueWaitPromise(nativeChannel).await();
+                    continue;
+                }
+                try {
+                    if (eventType == 1) {
+                        completeReady.run();
+                    } else if (eventType == 2) {
+                        notifyChannelClosed(nativeChannel, wrapper, failReady);
+                        return;
+                    } else if (eventType == 3) {
+                        String message = TeaVMBinds.rtcDataChannelEventError(nativeChannel);
+                        Exception channelError = new Exception(message);
+                        logger.log(Level.WARNING, "Data channel error: " + message);
+                        for (RTCTransportListener listener : listeners) {
+                            try {
+                                listener.onRTCChannelError(wrapper, channelError);
+                            } catch (Exception e) {
+                                logger.log(Level.WARNING, "Error notifying channel error", e);
+                            }
+                        }
+                        failReady.accept(channelError);
+                    } else if (eventType == 4) {
+                        for (RTCTransportListener listener : listeners) {
+                            try {
+                                listener.onRTCBufferedAmountLow(wrapper);
+                            } catch (Exception e) {
+                                logger.log(Level.WARNING, "Error notifying buffered amount low", e);
+                            }
+                        }
+                    } else if (eventType == 5) {
+                        int length = TeaVMBinds.rtcDataChannelEventBinaryLength(nativeChannel);
+                        ByteBuffer byteBuffer = NGEUtils.getPlatform().getNativeAllocator().malloc(Math.max(1, length));
+                        byteBuffer.clear();
+                        byteBuffer.limit(length);
+                        int written = TeaVMBinds.rtcReadDataChannelBinaryEvent(nativeChannel, byteBuffer);
+                        byteBuffer.position(0);
+                        byteBuffer.limit(written);
+                        assert dbg(() -> logger.finest("Received message on channel " + wrapper.getName()));
+                        for (RTCTransportListener listener : listeners) {
+                            try {
+                                listener.onRTCBinaryMessage(wrapper, byteBuffer.asReadOnlyBuffer());
+                            } catch (Exception e) {
+                                logger.log(Level.WARNING, "Error handling message", e);
+                            }
+                        }
+                    }
+                } finally {
+                    TeaVMBinds.rtcDataChannelConsumeEvent(nativeChannel);
+                }
+            }
+        } finally {
+            TeaVMBinds.eventQueueDispose(nativeChannel);
+        }
+    }
+
+    private void notifyChannelClosed(
+        org.ngengine.platform.teavm.webrtc.RTCDataChannel nativeChannel,
+        RTCDataChannel wrapper,
+        Consumer<Exception> failReady
+    ) {
+        logger.fine("Data channel closed: " + wrapper.getName());
+        removeChannelReferences(nativeChannel);
+        for (RTCTransportListener listener : listeners) {
+            try {
+                listener.onRTCChannelClosed(wrapper);
+            } catch (Exception e) {
+                logger.log(Level.WARNING, "Error notifying channel close", e);
+            }
+        }
+        failReady.accept(new Exception("Channel closed"));
     }
 
     @Override
@@ -694,6 +756,7 @@ public class TeaVMRTCTransport implements RTCTransport {
 
         for (org.ngengine.platform.teavm.webrtc.RTCDataChannel channel : channelWrappers.keySet()) {
             try {
+                TeaVMBinds.eventQueueDispose(channel);
                 channel.close();
             } catch (Exception e) {
                 logger.log(Level.FINE, "Error closing data channel", e);
@@ -706,8 +769,10 @@ public class TeaVMRTCTransport implements RTCTransport {
         remoteDescriptionSet = false;
 
         if (this.peerConnection != null) {
-            this.peerConnection.close();
+            RTCPeerConnection connection = this.peerConnection;
             this.peerConnection = null;
+            TeaVMBinds.eventQueueDispose(connection);
+            connection.close();
         }
 
         this.connected = false;
