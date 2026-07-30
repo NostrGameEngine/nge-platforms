@@ -63,6 +63,8 @@ def forcedReachabilityReflectionTypes = [
         'org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi$ECDSA',
         // Ensure key internal JVM platform nested classes are always available to native-image
         'org.ngengine.platform.jvm.JVMAsyncPlatform$Context',
+        'org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor',
+        'org.ngengine.platform.jvm.JVMAsyncPlatform$LimitingBodySubscriber',
         'org.ngengine.platform.jvm.JVMNGEAllocator$AllocationRef',
         'org.ngengine.platform.jvm.Point$JacobianPoint',
         'org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream',
