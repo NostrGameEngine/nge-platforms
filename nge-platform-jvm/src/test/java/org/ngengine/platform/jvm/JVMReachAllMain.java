@@ -80,6 +80,7 @@ public final class JVMReachAllMain {
         exerciseDirectInvocations(platform);
         exerciseCryptoAndEncoding(platform);
         exerciseAllocators(platform);
+        exerciseAllocatorGuardHooks(platform);
         exerciseAsyncAndTasks(platform);
         exerciseStorage(platform);
         exerciseTransports(platform);
@@ -205,6 +206,27 @@ public final class JVMReachAllMain {
             () -> {
                 JVMNGEAllocatorGuard.beforeAlloc(128);
                 JVMNGEAllocatorGuard.notifyGC();
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseAllocatorGuardHooks(JVMAsyncPlatform platform) {
+        safeRun(
+            "allocator-guard-hooks",
+            () -> {
+                try {
+                    java.util.function.LongSupplier zeroSupplier = () -> 0L;
+                    java.util.function.LongSupplier nowSupplier = System::currentTimeMillis;
+                    Runnable noOp = () -> {};
+                    JVMNGEAllocatorGuard.setTestHooks(zeroSupplier, nowSupplier, noOp);
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNGEAllocatorGuard.resetStateForTests();
+                } catch (Throwable ignored) {}
+                try {
+                    JVMNGEAllocatorGuard.getSoftBudgetForTests();
+                } catch (Throwable ignored) {}
                 return null;
             }
         );
