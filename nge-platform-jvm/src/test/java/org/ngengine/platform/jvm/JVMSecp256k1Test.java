@@ -33,8 +33,14 @@ package org.ngengine.platform.jvm;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.math.BigInteger;
+import java.security.KeyPairGenerator;
+import java.security.SecureRandom;
+import java.util.Arrays;
+import org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi;
 import org.junit.Test;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 
@@ -84,6 +90,25 @@ public class JVMSecp256k1Test {
         assertArrayEquals(publicUncompressed, platform.secp256k1RecoverPublicKey(hash32, signature64, RECOVERY_ID, false));
     }
 
+    @Test
+    public void privateKeyGenerationUsesDirectBouncyCastleAndProvidedRandom() throws Exception {
+        KeyPairGenerator generator = Schnorr.newKeyPairGenerator();
+        assertEquals(KeyPairGeneratorSpi.ECDSA.class, generator.getClass());
+        assertNull(generator.getProvider());
+
+        LockAssertingSecureRandom random = new LockAssertingSecureRandom();
+        assertValidPrivateKey(Schnorr.generatePrivateKey(random));
+        assertTrue("provided SecureRandom was not consumed", random.generatedBytes > 0);
+        assertValidPrivateKey(new JVMAsyncPlatform().generatePrivateKey());
+    }
+
+    private static void assertValidPrivateKey(byte[] key) {
+        assertEquals(32, key.length);
+        BigInteger scalar = new BigInteger(1, key);
+        assertTrue(scalar.signum() > 0);
+        assertTrue(scalar.compareTo(Point.getn()) < 0);
+    }
+
     private static byte[] hex(String value) {
         int len = value.length();
         byte[] out = new byte[len / 2];
@@ -91,5 +116,17 @@ public class JVMSecp256k1Test {
             out[i / 2] = (byte) ((Character.digit(value.charAt(i), 16) << 4) + Character.digit(value.charAt(i + 1), 16));
         }
         return out;
+    }
+
+    private static final class LockAssertingSecureRandom extends SecureRandom {
+
+        private int generatedBytes;
+
+        @Override
+        public void nextBytes(byte[] bytes) {
+            assertTrue("SecureRandom was consumed without holding its lock", Thread.holdsLock(this));
+            generatedBytes += bytes.length;
+            Arrays.fill(bytes, (byte) 0x42);
+        }
     }
 }

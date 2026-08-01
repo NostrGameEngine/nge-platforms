@@ -313,6 +313,7 @@ function comparePlatform(wasm, jvm) {
     'sha256Bytes',
     'base64',
     'hmac',
+    'privateKeySanity',
     'httpRequest_status',
     'httpRequest_statusCode',
     'httpRequest_body',
@@ -453,7 +454,9 @@ async function main() {
       platform,
       websocket,
       rtc,
-      exclusions: [],
+      exclusions: [
+        'Private-key entropy estimation (sanity checks only: validity, non-triviality, and uniqueness in 32 samples)',
+      ],
     };
     process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
     emitInteropAnnotation(

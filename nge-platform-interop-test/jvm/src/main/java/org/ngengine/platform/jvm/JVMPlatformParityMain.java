@@ -40,14 +40,17 @@ import java.net.http.HttpResponse;
 import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.ngengine.platform.NGEPlatform;
 
 public class JVMPlatformParityMain {
 
     private static final Gson GSON = new Gson();
+    private static final int PRIVATE_KEY_SANITY_SAMPLES = 32;
 
     private static final byte[] PRIV_A = hex("1f1e1d1c1b1a191817161514131211100f0e0d0c0b0a09080706050403020101");
     private static final byte[] PRIV_B = hex("202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f");
@@ -136,6 +139,7 @@ public class JVMPlatformParityMain {
 
         byte[] rnd = p.randomBytes(16);
         byte[] genPriv = p.generatePrivateKey();
+        JsonObject privateKeySanity = checkPrivateKeyGeneration(p);
         String sig = p.schnorrSign(SIGN_DATA_HEX, PRIV_A);
         boolean verifyOwn = p.schnorrVerify(SIGN_DATA_HEX, sig, pubA);
         boolean verifyWrong = p.schnorrVerify("ff" + SIGN_DATA_HEX.substring(2), sig, pubA);
@@ -243,6 +247,7 @@ public class JVMPlatformParityMain {
         out.addProperty("randomNonZero", !allZero(rnd));
         out.addProperty("generatedPrivateKeyLen", genPriv.length);
         out.addProperty("generatedPrivateKeyNonZero", !allZero(genPriv));
+        out.add("privateKeySanity", privateKeySanity);
         out.addProperty("httpRequest_status", httpRes.status());
         out.addProperty("httpRequest_statusCode", httpRes.statusCode());
         out.addProperty("httpRequest_body", httpRes.bodyAsString());
@@ -253,6 +258,42 @@ public class JVMPlatformParityMain {
         out.addProperty("httpRequestStream_body", httpStreamBody);
         out.addProperty("scrypt", hex(scrypt));
         out.addProperty("bufferOverridesVerified", true);
+    }
+
+    private static JsonObject checkPrivateKeyGeneration(NGEPlatform platform) {
+        Set<String> uniqueKeys = new HashSet<>();
+        for (int sample = 0; sample < PRIVATE_KEY_SANITY_SAMPLES; sample++) {
+            byte[] key = platform.generatePrivateKey();
+            if (key.length != 32) {
+                throw new AssertionError("Generated private key has length " + key.length);
+            }
+            if (!platform.secp256k1PrivateKeyVerify(key)) {
+                throw new AssertionError("Generated private key is not a valid secp256k1 scalar");
+            }
+            if (isTrivialPrivateKey(key)) {
+                throw new AssertionError("Generated private key is trivial");
+            }
+            if (!uniqueKeys.add(hex(key))) {
+                throw new AssertionError("Duplicate generated private key in sanity sample");
+            }
+        }
+
+        JsonObject result = new JsonObject();
+        result.addProperty("sampleCount", PRIVATE_KEY_SANITY_SAMPLES);
+        result.addProperty("uniqueCount", uniqueKeys.size());
+        result.addProperty("allValid", true);
+        result.addProperty("noTrivialValues", true);
+        return result;
+    }
+
+    private static boolean isTrivialPrivateKey(byte[] key) {
+        boolean allSame = true;
+        boolean scalarOne = (key[key.length - 1] & 0xff) == 1;
+        for (int i = 0; i < key.length; i++) {
+            allSame &= key[i] == key[0];
+            if (i < key.length - 1 && key[i] != 0) scalarOne = false;
+        }
+        return allSame || scalarOne;
     }
 
     private static void postJson(HttpClient http, String url, JsonObject payload) throws Exception {

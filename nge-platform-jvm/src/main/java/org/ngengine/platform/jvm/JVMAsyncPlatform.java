@@ -127,7 +127,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     private static final Logger logger = Logger.getLogger(JVMAsyncPlatform.class.getName());
-    private static SecureRandom secureRandom;
+    private static final SecureRandom secureRandom;
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
@@ -193,7 +193,12 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public byte[] generatePrivateKey() {
-        return Schnorr.generatePrivateKey();
+        try {
+            return Schnorr.generatePrivateKey(secureRandom);
+        } catch (Exception e) {
+            panic("Failed to generate private key: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

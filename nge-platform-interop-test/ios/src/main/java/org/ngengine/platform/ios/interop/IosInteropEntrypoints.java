@@ -15,9 +15,11 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -41,6 +43,7 @@ import org.ngengine.platform.transport.WebsocketTransportListener;
 
 public final class IosInteropEntrypoints {
     private static final Gson GSON = new Gson();
+    private static final int PRIVATE_KEY_SANITY_SAMPLES = 32;
     private static final int WS_STRESS_MESSAGES = 24;
     private static final int RTC_STRESS_MESSAGES = 24;
 
@@ -187,6 +190,7 @@ public final class IosInteropEntrypoints {
 
         byte[] rnd = platform.randomBytes(16);
         byte[] genPriv = platform.generatePrivateKey();
+        JsonObject privateKeySanity = checkPrivateKeyGeneration(platform);
         String sig = platform.schnorrSign(SIGN_DATA_HEX, PRIV_A);
         boolean verifyOwn = platform.schnorrVerify(SIGN_DATA_HEX, sig, pubA);
         boolean verifyWrong = platform.schnorrVerify("ff" + SIGN_DATA_HEX.substring(2), sig, pubA);
@@ -254,6 +258,7 @@ public final class IosInteropEntrypoints {
         out.addProperty("randomNonZero", !allZero(rnd));
         out.addProperty("generatedPrivateKeyLen", genPriv.length);
         out.addProperty("generatedPrivateKeyNonZero", !allZero(genPriv));
+        out.add("privateKeySanity", privateKeySanity);
         out.addProperty("httpRequest_status", postResponse.status());
         out.addProperty("httpRequest_statusCode", postResponse.statusCode());
         out.addProperty("httpRequest_body", postResponse.bodyAsString());
@@ -261,6 +266,42 @@ public final class IosInteropEntrypoints {
         out.addProperty("bufferOverridesVerified", true);
         out.addProperty("httpGet_statusCode", getResponse.statusCode());
         out.addProperty("httpGet_body", getResponse.bodyAsString());
+    }
+
+    private static JsonObject checkPrivateKeyGeneration(NGEPlatform platform) {
+        Set<String> uniqueKeys = new HashSet<>();
+        for (int sample = 0; sample < PRIVATE_KEY_SANITY_SAMPLES; sample++) {
+            byte[] key = platform.generatePrivateKey();
+            if (key.length != 32) {
+                throw new AssertionError("Generated private key has length " + key.length);
+            }
+            if (!platform.secp256k1PrivateKeyVerify(key)) {
+                throw new AssertionError("Generated private key is not a valid secp256k1 scalar");
+            }
+            if (isTrivialPrivateKey(key)) {
+                throw new AssertionError("Generated private key is trivial");
+            }
+            if (!uniqueKeys.add(hex(key))) {
+                throw new AssertionError("Duplicate generated private key in sanity sample");
+            }
+        }
+
+        JsonObject result = new JsonObject();
+        result.addProperty("sampleCount", PRIVATE_KEY_SANITY_SAMPLES);
+        result.addProperty("uniqueCount", uniqueKeys.size());
+        result.addProperty("allValid", true);
+        result.addProperty("noTrivialValues", true);
+        return result;
+    }
+
+    private static boolean isTrivialPrivateKey(byte[] key) {
+        boolean allSame = true;
+        boolean scalarOne = (key[key.length - 1] & 0xff) == 1;
+        for (int i = 0; i < key.length; i++) {
+            allSame &= key[i] == key[0];
+            if (i < key.length - 1 && key[i] != 0) scalarOne = false;
+        }
+        return allSame || scalarOne;
     }
 
     private static void runAsync(IosPlatform platform, JsonObject out) throws Exception {

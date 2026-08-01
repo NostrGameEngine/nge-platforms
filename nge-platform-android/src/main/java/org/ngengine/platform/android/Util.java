@@ -37,7 +37,6 @@ import java.nio.ByteOrder;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 class Util {
 
@@ -47,17 +46,18 @@ class Util {
     }
 
     public static byte[] bytesFromBigInteger(BigInteger n) {
+        if (n == null) {
+            throw new NullPointerException("n");
+        }
+        if (n.signum() < 0 || n.bitLength() > 256) {
+            throw new IllegalArgumentException("Integer must be unsigned and fit in 32 bytes");
+        }
+
         byte[] b = n.toByteArray();
-
-        if (b.length == 32) {
-            return b;
-        }
-        if (b.length > 32) {
-            return Arrays.copyOfRange(b, b.length - 32, b.length);
-        }
-
         byte[] buf = new byte[32];
-        System.arraycopy(b, 0, buf, buf.length - b.length, b.length);
+        int sourceOffset = Math.max(0, b.length - buf.length);
+        int length = b.length - sourceOffset;
+        System.arraycopy(b, sourceOffset, buf, buf.length - length, length);
         return buf;
     }
 

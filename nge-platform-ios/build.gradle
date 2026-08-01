@@ -6,6 +6,7 @@ def libdatachannelJavaIosOverride = findProperty('libdatachannelJavaIosOverride'
 
 dependencies {
     api project(':nge-platform-common')
+    testImplementation libs.junit4
     implementation libs.gson
     implementation libs.bcprov
     implementation libs.libdatachannelJava

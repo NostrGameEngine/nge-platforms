@@ -358,6 +358,14 @@ function validateIosParity(ios) {
   if (Boolean(ios.verifyWrong) !== false) mismatches.push('ios.verifyWrong != false');
   if (Number(ios.randomLen) !== 16 || ios.randomNonZero !== true) mismatches.push('ios random invariant failed');
   if (Number(ios.generatedPrivateKeyLen) !== 32 || ios.generatedPrivateKeyNonZero !== true) mismatches.push('ios generated private key invariant failed');
+  if (
+    Number(ios.privateKeySanity?.sampleCount) !== 32 ||
+    Number(ios.privateKeySanity?.uniqueCount) !== 32 ||
+    ios.privateKeySanity?.allValid !== true ||
+    ios.privateKeySanity?.noTrivialValues !== true
+  ) {
+    mismatches.push('iOS private-key generation sanity check failed');
+  }
   if (ios.httpRequest_status !== true || ios.httpRequest_statusCode !== 201) mismatches.push('iOS HTTP POST status failed');
   if (ios.httpRequest_body !== 'echo:parity-http-body|req:parity' || ios.httpRequest_replyHeader !== 'ok') {
     mismatches.push('iOS HTTP POST body/header failed');
@@ -471,6 +479,7 @@ async function main() {
       'iOS simulator app build through libJGLIOS/GraalVM',
       'iOS simulator launch through simctl',
       'iOS NGEPlatform parity-style snapshot for crypto/hash/encoding/json/random/http',
+      'iOS private-key generation sanity check (validity, non-triviality, and uniqueness in 32 samples)',
       'iOS async executor and async Schnorr calls',
       'iOS classpath resource loading',
       'iOS HTTP GET/POST interoperability with local Node harness',

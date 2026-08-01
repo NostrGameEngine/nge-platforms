@@ -35,6 +35,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
@@ -48,6 +50,7 @@ import org.teavm.junit.TeaVMTestRunner;
 @SkipJVM
 public class TeaVMSecp256k1Test {
 
+    private static final int SAMPLE_COUNT = 4096;
     private static final String PRIVATE_VALID = "0000000000000000000000000000000000000000000000000000000000000001";
     private static final String PRIVATE_INVALID_ZERO = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final String PRIVATE_INVALID_N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
@@ -93,6 +96,47 @@ public class TeaVMSecp256k1Test {
         assertArrayEquals(publicUncompressed, platform.secp256k1RecoverPublicKey(hash32, signature64, RECOVERY_ID, false));
     }
 
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void generatedPrivateKeysPassDistributionSanityChecks() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        int[] byteCounts = new int[256];
+        int[] bitCounts = new int[256];
+        Set<String> keys = new HashSet<>();
+
+        for (int sample = 0; sample < SAMPLE_COUNT; sample++) {
+            byte[] key = platform.generatePrivateKey();
+            assertEquals(32, key.length);
+            assertTrue(platform.secp256k1PrivateKeyVerify(key));
+            assertTrue("private-key collision", keys.add(toHex(key)));
+
+            for (int byteIndex = 0; byteIndex < key.length; byteIndex++) {
+                int value = key[byteIndex] & 0xff;
+                byteCounts[value]++;
+                for (int bit = 0; bit < 8; bit++) {
+                    bitCounts[byteIndex * 8 + bit] += (value >>> bit) & 1;
+                }
+            }
+        }
+
+        double expectedByteCount = SAMPLE_COUNT * 32.0 / 256.0;
+        double chiSquare = 0.0;
+        for (int count : byteCounts) {
+            double delta = count - expectedByteCount;
+            chiSquare += delta * delta / expectedByteCount;
+        }
+        assertTrue("byte-frequency chi-square too high: " + chiSquare, chiSquare < 400.0);
+
+        double expectedBitCount = SAMPLE_COUNT / 2.0;
+        double maxBitDeviation = 7.0 * Math.sqrt(SAMPLE_COUNT * 0.25);
+        for (int bit = 0; bit < bitCounts.length; bit++) {
+            assertTrue(
+                "bit " + bit + " is biased: " + bitCounts[bit],
+                Math.abs(bitCounts[bit] - expectedBitCount) <= maxBitDeviation
+            );
+        }
+    }
+
     private static byte[] hex(String value) {
         int len = value.length();
         byte[] out = new byte[len / 2];
@@ -100,5 +144,16 @@ public class TeaVMSecp256k1Test {
             out[i / 2] = (byte) ((Character.digit(value.charAt(i), 16) << 4) + Character.digit(value.charAt(i + 1), 16));
         }
         return out;
+    }
+
+    private static String toHex(byte[] value) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] out = new char[value.length * 2];
+        for (int i = 0; i < value.length; i++) {
+            int b = value[i] & 0xff;
+            out[i * 2] = digits[b >>> 4];
+            out[i * 2 + 1] = digits[b & 0x0f];
+        }
+        return new String(out);
     }
 }

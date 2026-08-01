@@ -32,6 +32,26 @@ function hexToBytes(h) {
 }
 function bytesToHex(b) { return Array.from(b).map(x => x.toString(16).padStart(2, '0')).join(''); }
 function allZero(b) { return Array.from(b).every(x => x === 0); }
+function isTrivialPrivateKey(key) {
+  const bytes = Array.from(key);
+  const allSame = bytes.every((value) => value === bytes[0]);
+  const scalarOne = bytes.at(-1) === 1 && bytes.slice(0, -1).every((value) => value === 0);
+  return allSame || scalarOne;
+}
+function checkPrivateKeyGeneration() {
+  const sampleCount = 32;
+  const uniqueKeys = new Set();
+  for (let sample = 0; sample < sampleCount; sample += 1) {
+    const key = B.generatePrivateKey();
+    if (key.length !== 32) throw new Error(`Generated private key has length ${key.length}`);
+    if (!B.secp256k1PrivateKeyVerify(key)) throw new Error('Generated private key is not a valid secp256k1 scalar');
+    if (isTrivialPrivateKey(key)) throw new Error('Generated private key is trivial');
+    const encoded = bytesToHex(key);
+    if (uniqueKeys.has(encoded)) throw new Error('Duplicate generated private key in sanity sample');
+    uniqueKeys.add(encoded);
+  }
+  return { sampleCount, uniqueCount: uniqueKeys.size, allValid: true, noTrivialValues: true };
+}
 async function post(path, body) {
   const res = await fetch(`${signalBase}${path}`, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body)});
   if (!res.ok) throw new Error(`POST ${path} failed: ${res.status} ${await res.text()}`);
@@ -61,6 +81,7 @@ async function main() {
 
   const rnd = B.randomBytes(16);
   const genPriv = B.generatePrivateKey();
+  const privateKeySanity = checkPrivateKeyGeneration();
   const sig = B.sign(hexToBytes(V.signDataHex), privA);
   const verifyOwn = B.verify(hexToBytes(V.signDataHex), pubA, sig);
   const bad = hexToBytes('ff' + V.signDataHex.slice(2));
@@ -100,6 +121,7 @@ async function main() {
     randomNonZero: !allZero(rnd),
     generatedPrivateKeyLen: genPriv.length,
     generatedPrivateKeyNonZero: !allZero(genPriv),
+    privateKeySanity,
     httpRequest_status: httpRes.ok,
     httpRequest_statusCode: httpRes.status,
     httpRequest_body: httpBody,

@@ -85,7 +85,7 @@ public final class JVMReachAllMain {
         exerciseTransports(platform);
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
-        exerciseUtilityClasses();
+        exerciseUtilityClasses(platform);
         exerciseNetworkSecurity(platform);
     }
 
@@ -700,7 +700,7 @@ public final class JVMReachAllMain {
         );
     }
 
-    private static void exerciseUtilityClasses() {
+    private static void exerciseUtilityClasses(JVMAsyncPlatform platform) {
         safeRun(
             "util",
             () -> {
@@ -733,7 +733,7 @@ public final class JVMReachAllMain {
             "schnorr",
             () -> {
                 byte[] msg = "reach".getBytes(StandardCharsets.UTF_8);
-                byte[] sk = Schnorr.generatePrivateKey();
+                byte[] sk = platform.generatePrivateKey();
                 byte[] pk = Schnorr.genPubKey(sk);
                 byte[] sig = Schnorr.sign(msg, sk, new byte[32]);
                 return Schnorr.verify(msg, pk, sig);
@@ -968,7 +968,7 @@ public final class JVMReachAllMain {
                     Point.bytesFromPoint(g);
                     Point.liftX(g.toBytes());
 
-                    byte[] sk = Schnorr.generatePrivateKey();
+                    byte[] sk = platform.generatePrivateKey();
                     byte[] pk = Schnorr.genPubKey(sk);
                     Schnorr.sign("hi".getBytes(java.nio.charset.StandardCharsets.UTF_8), sk, new byte[32]);
                 } catch (Throwable ignored) {}

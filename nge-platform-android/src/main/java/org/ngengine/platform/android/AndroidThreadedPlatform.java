@@ -100,7 +100,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         
     }
 
-    private static SecureRandom secureRandom;
+    private static final SecureRandom secureRandom;
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
@@ -239,7 +239,12 @@ public class AndroidThreadedPlatform extends NGEPlatform {
 
     @Override
     public byte[] generatePrivateKey() {
-        return Schnorr.generatePrivateKey();
+        try {
+            return Schnorr.generatePrivateKey(secureRandom);
+        } catch (Exception e) {
+            panic("Failed to generate private key: " + e.getMessage());
+            throw new RuntimeException(e);
+        }
     }
 
     @Override

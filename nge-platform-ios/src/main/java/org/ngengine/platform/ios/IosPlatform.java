@@ -127,7 +127,7 @@ public class IosPlatform extends NGEPlatform {
     }
 
     private static final Logger logger = Logger.getLogger(IosPlatform.class.getName());
-    private static SecureRandom secureRandom;
+    private static final SecureRandom secureRandom;
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
@@ -193,13 +193,12 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public byte[] generatePrivateKey() {
-        for (int i = 0; i < 1024; i++) {
-            byte[] key = randomBytes(32);
-            if (secp256k1PrivateKeyVerify(key)) {
-                return key;
-            }
+        try {
+            return Schnorr.generatePrivateKey(secureRandom);
+        } catch (Exception e) {
+            panic("Failed to generate private key: " + e.getMessage());
+            throw new RuntimeException(e);
         }
-        throw new IllegalStateException("Could not generate a valid secp256k1 private key");
     }
 
     @Override

@@ -148,7 +148,7 @@ function compareSnapshots(results) {
   const exactKeys = [
     'pubA','pubB','hmac','hkdfExtract','hkdfExpand','base64','base64Roundtrip',
     'chachaEnc','chachaDec','sha256String','sha256Bytes','jsonMap','jsonList','fromJson_x','fromJson_y_len','fromJson_z_k',
-    'httpRequest_status','httpRequest_statusCode','httpRequest_body','httpRequest_replyHeader'
+    'httpRequest_status','httpRequest_statusCode','httpRequest_body','httpRequest_replyHeader','privateKeySanity'
   ];
   const invariantKeys = [
     'signatureLen','signatureAsyncLen','verifyOwn','verifyWrong','verifyAsync','randomLen','randomNonZero','generatedPrivateKeyLen','generatedPrivateKeyNonZero'
@@ -233,7 +233,8 @@ async function main() {
       'Clipboard/browser/store methods',
       'Executor/promise scheduling semantics (only signAsync/verifyAsync parity is sampled)',
       'Timestamp methods',
-      'Exact random outputs and exact signature bytes (invariants/semantics checked instead)'
+      'Exact random outputs and exact signature bytes (invariants/semantics checked instead)',
+      'Private-key entropy estimation (sanity checks only: validity, non-triviality, and uniqueness in 32 samples)'
     ]
   };
   process.stdout.write(`${JSON.stringify(combined, null, 2)}\n`);

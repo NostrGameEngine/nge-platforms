@@ -5041,6 +5041,35 @@
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMByteBufferPlatformTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "hmacBufferSupportsAbsentSecondPayload",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "hmacConsumesDirectPayloadsWithoutChangingCallerPositions",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "sha256ConsumesDirectBufferWithoutChangingCallerPosition",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMNGEAllocator",
             "methods": [
                 {
@@ -5091,6 +5120,9 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMNGEAllocatorGuard"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurity",
             "methods": [
                 {
@@ -5106,6 +5138,9 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurity"
         },
         {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
@@ -5266,6 +5301,29 @@
                     ]
                 },
                 {
+                    "name": "privateKeyGenerationUsesDirectBouncyCastleAndProvidedRandom",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "validatesSecp256k1PublicVectors",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMSecp256k1Test",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "validatesSecp256k1PublicVectors",
                     "parameterTypes": [
                         
@@ -5302,6 +5360,9 @@
                     "name": "openWebSocket"
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport"
         },
         {
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransportUnitTest",
@@ -5352,6 +5413,35 @@
         },
         {
             "type": "org.ngengine.platform.jvm.Point$JacobianPoint"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.PrivateKeyEntropyTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "bytesFromBigIntegerIsStrictUnsignedFixedWidthEncoding",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "generatedPrivateKeysPassDistributionSanityChecks",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "privateKeyGenerationUsesBundledBouncyCastleProvider",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.SaferAllocBehaviorTest",
@@ -5491,6 +5581,28 @@
             "methods": [
                 {
                     "name": "getApplicationClass",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "sun.net.www.protocol.http.Handler",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "sun.net.www.protocol.jar.Handler",
+            "methods": [
+                {
+                    "name": "<init>",
                     "parameterTypes": [
                         
                     ]

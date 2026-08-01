@@ -42,9 +42,11 @@ import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
@@ -80,8 +82,15 @@ import org.teavm.junit.TeaVMTestRunner;
 @SkipJVM
 public class TeaVMCompiledWasmInteropTest {
 
+    private static final int PRIVATE_KEY_SANITY_SAMPLES = 32;
     private static final int STRESS_MESSAGES = 256;
     private static final Duration TIMEOUT = Duration.ofSeconds(20);
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void generatedPrivateKeysPassSanityOnCompiledBackend() {
+        checkPrivateKeyGeneration(new TeaVMPlatform());
+    }
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -98,6 +107,7 @@ public class TeaVMCompiledWasmInteropTest {
             assertTrue(platform.getPlatformName(), platform.getPlatformName().startsWith("TeaVM Wasm GC (browser"));
 
             result.put("platformName", platform.getPlatformName());
+            result.put("privateKeySanity", checkPrivateKeyGeneration(platform));
             result.put("sha256Bytes", hex(platform.sha256(hex("11223344556677889900aabbccddeeff"))));
             result.put("base64", platform.base64encode(hex("00010203f0f1f2f37f80ff")));
             result.put(
@@ -480,6 +490,34 @@ public class TeaVMCompiledWasmInteropTest {
         TeaVMPlatform platform = new TeaVMPlatform();
         NGEPlatform.set(platform);
         return platform;
+    }
+
+    private static Map<String, Object> checkPrivateKeyGeneration(TeaVMPlatform platform) {
+        Set<String> uniqueKeys = new HashSet<>();
+        for (int sample = 0; sample < PRIVATE_KEY_SANITY_SAMPLES; sample++) {
+            byte[] key = platform.generatePrivateKey();
+            assertEquals("Generated private key length", 32, key.length);
+            assertTrue("Generated private key is not a valid secp256k1 scalar", platform.secp256k1PrivateKeyVerify(key));
+            assertFalse("Generated private key is trivial", isTrivialPrivateKey(key));
+            assertTrue("Duplicate generated private key in sanity sample", uniqueKeys.add(hex(key)));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("sampleCount", PRIVATE_KEY_SANITY_SAMPLES);
+        result.put("uniqueCount", uniqueKeys.size());
+        result.put("allValid", true);
+        result.put("noTrivialValues", true);
+        return result;
+    }
+
+    private static boolean isTrivialPrivateKey(byte[] key) {
+        boolean allSame = true;
+        boolean scalarOne = (key[key.length - 1] & 0xff) == 1;
+        for (int i = 0; i < key.length; i++) {
+            allSame &= key[i] == key[0];
+            if (i < key.length - 1 && key[i] != 0) scalarOne = false;
+        }
+        return allSame || scalarOne;
     }
 
     private static void requireWasm() {

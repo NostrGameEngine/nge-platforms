@@ -31,15 +31,15 @@
 package org.ngengine.platform.ios;
 
 import java.math.BigInteger;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.SecureRandom;
-import java.security.Security;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECGenParameterSpec;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import java.util.Objects;
+import org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi;
 import org.ngengine.platform.FailedToSignException;
-import org.ngengine.platform.NGEPlatform;
 
 // based on https://github.com/tcheeric/nostr-java/blob/main/nostr-java-crypto/src/main/java/nostr/crypto/schnorr/Schnorr.java#L19
 // thread-safe
@@ -198,16 +198,12 @@ class Schnorr {
         return Point.bytesFromPoint(ret);
     }
 
-    public static byte[] generatePrivateKey() {
-        try {
-            Security.addProvider(new BouncyCastleProvider());
-            KeyPairGenerator kpg = KeyPairGenerator.getInstance("ECDSA", "BC");
-            kpg.initialize(new ECGenParameterSpec("secp256k1"), SecureRandom.getInstanceStrong());
-            KeyPair processorKeyPair = kpg.genKeyPair();
-            return Util.bytesFromBigInteger(((ECPrivateKey) processorKeyPair.getPrivate()).getS());
-        } catch (Exception e) {
-            NGEPlatform.get().panic("Failed to generate private key: " + e.getMessage());
-            throw new RuntimeException(e);
+    static byte[] generatePrivateKey(SecureRandom random) throws InvalidAlgorithmParameterException {
+        synchronized (Objects.requireNonNull(random, "random")) {
+            KeyPairGenerator generator = new KeyPairGeneratorSpi.ECDSA();
+            generator.initialize(new ECGenParameterSpec("secp256k1"), random);
+            KeyPair keyPair = generator.generateKeyPair();
+            return Util.bytesFromBigInteger(((ECPrivateKey) keyPair.getPrivate()).getS());
         }
     }
 }
