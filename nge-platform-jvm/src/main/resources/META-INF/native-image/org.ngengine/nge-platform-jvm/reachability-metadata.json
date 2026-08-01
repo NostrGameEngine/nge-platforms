@@ -5261,6 +5261,9 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMRTCTransportUnitTest"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMReachAllMain",
             "jniAccessible": true,
             "methods": [
@@ -5552,6 +5555,9 @@
                     ]
                 }
             ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.TestLibDatachannelInitialization"
         },
         {
             "type": "org.ngengine.platform.jvm.Util",
