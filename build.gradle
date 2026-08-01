@@ -448,3 +448,5 @@ tasks.register('refreshCatalog') {
         println "Refreshed ${target} with ${keptSections.libraries.size()} catalog libraries"
     }
 }
+
+apply from: 'gradle/native-image-runtime-metadata.gradle'

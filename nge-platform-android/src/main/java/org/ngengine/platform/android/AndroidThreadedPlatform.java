@@ -93,14 +93,24 @@ import org.ngengine.platform.NGEAllocator;
 public class AndroidThreadedPlatform extends NGEPlatform {
 
     static {
-        Security.removeProvider("BC");
-        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+        Provider provider = Security.getProvider("BC");
+        if (!(provider instanceof org.bouncycastle.jce.provider.BouncyCastleProvider)) {
+            Security.removeProvider("BC");
+            Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+        }
         System.out.println("Using BouncyCastle provider: " +
                 Security.getProvider("BC"));
         
     }
 
-    private static final SecureRandom secureRandom;
+    /**
+     * Created on first use so AOT compilation cannot snapshot an RNG instance
+     * (and its seed/state) into compiled application state.
+     */
+    private static final class SecureRandomHolder {
+
+        private static final SecureRandom INSTANCE = newSecureRandom();
+    }
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
@@ -119,10 +129,6 @@ public class AndroidThreadedPlatform extends NGEPlatform {
         return allocator;
     }
     
-    static {
-        secureRandom = newSecureRandom();
-    }
-
     public static SecureRandom newSecureRandom() {
         try {
             return SecureRandom.getInstanceStrong();
@@ -130,6 +136,10 @@ public class AndroidThreadedPlatform extends NGEPlatform {
             panicImpl("No strong secure random available: " + e.getMessage());
             throw new RuntimeException(e); 
         }
+    }
+
+    private static SecureRandom getSecureRandom() {
+        return SecureRandomHolder.INSTANCE;
     }
     
 
@@ -230,9 +240,10 @@ public class AndroidThreadedPlatform extends NGEPlatform {
 
     @Override
     public byte[] randomBytes(int n) {
-        synchronized (secureRandom) {
+        SecureRandom random = getSecureRandom();
+        synchronized (random) {
             byte[] bytes = new byte[n];
-            secureRandom.nextBytes(bytes);
+            random.nextBytes(bytes);
             return bytes;
         }
     }
@@ -240,7 +251,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     @Override
     public byte[] generatePrivateKey() {
         try {
-            return Schnorr.generatePrivateKey(secureRandom);
+            return Schnorr.generatePrivateKey(getSecureRandom());
         } catch (Exception e) {
             panic("Failed to generate private key: " + e.getMessage());
             throw new RuntimeException(e);
