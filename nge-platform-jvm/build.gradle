@@ -209,6 +209,7 @@ tasks.register('generateNativeImageMetadataFromTests', Test) {
 tasks.register('syncNativeImageReflectConfig') {
     group = 'native image'
     description = 'Merges generated reachability metadata into src/main/resources/META-INF/native-image/<group>/<name>/reachability-metadata.json.'
+    dependsOn rootProject.tasks.named('syncNativeImageRuntimeMetadata')
 
     doLast {
         List<File> metadataRoots = [

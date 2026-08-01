@@ -5026,6 +5026,9 @@
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$LimitingBodySubscriber"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$SecureRandomHolder"
+        },
+        {
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform$VtExecutor",
             "methods": [
                 {
@@ -5384,6 +5387,40 @@
                 },
                 {
                     "name": "sendPreservesOrderUnderStressInBothDirections",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.NativeImageEntropyConfigurationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "entropySensitiveClassesAreRuntimeInitialized",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.NativeImageEntropyConfigurationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "securityAndRuntimeStateSensitiveClassesAreRuntimeInitialized",
                     "parameterTypes": [
                         
                     ]
@@ -6336,6 +6373,9 @@
         },
         {
             "glob": "META-INF/MANIFEST.MF"
+        },
+        {
+            "glob": "META-INF/native-image/org.ngengine/nge-platform-jvm/native-image.properties"
         },
         {
             "glob": "META-INF/services/java.net.spi.InetAddressResolverProvider"

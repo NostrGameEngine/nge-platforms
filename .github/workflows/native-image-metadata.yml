@@ -58,6 +58,8 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add nge-platform-jvm/src/main/resources/META-INF/native-image/
+          git add nge-platform-android/src/main/resources/META-INF/native-image/
+          git add nge-platform-ios/src/main/resources/META-INF/native-image/
           git commit -m "[Automated] Refresh GraalVM reachability metadata"
 
           BRANCH="${GITHUB_REF_NAME}"

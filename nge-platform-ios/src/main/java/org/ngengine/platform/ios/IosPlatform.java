@@ -127,16 +127,21 @@ public class IosPlatform extends NGEPlatform {
     }
 
     private static final Logger logger = Logger.getLogger(IosPlatform.class.getName());
-    private static final SecureRandom secureRandom;
+
+    /**
+     * Created on first use so a Native Image build cannot snapshot an RNG
+     * instance (and its seed/state) into the image heap.
+     */
+    private static final class SecureRandomHolder {
+
+        private static final SecureRandom INSTANCE = newSecureRandom();
+    }
+
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
     private static final int MAX_HTTP_REDIRECTS = 5;
     private static final long MAX_HTTP_BUFFERED_RESPONSE_BYTES = 10L * 1024L * 1024L;
-
-    static {
-        secureRandom = newSecureRandom();
-    }
 
     public static SecureRandom newSecureRandom() {
         try {
@@ -145,6 +150,10 @@ public class IosPlatform extends NGEPlatform {
             panicImpl("No strong secure random available: " + e.getMessage());
             throw new RuntimeException(e);
         }
+    }
+
+    private static SecureRandom getSecureRandom() {
+        return SecureRandomHolder.INSTANCE;
     }
 
     // used for unit tests
@@ -180,9 +189,10 @@ public class IosPlatform extends NGEPlatform {
         try {
             if (!getMemoryLimits().checkForRandomData(n)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
-            synchronized (secureRandom) {
+            SecureRandom random = getSecureRandom();
+            synchronized (random) {
                 byte[] bytes = new byte[n];
-                secureRandom.nextBytes(bytes);
+                random.nextBytes(bytes);
                 return bytes;
             }
         } catch (Exception e) {
@@ -194,7 +204,7 @@ public class IosPlatform extends NGEPlatform {
     @Override
     public byte[] generatePrivateKey() {
         try {
-            return Schnorr.generatePrivateKey(secureRandom);
+            return Schnorr.generatePrivateKey(getSecureRandom());
         } catch (Exception e) {
             panic("Failed to generate private key: " + e.getMessage());
             throw new RuntimeException(e);

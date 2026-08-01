@@ -1,0 +1,107 @@
+def nativeImageMetadataGroup = rootProject.ext.baseGroup.toString()
+def bouncyCastleProvider = 'org.bouncycastle.jce.provider.BouncyCastleProvider'
+def commonRuntimeInitialization = [
+        'org.bouncycastle.crypto.CryptoServicesRegistrar',
+        'org.bouncycastle.jcajce.provider.drbg.DRBG',
+        'org.bouncycastle.jcajce.provider.drbg.DRBG$Default',
+        'org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV'
+]
+def platformRuntimeInitialization = [
+        'nge-platform-jvm'    : [
+                'org.ngengine.platform.jvm.JVMAsyncPlatform',
+                'org.ngengine.platform.jvm.JVMAsyncPlatform$SecureRandomHolder',
+                'org.ngengine.platform.jvm.JVMNetworkSecurity',
+                'org.ngengine.platform.jvm.JVMNGEAllocator',
+                'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
+                'org.ngengine.platform.jvm.JVMRTCTransport'
+        ],
+        'nge-platform-android': [
+                'org.ngengine.platform.android.AndroidThreadedPlatform',
+                'org.ngengine.platform.android.AndroidThreadedPlatform$SecureRandomHolder',
+                'org.ngengine.platform.android.AndroidNGEAllocator',
+                'org.ngengine.platform.android.AndroidNGEAllocatorGuard'
+        ],
+        'nge-platform-ios'    : [
+                'org.ngengine.platform.ios.IosPlatform',
+                'org.ngengine.platform.ios.IosPlatform$SecureRandomHolder',
+                'org.ngengine.platform.ios.IosNetworkSecurity',
+                'org.ngengine.platform.ios.IosNGEAllocator',
+                'org.ngengine.platform.ios.IosNGEAllocatorGuard'
+        ]
+]
+
+def nativeImageRuntimeMetadata = platformRuntimeInitialization.collectEntries { String moduleName, List<String> platformTypes ->
+    List<String> runtimeTypes = (commonRuntimeInitialization + platformTypes).unique()
+    String relativePath = "${moduleName}/src/main/resources/META-INF/native-image/${nativeImageMetadataGroup}/${moduleName}/native-image.properties"
+    String args = [
+            '-H:+UnlockExperimentalVMOptions',
+            "-H:AdditionalSecurityProviders=${bouncyCastleProvider}",
+            '-H:-UnlockExperimentalVMOptions',
+            "--initialize-at-run-time=${runtimeTypes.join(',')}"
+    ].join(' ')
+    [(moduleName): [
+            file          : rootProject.file(relativePath),
+            relativePath  : relativePath,
+            runtimeTypes  : runtimeTypes,
+            expectedText  : "Args = ${args}\n"
+    ]]
+}
+
+def metadataPaths = nativeImageRuntimeMetadata.values()*.relativePath
+if (metadataPaths.toSet().size() != metadataPaths.size()) {
+    throw new GradleException("Native Image metadata paths must be distinct per published artifact: ${metadataPaths}")
+}
+
+rootProject.ext.nativeImageRuntimeMetadata = nativeImageRuntimeMetadata
+
+tasks.register('syncNativeImageRuntimeMetadata') {
+    group = 'native image'
+    description = 'Writes deterministic Native Image runtime-initialization properties for JVM, Android, and iOS artifacts.'
+    inputs.property('nativeImageRuntimeMetadata', nativeImageRuntimeMetadata.collectEntries { moduleName, metadata ->
+        [(moduleName): metadata.expectedText]
+    })
+
+    doLast {
+        nativeImageRuntimeMetadata.each { String moduleName, Map metadata ->
+            File destination = metadata.file
+            destination.parentFile.mkdirs()
+            if (!destination.exists() || destination.getText('UTF-8') != metadata.expectedText) {
+                destination.setText(metadata.expectedText, 'UTF-8')
+                logger.lifecycle("Synced Native Image runtime metadata for ${moduleName}: ${metadata.relativePath}")
+            }
+        }
+    }
+}
+
+tasks.register('validateNativeImageRuntimeMetadata') {
+    group = 'verification'
+    description = 'Checks that all published platform artifacts contain the expected Native Image runtime-initialization properties.'
+    mustRunAfter tasks.named('syncNativeImageRuntimeMetadata')
+    inputs.files(nativeImageRuntimeMetadata.values()*.file)
+    inputs.property('expectedNativeImageRuntimeMetadata', nativeImageRuntimeMetadata.collectEntries { moduleName, metadata ->
+        [(moduleName): metadata.expectedText]
+    })
+
+    doLast {
+        List<String> failures = []
+        nativeImageRuntimeMetadata.each { String moduleName, Map metadata ->
+            File source = metadata.file
+            if (!source.exists()) {
+                failures.add("${moduleName}: missing ${metadata.relativePath}")
+            } else if (source.getText('UTF-8') != metadata.expectedText) {
+                failures.add("${moduleName}: stale ${metadata.relativePath}; run ./gradlew syncNativeImageRuntimeMetadata")
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new GradleException("Invalid Native Image runtime metadata:\n - ${failures.join('\n - ')}")
+        }
+    }
+}
+
+subprojects { subproject ->
+    subproject.pluginManager.withPlugin('base') {
+        subproject.tasks.named('check').configure {
+            dependsOn rootProject.tasks.named('validateNativeImageRuntimeMetadata')
+        }
+    }
+}
