@@ -148,8 +148,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     // used for unit tests
-    public static boolean _NO_AUX_RANDOM = false;
-    public static boolean _EMPTY_NONCE = false;
+    private static boolean _NO_AUX_RANDOM = false;
+    private static boolean _EMPTY_NONCE = false;
 
     ///
     ///

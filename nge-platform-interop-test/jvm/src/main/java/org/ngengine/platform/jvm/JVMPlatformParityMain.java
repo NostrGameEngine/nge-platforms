@@ -33,6 +33,7 @@ package org.ngengine.platform.jvm;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.InputStream;
+import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -84,8 +85,12 @@ public class JVMPlatformParityMain {
             .build();
         JsonObject result = new JsonObject();
         try {
-            JVMAsyncPlatform._NO_AUX_RANDOM = true;
-            JVMAsyncPlatform._EMPTY_NONCE = false;
+            Field noAuxRandom = JVMAsyncPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
+            noAuxRandom.setAccessible(true);
+            noAuxRandom.setBoolean(null, true);
+            Field emptyNonce = JVMAsyncPlatform.class.getDeclaredField("_EMPTY_NONCE");
+            emptyNonce.setAccessible(true);
+            emptyNonce.setBoolean(null, false);
             NGEPlatform p = new JVMAsyncPlatform();
             fillSnapshot(result, p, httpParityUrl);
             result.addProperty("ok", true);

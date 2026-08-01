@@ -147,8 +147,12 @@ public final class IosInteropEntrypoints {
     }
 
     private static void runParity(IosPlatform platform, String signalBase, JsonObject out) throws Exception {
-        IosPlatform._NO_AUX_RANDOM = true;
-        IosPlatform._EMPTY_NONCE = false;
+        Field noAuxRandom = IosPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
+        noAuxRandom.setAccessible(true);
+        noAuxRandom.setBoolean(null, true);
+        Field emptyNonce = IosPlatform.class.getDeclaredField("_EMPTY_NONCE");
+        emptyNonce.setAccessible(true);
+        emptyNonce.setBoolean(null, false);
 
         byte[] pubA = platform.genPubKey(PRIV_A);
         byte[] pubB = platform.genPubKey(PRIV_B);

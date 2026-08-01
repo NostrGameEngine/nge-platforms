@@ -75,8 +75,12 @@ public class AndroidPlatformParityInstrumentedTest {
 
         JsonObject result = new JsonObject();
         try {
-            AndroidThreadedPlatform._NO_AUX_RANDOM = true;
-            AndroidThreadedPlatform._EMPTY_NONCE = false;
+            Field noAuxRandom = AndroidThreadedPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
+            noAuxRandom.setAccessible(true);
+            noAuxRandom.setBoolean(null, true);
+            Field emptyNonce = AndroidThreadedPlatform.class.getDeclaredField("_EMPTY_NONCE");
+            emptyNonce.setAccessible(true);
+            emptyNonce.setBoolean(null, false);
             fillSnapshot(result, (AndroidThreadedPlatform) NGEPlatform.get(), httpParityUrl);
             result.addProperty("ok", true);
         } catch (Throwable t) {
