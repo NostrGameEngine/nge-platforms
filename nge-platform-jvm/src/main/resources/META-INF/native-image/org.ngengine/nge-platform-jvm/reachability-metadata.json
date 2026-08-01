@@ -5411,6 +5411,23 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.NativeImageEntropyConfigurationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "securityAndRuntimeStateSensitiveClassesAreRuntimeInitialized",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.Point",
             "methods": [
                 {
