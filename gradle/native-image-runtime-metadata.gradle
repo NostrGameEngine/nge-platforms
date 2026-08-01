@@ -7,9 +7,27 @@ def commonRuntimeInitialization = [
         'org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV'
 ]
 def platformRuntimeInitialization = [
-        'nge-platform-jvm'    : ['org.ngengine.platform.jvm.JVMAsyncPlatform$SecureRandomHolder'],
-        'nge-platform-android': ['org.ngengine.platform.android.AndroidThreadedPlatform$SecureRandomHolder'],
-        'nge-platform-ios'    : ['org.ngengine.platform.ios.IosPlatform$SecureRandomHolder']
+        'nge-platform-jvm'    : [
+                'org.ngengine.platform.jvm.JVMAsyncPlatform',
+                'org.ngengine.platform.jvm.JVMAsyncPlatform$SecureRandomHolder',
+                'org.ngengine.platform.jvm.JVMNetworkSecurity',
+                'org.ngengine.platform.jvm.JVMNGEAllocator',
+                'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
+                'org.ngengine.platform.jvm.JVMRTCTransport'
+        ],
+        'nge-platform-android': [
+                'org.ngengine.platform.android.AndroidThreadedPlatform',
+                'org.ngengine.platform.android.AndroidThreadedPlatform$SecureRandomHolder',
+                'org.ngengine.platform.android.AndroidNGEAllocator',
+                'org.ngengine.platform.android.AndroidNGEAllocatorGuard'
+        ],
+        'nge-platform-ios'    : [
+                'org.ngengine.platform.ios.IosPlatform',
+                'org.ngengine.platform.ios.IosPlatform$SecureRandomHolder',
+                'org.ngengine.platform.ios.IosNetworkSecurity',
+                'org.ngengine.platform.ios.IosNGEAllocator',
+                'org.ngengine.platform.ios.IosNGEAllocatorGuard'
+        ]
 ]
 
 def nativeImageRuntimeMetadata = platformRuntimeInitialization.collectEntries { String moduleName, List<String> platformTypes ->
