@@ -57,12 +57,12 @@ import org.ngengine.platform.transport.WebsocketTransport;
 
 public abstract class NGEPlatform {
 
-    private static BrowserInterceptor browserInterceptor;
-    private static VStoreInterceptor storeInterceptor;
-    private static NGEPlatform platform;
+    private static volatile BrowserInterceptor browserInterceptor;
+    private static volatile VStoreInterceptor storeInterceptor;
+    private static volatile NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
 
-    public static void set(NGEPlatform platform) {
+    public static synchronized void set(NGEPlatform platform) {
         if (NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
         NGEPlatform.platform = platform;
     }
@@ -85,7 +85,7 @@ public abstract class NGEPlatform {
         return NGEPlatform.platform;
     }
 
-    public static void setBrowserInterceptor(BrowserInterceptor interceptor) {
+    public static synchronized void setBrowserInterceptor(BrowserInterceptor interceptor) {
         if (NGEPlatform.browserInterceptor != null) throw new IllegalStateException("Browser interceptor already set");
         NGEPlatform.browserInterceptor = interceptor;
     }
@@ -94,7 +94,7 @@ public abstract class NGEPlatform {
         return NGEPlatform.browserInterceptor;
     }
 
-    public static void setStoreInterceptor(VStoreInterceptor interceptor) {
+    public static synchronized void setStoreInterceptor(VStoreInterceptor interceptor) {
         if (NGEPlatform.storeInterceptor != null) throw new IllegalStateException("Store interceptor already set");
         NGEPlatform.storeInterceptor = interceptor;
     }
