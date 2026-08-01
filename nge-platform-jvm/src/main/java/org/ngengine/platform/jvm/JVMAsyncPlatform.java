@@ -127,6 +127,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     private static final Logger logger = Logger.getLogger(JVMAsyncPlatform.class.getName());
+
     /**
      * Created on first use so a Native Image build cannot snapshot an RNG
      * instance (and its seed/state) into the image heap.
@@ -135,6 +136,7 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
         private static final SecureRandom INSTANCE = newSecureRandom();
     }
+
     private static final byte EMPTY32[] = new byte[32];
     private static final byte EMPTY0[] = new byte[0];
     private static final BigInteger ONE = BigInteger.ONE;
