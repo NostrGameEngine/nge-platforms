@@ -1,6 +1,14 @@
 {
     "reflection": [
         {
+            "allPublicConstructors": true,
+            "type": "org.bouncycastle.jcajce.provider.drbg.DRBG$Default"
+        },
+        {
+            "allPublicConstructors": true,
+            "type": "org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV"
+        },
+        {
             "fields": [
                 {
                     "name": "channels"

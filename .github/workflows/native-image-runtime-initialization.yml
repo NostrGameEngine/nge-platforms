@@ -1,0 +1,72 @@
+name: Verify Native Image Runtime Initialization
+
+on:
+  push:
+    paths:
+      - '.github/scripts/verify-native-image-runtime-initialization.sh'
+      - '.github/workflows/native-image-runtime-initialization.yml'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'nge-platform-common/**'
+      - 'nge-platform-jvm/**'
+  pull_request:
+    paths:
+      - '.github/scripts/verify-native-image-runtime-initialization.sh'
+      - '.github/workflows/native-image-runtime-initialization.yml'
+      - 'build.gradle'
+      - 'settings.gradle'
+      - 'gradle/**'
+      - 'gradle.properties'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'nge-platform-common/**'
+      - 'nge-platform-jvm/**'
+  workflow_dispatch:
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: native-image-runtime-initialization-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-runtime-initialization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up GraalVM 25.1
+        uses: graalvm/setup-graalvm@v1
+        with:
+          version: '25.1'
+          distribution: 'graalvm'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          cache: 'gradle'
+          native-image-job-reports: 'true'
+
+      - name: Grant execute permissions
+        run: chmod +x gradlew .github/scripts/verify-native-image-runtime-initialization.sh
+
+      - name: Build and verify runtime initialization
+        run: .github/scripts/verify-native-image-runtime-initialization.sh
+
+      - name: Upload Native Image initialization reports
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: native-image-runtime-initialization-reports
+          path: |
+            nge-platform-jvm/build/native/runtime-initialization-smoke/**/class_initialization_*.csv
+            nge-platform-jvm/build/native/runtime-initialization-smoke/native-image.log
+          if-no-files-found: warn

@@ -53,6 +53,34 @@ tasks.named('test') {
     }
 }
 
+def nativeImageRuntimeInitializationSmokeDir = layout.buildDirectory.dir('native/runtime-initialization-smoke')
+def nativeImageRuntimeInitializationSmokeClasspathFile = nativeImageRuntimeInitializationSmokeDir.map {
+    it.file('classpath.txt')
+}
+def nativeImageRuntimeInitializationSmokeClasspath = files(
+        sourceSets.test.output,
+        tasks.named('jar').flatMap { it.archiveFile },
+        configurations.testRuntimeClasspath
+)
+
+tasks.register('prepareNativeImageRuntimeInitializationSmoke') {
+    group = 'native image'
+    description = 'Builds the packaged JVM artifact and writes the classpath used by the Native Image runtime-initialization smoke test.'
+    dependsOn testClasses
+    dependsOn jar
+    inputs.files(nativeImageRuntimeInitializationSmokeClasspath)
+    outputs.file(nativeImageRuntimeInitializationSmokeClasspathFile)
+
+    doLast {
+        File classpathFile = nativeImageRuntimeInitializationSmokeClasspathFile.get().asFile
+        classpathFile.parentFile.mkdirs()
+        classpathFile.setText(
+                nativeImageRuntimeInitializationSmokeClasspath.files*.absolutePath.join(File.pathSeparator) + System.lineSeparator(),
+                'UTF-8'
+        )
+    }
+}
+
 def nativeImageMetadataBuildDir = layout.buildDirectory.dir('native/metadata-agent')
 def nativeImageMetadataMainDir = layout.buildDirectory.dir('native/metadata-agent/main')
 def nativeImageMetadataTestsDir = layout.buildDirectory.dir('native/metadata-agent/tests')
@@ -75,6 +103,16 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.JVMRTCTransport',
         'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
         'org.ngengine.platform.jvm.JVMNetworkSecurity'
+]
+def forcedReachabilityReflectionEntries = [
+        [
+                allPublicConstructors: true,
+                type: 'org.bouncycastle.jcajce.provider.drbg.DRBG$Default'
+        ],
+        [
+                allPublicConstructors: true,
+                type: 'org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV'
+        ]
 ]
 
 def ensureJavaExecutableAvailable = { File executable, String taskName ->
@@ -264,6 +302,9 @@ tasks.register('syncNativeImageReflectConfig') {
         List generatedReflection = generatedMetadata.get('reflection') instanceof List ? (List) generatedMetadata.get('reflection') : []
         forcedReachabilityReflectionTypes.each { String typeName ->
             generatedReflection.add([type: typeName])
+        }
+        forcedReachabilityReflectionEntries.each { Map entry ->
+            generatedReflection.add(new LinkedHashMap<>(entry))
         }
         generatedMetadata.put('reflection', generatedReflection)
         Map existingMetadata = [:]
