@@ -386,6 +386,11 @@ public final class JVMReachAllMain {
                             f.set(jws, mock);
                         } catch (Throwable ignored) {}
 
+                        // Ensure effective max message size is large so chunking/growth paths are exercised
+                        try {
+                            jws.setMaxMessageSize(200000);
+                        } catch (Throwable ignored) {}
+
                         // Trigger lifecycle callbacks directly
                         try {
                             jws.onOpen(mock);
@@ -430,7 +435,7 @@ public final class JVMReachAllMain {
                                             );
                                             m.setAccessible(true);
                                             try {
-                                                m.invoke(jws, 1024);
+                                                m.invoke(jws, 100000);
                                             } catch (Throwable ignored2) {}
                                         } catch (Throwable ignored2) {}
                                     } catch (Throwable ignored2) {}
