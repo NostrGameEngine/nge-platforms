@@ -160,13 +160,36 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
-        return TeaVMBinds.secp256k1SharedSecret(privKey, pubKey);
+        if (!secp256k1PrivateKeyVerify(privKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+        if (!secp256k1PublicKeyVerify(pubKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 public key");
+        }
+        byte[] sharedPoint = TeaVMBinds.secp256k1SharedSecret(privKey, pubKey);
+        if (!secp256k1PublicKeyVerify(sharedPoint)) {
+            throw new IllegalArgumentException("Invalid secp256k1 shared point");
+        }
+        return sharedPoint;
     }
 
     @Override
     public ByteBuffer secp256k1SharedSecret(ByteBuffer privKey, ByteBuffer pubKey) {
+        if (privKey == null || !secp256k1PrivateKeyVerify(privKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+        if (pubKey == null || !secp256k1PublicKeyVerify(pubKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 public key");
+        }
         ByteBuffer output = allocateOutput(33);
-        return finishOutput(output, TeaVMBinds.secp256k1SharedSecretBuffer(directInput(privKey), directInput(pubKey), output));
+        ByteBuffer sharedPoint = finishOutput(
+            output,
+            TeaVMBinds.secp256k1SharedSecretBuffer(directInput(privKey), directInput(pubKey), output)
+        );
+        if (!secp256k1PublicKeyVerify(sharedPoint)) {
+            throw new IllegalArgumentException("Invalid secp256k1 shared point");
+        }
+        return sharedPoint;
     }
 
     @Override

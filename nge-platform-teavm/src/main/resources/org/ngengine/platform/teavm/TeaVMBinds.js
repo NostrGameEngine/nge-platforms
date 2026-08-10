@@ -443,11 +443,15 @@ export const verifyBuffer = (data, pub, sig) => {
 };
 
 export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => { // Uint8Array (byte[])
-    return _u(_secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+    if (!secp256k1PrivateKeyVerify(privKey)) throw new TypeError('Invalid secp256k1 private key');
+    if (!secp256k1PublicKeyVerify(pubKey)) throw new TypeError('Invalid secp256k1 public key');
+    const sharedPoint = _u(_secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+    if (!secp256k1PublicKeyVerify(sharedPoint)) throw new TypeError('Invalid secp256k1 shared point');
+    return sharedPoint;
 };
 
 export const secp256k1SharedSecretBuffer = (privKey, pubKey, output) => {
-    return _writeBytes(output, _secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+    return _writeBytes(output, secp256k1SharedSecret(privKey, pubKey));
 };
 
 export const secp256k1PrivateKeyVerify = (privateKey /*byte[]*/) => { // bool

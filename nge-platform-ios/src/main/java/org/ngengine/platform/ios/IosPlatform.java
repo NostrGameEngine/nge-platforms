@@ -301,6 +301,12 @@ public class IosPlatform extends NGEPlatform {
 
     @Override
     public byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey) {
+        if (!secp256k1PrivateKeyVerify(privKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 private key");
+        }
+        if (!secp256k1PublicKeyVerify(pubKey)) {
+            throw new IllegalArgumentException("Invalid secp256k1 public key");
+        }
         if (!getMemoryLimits().checkForKeys(pubKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
         if (!getMemoryLimits().checkForKeys(privKey.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
@@ -309,6 +315,9 @@ public class IosPlatform extends NGEPlatform {
         ECPoint point = ecSpec.getCurve().decodePoint(pubKey).normalize();
         BigInteger d = new BigInteger(1, privKey);
         ECPoint sharedPoint = point.multiply(d).normalize();
+        if (sharedPoint.isInfinity()) {
+            throw new IllegalArgumentException("Invalid secp256k1 shared point");
+        }
         return sharedPoint.getEncoded(false);
     }
 

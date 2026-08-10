@@ -35,10 +35,12 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 import org.teavm.junit.JsModuleTest;
 import org.teavm.junit.ServeJS;
@@ -54,6 +56,7 @@ public class TeaVMSecp256k1Test {
     private static final String PRIVATE_VALID = "0000000000000000000000000000000000000000000000000000000000000001";
     private static final String PRIVATE_INVALID_ZERO = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final String PRIVATE_INVALID_N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+    private static final String PRIVATE_INVALID_N_PLUS_ONE = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142";
     private static final String PUBLIC_COMPRESSED = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
     private static final String PUBLIC_UNCOMPRESSED =
         "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
@@ -98,6 +101,35 @@ public class TeaVMSecp256k1Test {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void validatesSecp256k1SharedSecretInputs() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        byte[] privateKey = hex(PRIVATE_VALID);
+        byte[] publicCompressed = hex(PUBLIC_COMPRESSED);
+        byte[] publicUncompressed = hex(PUBLIC_UNCOMPRESSED);
+
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_ZERO), publicCompressed);
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_N), publicCompressed);
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_N_PLUS_ONE), publicCompressed);
+
+        assertInvalidPublicKey(platform, privateKey, new byte[] { 0 });
+        assertInvalidPublicKey(platform, privateKey, new byte[0]);
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(32, 0x02));
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(64, 0x04));
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(65, 0x04));
+
+        assertArrayEquals(publicCompressed, platform.secp256k1SharedSecret(privateKey, publicCompressed));
+        assertArrayEquals(publicCompressed, platform.secp256k1SharedSecret(privateKey, publicUncompressed));
+
+        assertInvalidPrivateKeyBuffer(platform, ByteBuffer.wrap(hex(PRIVATE_INVALID_ZERO)), ByteBuffer.wrap(publicCompressed));
+        assertInvalidPublicKeyBuffer(platform, ByteBuffer.wrap(privateKey), ByteBuffer.wrap(new byte[] { 0 }));
+        assertArrayEquals(
+            publicCompressed,
+            bytes(platform.secp256k1SharedSecret(ByteBuffer.wrap(privateKey), ByteBuffer.wrap(publicUncompressed)))
+        );
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void generatedPrivateKeysPassDistributionSanityChecks() {
         TeaVMPlatform platform = new TeaVMPlatform();
         int[] byteCounts = new int[256];
@@ -135,6 +167,55 @@ public class TeaVMSecp256k1Test {
                 Math.abs(bitCounts[bit] - expectedBitCount) <= maxBitDeviation
             );
         }
+    }
+
+    private static void assertInvalidPrivateKey(NGEPlatform platform, byte[] privateKey, byte[] publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid private key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 private key", expected.getMessage());
+        }
+    }
+
+    private static void assertInvalidPublicKey(NGEPlatform platform, byte[] privateKey, byte[] publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid public key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 public key", expected.getMessage());
+        }
+    }
+
+    private static void assertInvalidPrivateKeyBuffer(TeaVMPlatform platform, ByteBuffer privateKey, ByteBuffer publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid private key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 private key", expected.getMessage());
+        }
+    }
+
+    private static void assertInvalidPublicKeyBuffer(TeaVMPlatform platform, ByteBuffer privateKey, ByteBuffer publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid public key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 public key", expected.getMessage());
+        }
+    }
+
+    private static byte[] malformedPublicKey(int length, int prefix) {
+        byte[] key = new byte[length];
+        key[0] = (byte) prefix;
+        return key;
+    }
+
+    private static byte[] bytes(ByteBuffer value) {
+        ByteBuffer view = value.duplicate();
+        byte[] bytes = new byte[view.remaining()];
+        view.get(bytes);
+        return bytes;
     }
 
     private static byte[] hex(String value) {

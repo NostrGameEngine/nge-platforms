@@ -12,6 +12,7 @@ import java.security.SecureRandom;
 import java.util.Arrays;
 import org.bouncycastle.jcajce.provider.asymmetric.ec.KeyPairGeneratorSpi;
 import org.junit.Test;
+import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
 
 public class AndroidSecp256k1Test {
@@ -19,6 +20,7 @@ public class AndroidSecp256k1Test {
     private static final String PRIVATE_VALID = "0000000000000000000000000000000000000000000000000000000000000001";
     private static final String PRIVATE_INVALID_ZERO = "0000000000000000000000000000000000000000000000000000000000000000";
     private static final String PRIVATE_INVALID_N = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141";
+    private static final String PRIVATE_INVALID_N_PLUS_ONE = "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364142";
     private static final String PUBLIC_COMPRESSED = "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798";
     private static final String PUBLIC_UNCOMPRESSED = "0479be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8";
     private static final String PUBLIC_INVALID_33 = "050000000000000000000000000000000000000000000000000000000000000000";
@@ -59,6 +61,27 @@ public class AndroidSecp256k1Test {
     }
 
     @Test
+    public void validatesSecp256k1SharedSecretInputs() {
+        AndroidThreadedPlatform platform = new AndroidThreadedPlatform(null);
+        byte[] privateKey = hex(PRIVATE_VALID);
+        byte[] publicCompressed = hex(PUBLIC_COMPRESSED);
+        byte[] publicUncompressed = hex(PUBLIC_UNCOMPRESSED);
+
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_ZERO), publicCompressed);
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_N), publicCompressed);
+        assertInvalidPrivateKey(platform, hex(PRIVATE_INVALID_N_PLUS_ONE), publicCompressed);
+
+        assertInvalidPublicKey(platform, privateKey, new byte[] { 0 });
+        assertInvalidPublicKey(platform, privateKey, new byte[0]);
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(32, 0x02));
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(64, 0x04));
+        assertInvalidPublicKey(platform, privateKey, malformedPublicKey(65, 0x04));
+
+        assertArrayEquals(publicUncompressed, platform.secp256k1SharedSecret(privateKey, publicCompressed));
+        assertArrayEquals(publicUncompressed, platform.secp256k1SharedSecret(privateKey, publicUncompressed));
+    }
+
+    @Test
     public void privateKeyGenerationUsesDirectBouncyCastleAndProvidedRandom() throws Exception {
         KeyPairGenerator generator = Schnorr.newKeyPairGenerator();
         assertEquals(KeyPairGeneratorSpi.ECDSA.class, generator.getClass());
@@ -75,6 +98,30 @@ public class AndroidSecp256k1Test {
         BigInteger scalar = new BigInteger(1, key);
         assertTrue(scalar.signum() > 0);
         assertTrue(scalar.compareTo(Point.getn()) < 0);
+    }
+
+    private static void assertInvalidPrivateKey(NGEPlatform platform, byte[] privateKey, byte[] publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid private key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 private key", expected.getMessage());
+        }
+    }
+
+    private static void assertInvalidPublicKey(NGEPlatform platform, byte[] privateKey, byte[] publicKey) {
+        try {
+            platform.secp256k1SharedSecret(privateKey, publicKey);
+            throw new AssertionError("Expected invalid public key rejection");
+        } catch (IllegalArgumentException expected) {
+            assertEquals("Invalid secp256k1 public key", expected.getMessage());
+        }
+    }
+
+    private static byte[] malformedPublicKey(int length, int prefix) {
+        byte[] key = new byte[length];
+        key[0] = (byte) prefix;
+        return key;
     }
 
     private static byte[] hex(String value) {

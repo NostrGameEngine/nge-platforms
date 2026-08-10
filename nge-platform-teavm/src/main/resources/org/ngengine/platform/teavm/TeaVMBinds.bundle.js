@@ -10976,10 +10976,14 @@ var verifyBuffer = function verifyBuffer(data, pub, sig) {
 };
 var secp256k1SharedSecret = function secp256k1SharedSecret(privKey /*byte[]*/, pubKey /*byte[]*/) {
   // Uint8Array (byte[])
-  return _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+  if (!secp256k1PrivateKeyVerify(privKey)) throw new TypeError('Invalid secp256k1 private key');
+  if (!secp256k1PublicKeyVerify(pubKey)) throw new TypeError('Invalid secp256k1 public key');
+  var sharedPoint = _u(_noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+  if (!secp256k1PublicKeyVerify(sharedPoint)) throw new TypeError('Invalid secp256k1 shared point');
+  return sharedPoint;
 };
 var secp256k1SharedSecretBuffer = function secp256k1SharedSecretBuffer(privKey, pubKey, output) {
-  return _writeBytes(output, _noble_curves_secp256k1__WEBPACK_IMPORTED_MODULE_1__.secp256k1.getSharedSecret(_u(privKey), _u(pubKey)));
+  return _writeBytes(output, secp256k1SharedSecret(privKey, pubKey));
 };
 var secp256k1PrivateKeyVerify = function secp256k1PrivateKeyVerify(privateKey /*byte[]*/) {
   // bool
