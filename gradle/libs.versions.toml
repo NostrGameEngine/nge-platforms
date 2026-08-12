@@ -1,6 +1,6 @@
 [versions]
 libdatachannelJava = "0.24.1.nge8"
-libjglios = "0.7"
+libjglios = "0.9"
 saferalloc = "0.0.10"
 androidxJunit = "1.3.0"
 androidxTestCore = "1.7.0"
