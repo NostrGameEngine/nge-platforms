@@ -35,13 +35,16 @@ import java.net.URI;
 import java.net.UnknownHostException;
 import java.util.List;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.SafeFlag;
 
 final class JVMNetworkSecurity {
 
     private static final List<String> HTTP_SCHEMES = List.of("http", "https");
     private static final List<String> WEBSOCKET_SCHEMES = List.of("ws", "wss");
-    private static final boolean ALLOW_LOOPBACKS = Boolean.getBoolean("nge-platforms.allowLoopbackInURIs");
-    private static final boolean ALLOW_PRIVATE_NETWORKS = Boolean.getBoolean("nge-platforms.allowPrivateNetworkInURIs");
+    private static final SafeFlag ALLOW_LOOPBACKS = new SafeFlag(Boolean.getBoolean("nge-platforms.allowLoopbackInURIs"));
+    private static final SafeFlag ALLOW_PRIVATE_NETWORKS = new SafeFlag(
+        Boolean.getBoolean("nge-platforms.allowPrivateNetworkInURIs")
+    );
 
     private JVMNetworkSecurity() {}
 
@@ -69,7 +72,7 @@ final class JVMNetworkSecurity {
     }
 
     private static void validateHost(URI uri, String purpose) {
-        if (ALLOW_PRIVATE_NETWORKS) {
+        if (ALLOW_PRIVATE_NETWORKS.get()) {
             return;
         }
         InetAddress[] addresses;
@@ -93,9 +96,9 @@ final class JVMNetworkSecurity {
 
     private static boolean isBlockedAddress(InetAddress address) {
         if (isLoopbackOrAnyLocal(address)) {
-            return !ALLOW_LOOPBACKS;
+            return !ALLOW_LOOPBACKS.get();
         }
-        return isPrivateNetworkAddress(address) && !ALLOW_PRIVATE_NETWORKS;
+        return isPrivateNetworkAddress(address) && !ALLOW_PRIVATE_NETWORKS.get();
     }
 
     private static boolean isLoopbackOrAnyLocal(InetAddress address) {

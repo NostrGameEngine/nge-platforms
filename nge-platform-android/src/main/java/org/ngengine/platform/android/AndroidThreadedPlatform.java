@@ -13,6 +13,7 @@ import java.util.logging.Logger;
 
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.SafeFlag;
 import org.ngengine.platform.VStore;
 
 import android.content.ClipData;
@@ -211,8 +212,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
  
 
     // used for unit tests
-    private static boolean _NO_AUX_RANDOM = false;
-    private static boolean _EMPTY_NONCE = false;
+    private static final SafeFlag _NO_AUX_RANDOM = new SafeFlag(false);
 
     ///
     ///
@@ -308,7 +308,7 @@ public class AndroidThreadedPlatform extends NGEPlatform {
     @Override
     public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
         byte dataB[] = NGEUtils.hexToByteArray(data);
-        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM ? null : randomBytes(32));
+        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM.get() ? null : randomBytes(32));
         String sig = NGEUtils.bytesToHex(sigB);
         return sig;
     }

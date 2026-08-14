@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.SafeFlag;
 
 public class JVMPlatformParityMain {
 
@@ -87,10 +88,7 @@ public class JVMPlatformParityMain {
         try {
             Field noAuxRandom = JVMAsyncPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
             noAuxRandom.setAccessible(true);
-            noAuxRandom.setBoolean(null, true);
-            Field emptyNonce = JVMAsyncPlatform.class.getDeclaredField("_EMPTY_NONCE");
-            emptyNonce.setAccessible(true);
-            emptyNonce.setBoolean(null, false);
+            ((SafeFlag) noAuxRandom.get(null)).set(true);
             NGEPlatform p = new JVMAsyncPlatform();
             fillSnapshot(result, p, httpParityUrl);
             result.addProperty("ok", true);

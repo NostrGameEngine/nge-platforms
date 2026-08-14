@@ -28,6 +28,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.SafeFlag;
 
 @RunWith(AndroidJUnit4.class)
 public class AndroidPlatformParityInstrumentedTest {
@@ -77,10 +78,7 @@ public class AndroidPlatformParityInstrumentedTest {
         try {
             Field noAuxRandom = AndroidThreadedPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
             noAuxRandom.setAccessible(true);
-            noAuxRandom.setBoolean(null, true);
-            Field emptyNonce = AndroidThreadedPlatform.class.getDeclaredField("_EMPTY_NONCE");
-            emptyNonce.setAccessible(true);
-            emptyNonce.setBoolean(null, false);
+            ((SafeFlag) noAuxRandom.get(null)).set(true);
             fillSnapshot(result, (AndroidThreadedPlatform) NGEPlatform.get(), httpParityUrl);
             result.addProperty("ok", true);
         } catch (Throwable t) {

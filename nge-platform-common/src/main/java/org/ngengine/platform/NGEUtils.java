@@ -517,7 +517,7 @@ public class NGEUtils {
             throw new IllegalArgumentException("Input is not a boolean: " + v);
         }
     }
-    
+
     public static SafeFlag safeFlag(Object v) {
         return new SafeFlag(safeBool(v));
     }
@@ -602,12 +602,14 @@ public class NGEUtils {
             .split(",")
     );
 
-    private static final boolean ALLOW_LOCALHOST_IN_URIS = System
-        .getProperty(
-            "nge-platforms.allowLoopbackInURIs",
-            NGEPlatform.get().getPlatformName().contains("browser") ? "true" : "false"
-        )
-        .equalsIgnoreCase("true");
+    private static final SafeFlag ALLOW_LOCALHOST_IN_URIS = new SafeFlag(
+        System
+            .getProperty(
+                "nge-platforms.allowLoopbackInURIs",
+                NGEPlatform.get().getPlatformName().contains("browser") ? "true" : "false"
+            )
+            .equalsIgnoreCase("true")
+    );
 
     public static URI safeURI(Object object) {
         URI uri;
@@ -636,7 +638,7 @@ public class NGEUtils {
             );
         }
 
-        if (!ALLOW_LOCALHOST_IN_URIS) {
+        if (!ALLOW_LOCALHOST_IN_URIS.get()) {
             if (NGEPlatform.get().isLoopbackAddress(uri)) {
                 throw new IllegalArgumentException("Loopback addresses are not allowed in URIs: " + uri);
             }
