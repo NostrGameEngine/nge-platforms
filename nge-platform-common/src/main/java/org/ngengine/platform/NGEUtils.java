@@ -517,6 +517,10 @@ public class NGEUtils {
             throw new IllegalArgumentException("Input is not a boolean: " + v);
         }
     }
+    
+    public static SafeFlag safeFlag(Object v) {
+        return new SafeFlag(safeBool(v));
+    }
 
     public static Instant safeSecondsInstant(Object object) {
         if (object == null) return Instant.now();
