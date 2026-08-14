@@ -51,6 +51,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.SafeFlag;
 import java.time.Duration;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
@@ -87,7 +88,7 @@ public class AndroidRTCTransport implements RTCTransport {
     private volatile boolean connected;
     private volatile Duration p2pAttemptTimeout;
     
-    private static volatile boolean libAllocator = false;
+    private static final SafeFlag libAllocator = new SafeFlag(false);
 
     public AndroidRTCTransport() {
         logger.fine("AndroidRTCTransport initialized");
@@ -95,7 +96,7 @@ public class AndroidRTCTransport implements RTCTransport {
     }
 
     private static synchronized void configureLibDataChannelAllocatorIfRequested() {
-        if (libAllocator) {
+        if (libAllocator.get()) {
             return;
         }
         LibDataChannel.setAllocator(size -> {
@@ -108,7 +109,7 @@ public class AndroidRTCTransport implements RTCTransport {
             }
             return b;
         });
-        libAllocator = true;
+        libAllocator.set(true);
     }
 
     @Override

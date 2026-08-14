@@ -53,6 +53,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.SafeFlag;
 import org.ngengine.platform.transport.RTCDataChannel;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.RTCTransportIceCandidate;
@@ -94,7 +95,7 @@ public class JVMRTCTransport implements RTCTransport {
     private AsyncExecutor executor;
     private volatile boolean connected = false;
     private volatile Duration p2pAttemptTimeout;
-    private static volatile boolean libAllocator = false;
+    private static final SafeFlag libAllocator = new SafeFlag(false);
     private final CopyOnWriteArrayList<Consumer<Throwable>> pendingReadyRejectors = new CopyOnWriteArrayList<>();
 
     public JVMRTCTransport() {
@@ -103,7 +104,7 @@ public class JVMRTCTransport implements RTCTransport {
     }
 
     private static synchronized void configureLibDataChannelAllocatorIfRequested() {
-        if (libAllocator) {
+        if (libAllocator.get()) {
             return;
         }
         LibDataChannel.setAllocator(size -> {
@@ -116,7 +117,7 @@ public class JVMRTCTransport implements RTCTransport {
             }
             return b;
         });
-        libAllocator = true;
+        libAllocator.set(true);
     }
 
     @Override

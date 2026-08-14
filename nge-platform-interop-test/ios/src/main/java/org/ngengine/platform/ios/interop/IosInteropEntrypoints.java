@@ -31,6 +31,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.ngengine.libjglios.core.LibJGLIOSLifecycleBridge;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.SafeFlag;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.ios.IosPlatform;
 import org.ngengine.platform.transport.NGEHttpResponse;
@@ -149,10 +150,7 @@ public final class IosInteropEntrypoints {
     private static void runParity(IosPlatform platform, String signalBase, JsonObject out) throws Exception {
         Field noAuxRandom = IosPlatform.class.getDeclaredField("_NO_AUX_RANDOM");
         noAuxRandom.setAccessible(true);
-        noAuxRandom.setBoolean(null, true);
-        Field emptyNonce = IosPlatform.class.getDeclaredField("_EMPTY_NONCE");
-        emptyNonce.setAccessible(true);
-        emptyNonce.setBoolean(null, false);
+        ((SafeFlag) noAuxRandom.get(null)).set(true);
 
         byte[] pubA = platform.genPubKey(PRIV_A);
         byte[] pubB = platform.genPubKey(PRIV_B);

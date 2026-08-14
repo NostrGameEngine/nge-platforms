@@ -103,6 +103,7 @@ import org.ngengine.platform.FailedToSignException;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
+import org.ngengine.platform.SafeFlag;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
@@ -157,8 +158,7 @@ public class IosPlatform extends NGEPlatform {
     }
 
     // used for unit tests
-    private static boolean _NO_AUX_RANDOM = false;
-    private static boolean _EMPTY_NONCE = false;
+    private static final SafeFlag _NO_AUX_RANDOM = new SafeFlag(false);
 
     ///
     ///
@@ -279,7 +279,7 @@ public class IosPlatform extends NGEPlatform {
         if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         byte dataB[] = NGEUtils.hexToByteArray(data);
-        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM ? null : randomBytes(32));
+        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM.get() ? null : randomBytes(32));
         String sig = NGEUtils.bytesToHex(sigB);
         return sig;
     }

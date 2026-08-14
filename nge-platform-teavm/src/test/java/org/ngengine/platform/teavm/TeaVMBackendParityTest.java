@@ -32,6 +32,7 @@ package org.ngengine.platform.teavm;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import java.nio.ByteBuffer;
@@ -39,6 +40,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.ngengine.platform.SafeFlag;
 import org.teavm.classlib.PlatformDetector;
 import org.teavm.jso.JSBody;
 import org.teavm.junit.JsModuleTest;
@@ -55,6 +57,16 @@ import org.teavm.junit.TeaVMTestRunner;
 @JsModuleTest
 @SkipJVM
 public class TeaVMBackendParityTest {
+
+    @Test
+    public void safeFlagRoundTripsAcrossCompiledBackends() {
+        SafeFlag flag = new SafeFlag(false);
+        assertFalse(flag.get());
+        flag.set(true);
+        assertTrue(flag.get());
+        flag.set(false);
+        assertFalse(flag.get());
+    }
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
