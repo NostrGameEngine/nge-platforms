@@ -4647,6 +4647,46 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.SafeFlag",
+            "fields": [
+                {
+                    "name": "DISABLED"
+                },
+                {
+                    "name": "ENABLED"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.SafeFlagTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "corruptedEncodingTerminatesForkedJvm",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "roundTripsWithoutLocking",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "validEncodingsHaveLargeHammingDistance",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.TestAsyncTask",
             "methods": [
                 {
