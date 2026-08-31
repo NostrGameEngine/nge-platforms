@@ -77,7 +77,7 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-jvm | desktop | java 21+ |
 | nge-platform-android | android | android api 33+ |
 | nge-platform-ios | ios | [libJGLIOS](https://github.com/NostrGameEngine/libJGLIOS) |
-| nge-platform-teavm | browser | java 21+ / teavm 0.14.1+ |
+| nge-platform-teavm | browser | java 21+ / teavm 0.15.0 |
 
 ## Testing
 
