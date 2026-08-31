@@ -888,7 +888,8 @@ async function getVFileStore(name) {
                         const request = store.get(path);
 
                         request.onsuccess = () => {
-                            resolve(_u(request.result));
+                            const result = request.result;
+                            resolve(result === undefined || result === null ? null : _u(result));
                         };
 
                         request.onerror = (event) => {
@@ -973,9 +974,8 @@ const vfileRead = async (name, path) => { // byte[]
     const vstore = await getVFileStore(name);
     const v  = await vstore.read(path);
     if (v === null || v === undefined) {
-        console.warn(`File not found: ${path} in store ${name}`);
         vstore.close();
-        return null;
+        throw new Error(`File not found: ${path} in store ${name}`);
     }
     vstore.close();
     return _u(v);

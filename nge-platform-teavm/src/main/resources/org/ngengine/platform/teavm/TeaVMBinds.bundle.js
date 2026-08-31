@@ -11438,7 +11438,8 @@ function _getVFileStore() {
                             var store = transaction.objectStore("files");
                             var request = store.get(path);
                             request.onsuccess = function () {
-                              resolve(_u(request.result));
+                              var result = request.result;
+                              resolve(result === undefined || result === null ? null : _u(result));
                             };
                             request.onerror = function (event) {
                               console.error('Error reading file:', event.target.error);
@@ -11567,9 +11568,8 @@ var vfileRead = /*#__PURE__*/function () {
             _context17.n = 3;
             break;
           }
-          console.warn("File not found: ".concat(path, " in store ").concat(name));
           vstore.close();
-          return _context17.a(2, null);
+          throw new Error("File not found: ".concat(path, " in store ").concat(name));
         case 3:
           vstore.close();
           return _context17.a(2, _u(v));
