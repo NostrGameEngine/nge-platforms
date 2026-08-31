@@ -45,8 +45,8 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     private Int8Array buffer = null;
     private int bufferPos = 0;
     private int bufferLength = 0;
-    // private AsyncTask<ReadableStreamReadResult> fetching;
     private boolean done = false;
+    private boolean closed = false;
 
     public TeaVMReadableStreamWrapperInputStream(ReadableStream stream) {
         this.stream = stream;
@@ -64,10 +64,17 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
+        if (closed) return;
+        closed = true;
+        done = true;
+        buffer = null;
+        bufferPos = 0;
+        bufferLength = 0;
+        if (reader == null) return;
         try {
-            getReader().cancel(JSString.valueOf("Closed")).await();
-            getReader().releaseLock();
+            reader.cancel(JSString.valueOf("Closed")).await();
+            reader.releaseLock();
         } catch (Exception e) {
             // Ignore
         }
@@ -75,11 +82,47 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
 
     @Override
     public synchronized int read() throws IOException {
+        if (!ensureBuffer()) return -1;
+        int v = buffer.get(bufferPos) & 0xFF;
+        bufferPos++;
+        return v;
+    }
+
+    @Override
+    public synchronized int read(byte[] output, int offset, int length) throws IOException {
+        if (output == null) throw new NullPointerException("output");
+        if (offset < 0 || length < 0 || offset > output.length - length) {
+            throw new IndexOutOfBoundsException("offset=" + offset + ", length=" + length + ", output.length=" + output.length);
+        }
+        if (length == 0) return 0;
+        if (!ensureBuffer()) return -1;
+
+        int count = Math.min(length, bufferLength - bufferPos);
+        int end = bufferPos + count;
+        int outputPos = offset;
+        while (bufferPos < end) {
+            output[outputPos++] = buffer.get(bufferPos++);
+        }
+        return count;
+    }
+
+    @Override
+    public synchronized int available() {
+        return buffer == null ? 0 : Math.max(0, bufferLength - bufferPos);
+    }
+
+    private boolean ensureBuffer() throws IOException {
+        if (closed) throw new IOException("Stream is closed");
+        if (done) return false;
         try {
             while (buffer == null || bufferPos >= bufferLength) {
                 ReadableStreamReadResult r = fetch();
                 if (r.isDone()) {
-                    return -1;
+                    done = true;
+                    buffer = null;
+                    bufferPos = 0;
+                    bufferLength = 0;
+                    return false;
                 }
                 Int8Array val = r.getValue();
                 if (val != null) {
@@ -89,9 +132,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
 
                 bufferPos = 0;
             }
-            int v = buffer.get(bufferPos) & 0xFF;
-            bufferPos++;
-            return v;
+            return true;
         } catch (Exception e) {
             throw new IOException(e);
         }
