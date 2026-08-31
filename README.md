@@ -63,6 +63,23 @@ dependencies {
 }
 ```
 
+The browser module is compiled against the official TeaVM distribution, but it
+does not expose the TeaVM compiler or Gradle plugin transitively. A web
+application must therefore apply TeaVM explicitly:
+
+```gradle
+plugins {
+    id 'org.teavm' version '0.15.0'
+}
+
+dependencies {
+    implementation 'org.ngengine:nge-platform-teavm:<version>'
+}
+```
+
+This keeps applications free to select and configure their TeaVM distribution
+while preventing compiler tooling from leaking into non-web dependency graphs.
+
 as `<version>` use one of the versions listed in the [releases page](/releases) or `0.0.0-SNAPSHOT` for the latest snapshot.
 
 > [!IMPORTANT]  
@@ -77,7 +94,7 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-jvm | desktop | java 21+ |
 | nge-platform-android | android | android api 33+ |
 | nge-platform-ios | ios | [libJGLIOS](https://github.com/NostrGameEngine/libJGLIOS) |
-| nge-platform-teavm | browser | java 21+ / teavm 0.14.1+ |
+| nge-platform-teavm | browser | java 21+ / teavm 0.15.0 |
 
 ## Testing
 
@@ -111,6 +128,5 @@ Interoperability tests:
 ```bash
 ./gradlew interopMatrix
 ```
-
 
 
