@@ -94,6 +94,27 @@ public class TeaVMCompiledWasmInteropTest {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void missingPersistentFileRejectsWithoutJavaScriptConversionFailure() throws Exception {
+        TeaVMPlatform platform = installPlatform();
+        VStore store = platform.getDataStore("nge-vstore-missing-read", "regression");
+        String path = "missing.bin";
+        store.delete(path).await();
+        assertFalse(store.exists(path).await());
+
+        boolean rejected = false;
+        try {
+            store.readFully(path).await();
+        } catch (Throwable failure) {
+            rejected = true;
+            String detail = stackTrace(failure);
+            assertTrue(detail, detail.contains("File not found"));
+            assertFalse(detail, detail.contains("Unsupported data type for conversion to Uint8Array"));
+        }
+        assertTrue("Reading a missing VStore entry must reject", rejected);
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void compiledWasmPlatformServicesParity() throws Exception {
         String signalBase = queryParameter("signalBase");
         if (signalBase == null) {
