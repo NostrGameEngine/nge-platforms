@@ -68,10 +68,8 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     @Async
     private static native ReadableStreamReadResult readStream(ReadableStreamDefaultReader reader);
 
-    private static void readStream(ReadableStreamDefaultReader reader,
-            AsyncCallback<ReadableStreamReadResult> callback) {
-        TeaVMBinds.readStreamAsync(reader, callback::complete,
-            error -> callback.error(new IOException(error.stringValue())));
+    private static void readStream(ReadableStreamDefaultReader reader, AsyncCallback<ReadableStreamReadResult> callback) {
+        TeaVMBinds.readStreamAsync(reader, callback::complete, error -> callback.error(new IOException(error.stringValue())));
     }
 
     @Override

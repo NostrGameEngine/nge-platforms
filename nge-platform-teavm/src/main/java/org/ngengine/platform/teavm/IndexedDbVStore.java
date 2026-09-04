@@ -51,11 +51,15 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<InputStream> read(String path) {
-        return platform().wrapPromise((resolve, reject) ->
-            TeaVMBinds.vfileReadAsync(name, path,
-                result -> resolve.accept(new ByteArrayInputStream(result.getData())),
-                error -> reject.accept(new IOException(error.stringValue())))
-        );
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileReadAsync(
+                    name,
+                    path,
+                    result -> resolve.accept(new ByteArrayInputStream(result.getData())),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
@@ -122,44 +126,62 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<Void> writeFully(String path, byte[] data) {
-        return platform().wrapPromise((resolve, reject) ->
-            TeaVMBinds.vfileWriteAsync(name, path, data,
-                () -> resolve.accept(null),
-                error -> reject.accept(new IOException(error.stringValue())))
-        );
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileWriteAsync(
+                    name,
+                    path,
+                    data,
+                    () -> resolve.accept(null),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
     public AsyncTask<Boolean> exists(String path) {
-        return platform().wrapPromise((resolve, reject) ->
-            TeaVMBinds.vfileExistsAsync(name, path,
-                result -> resolve.accept(result.booleanValue()),
-                error -> reject.accept(new IOException(error.stringValue())))
-        );
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileExistsAsync(
+                    name,
+                    path,
+                    result -> resolve.accept(result.booleanValue()),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
     public AsyncTask<Void> delete(String path) {
-        return platform().wrapPromise((resolve, reject) ->
-            TeaVMBinds.vfileDeleteAsync(name, path,
-                () -> resolve.accept(null),
-                error -> reject.accept(new IOException(error.stringValue())))
-        );
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileDeleteAsync(
+                    name,
+                    path,
+                    () -> resolve.accept(null),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
-        return platform().wrapPromise((resolve, reject) ->
-            TeaVMBinds.vfileListAllAsync(name, files -> {
-                ArrayList<String> list = new ArrayList<>();
-                if (files != null) {
-                    for (int i = 0; i < files.getLength(); i++) {
-                        list.add(files.get(i).stringValue());
-                    }
-                }
-                resolve.accept(list);
-            }, error -> reject.accept(new IOException(error.stringValue())))
-        );
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileListAllAsync(
+                    name,
+                    files -> {
+                        ArrayList<String> list = new ArrayList<>();
+                        if (files != null) {
+                            for (int i = 0; i < files.getLength(); i++) {
+                                list.add(files.get(i).stringValue());
+                            }
+                        }
+                        resolve.accept(list);
+                    },
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     private static TeaVMPlatform platform() {

@@ -566,10 +566,7 @@ public class TeaVMCompiledWasmInteropTest {
 
         String fullyWrittenPath = "roundtrip-fully.bin";
         store.writeFully(fullyWrittenPath, value).await();
-        assertEquals(
-            "persistent-wasm-value",
-            new String(store.readFully(fullyWrittenPath).await(), StandardCharsets.UTF_8)
-        );
+        assertEquals("persistent-wasm-value", new String(store.readFully(fullyWrittenPath).await(), StandardCharsets.UTF_8));
         store.delete(fullyWrittenPath).await();
         assertFalse(store.exists(fullyWrittenPath).await());
     }
