@@ -131,7 +131,7 @@ public class TeaVMPlatform extends NGEPlatform {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
+    static Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
         Map<String, Object> rawHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
         Map<String, List<String>> out = new HashMap<>();
         if (rawHeaders == null) {
@@ -810,16 +810,20 @@ public class TeaVMPlatform extends NGEPlatform {
         byte[] reqBody = body != null ? body : new byte[0];
         int timeoutMs = (int) ((timeout != null ? timeout : HTTP_TIMEOUT).toMillis());
 
-        return defaultExecutor.run(() -> {
-            TeaVMHttpStreamResponse response = TeaVMBinds
-                .fetchStreamPromise(method, url, reqHeaders, reqBody, timeoutMs)
-                .await();
-            int statusCode = response.getStatus();
-            Map<String, List<String>> respHeaders = normalizeHttpHeaders(response.getHeaders());
-            boolean status = statusCode >= 200 && statusCode < 300;
-            TeaVMReadableStreamWrapperInputStream input = new TeaVMReadableStreamWrapperInputStream(response.getBody());
-            return new NGEHttpResponseStream(statusCode, respHeaders, input, status);
-        });
+        return wrapPromise((resolve, reject) ->
+            TeaVMBinds.fetchStreamAsync(method, url, reqHeaders, reqBody, timeoutMs,
+                (statusCode, responseHeaders, responseBody) -> {
+                    try {
+                        Map<String, List<String>> normalizedHeaders = normalizeHttpHeaders(responseHeaders);
+                        boolean success = statusCode >= 200 && statusCode < 300;
+                        resolve.accept(new NGEHttpResponseStream(statusCode, normalizedHeaders,
+                            new TeaVMReadableStreamWrapperInputStream(responseBody), success));
+                    } catch (Throwable error) {
+                        reject.accept(error);
+                    }
+                },
+                error -> reject.accept(new RuntimeException(error.stringValue())))
+        );
     }
 
     @Override

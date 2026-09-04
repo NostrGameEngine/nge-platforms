@@ -61,11 +61,9 @@ public class TeaVMBindsAsync {
     public static native Boolean vfileExists(String name, String path);
 
     private static void vfileExists(String name, String path, AsyncCallback<Boolean> callback) {
-        try {
-            callback.complete(TeaVMBinds.vfileExistsPromise(name, path).await().booleanValue());
-        } catch (Throwable error) {
-            callback.error(error);
-        }
+        TeaVMBinds.vfileExistsAsync(name, path,
+            result -> callback.complete(result.booleanValue()),
+            error -> callback.error(new RuntimeException(error.stringValue())));
     }
 
     /**
@@ -75,11 +73,9 @@ public class TeaVMBindsAsync {
     public static native byte[] vfileRead(String name, String path);
 
     private static void vfileRead(String name, String path, AsyncCallback<byte[]> callback) {
-        try {
-            callback.complete(TeaVMBinds.vfileReadPromise(name, path).await().getData());
-        } catch (Throwable error) {
-            callback.error(error);
-        }
+        TeaVMBinds.vfileReadAsync(name, path,
+            result -> callback.complete(result.getData()),
+            error -> callback.error(new RuntimeException(error.stringValue())));
     }
 
     /**
@@ -89,12 +85,9 @@ public class TeaVMBindsAsync {
     public static native void vfileWrite(String name, String path, byte[] data);
 
     private static void vfileWrite(String name, String path, byte[] data, AsyncCallback<Void> callback) {
-        try {
-            TeaVMBinds.vfileWritePromise(name, path, data).await();
-            callback.complete(null);
-        } catch (Throwable error) {
-            callback.error(error);
-        }
+        TeaVMBinds.vfileWriteAsync(name, path, data,
+            () -> callback.complete(null),
+            error -> callback.error(new RuntimeException(error.stringValue())));
     }
 
     /**
@@ -104,12 +97,9 @@ public class TeaVMBindsAsync {
     public static native void vfileDelete(String name, String path);
 
     private static void vfileDelete(String name, String path, AsyncCallback<Void> callback) {
-        try {
-            TeaVMBinds.vfileDeletePromise(name, path).await();
-            callback.complete(null);
-        } catch (Throwable error) {
-            callback.error(error);
-        }
+        TeaVMBinds.vfileDeleteAsync(name, path,
+            () -> callback.complete(null),
+            error -> callback.error(new RuntimeException(error.stringValue())));
     }
 
     /**
@@ -119,16 +109,13 @@ public class TeaVMBindsAsync {
     public static native String[] vfileListAll(String name);
 
     private static void vfileListAll(String name, AsyncCallback<String[]> callback) {
-        try {
-            var result = TeaVMBinds.vfileListAllPromise(name).await();
+        TeaVMBinds.vfileListAllAsync(name, result -> {
             String[] values = new String[result == null ? 0 : result.getLength()];
             for (int i = 0; i < values.length; i++) {
                 values[i] = result.get(i).stringValue();
             }
             callback.complete(values);
-        } catch (Throwable error) {
-            callback.error(error);
-        }
+        }, error -> callback.error(new RuntimeException(error.stringValue())));
     }
 
     @Async

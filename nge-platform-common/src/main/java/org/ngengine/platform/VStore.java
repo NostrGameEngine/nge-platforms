@@ -47,6 +47,22 @@ public class VStore {
 
         AsyncTask<OutputStream> write(String path);
 
+        default AsyncTask<Void> writeFully(String path, byte[] data) {
+            return NGEPlatform.get().wrapPromise((resolve, reject) ->
+                write(path)
+                    .then(out -> {
+                        try (OutputStream output = out) {
+                            output.write(data);
+                            resolve.accept(null);
+                        } catch (Throwable error) {
+                            reject.accept(error);
+                        }
+                        return null;
+                    })
+                    .catchException(reject)
+            );
+        }
+
         AsyncTask<Boolean> exists(String path);
 
         AsyncTask<Void> delete(String path);
@@ -139,20 +155,9 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                write(path)
-                    .then(out -> {
-                        try {
-                            out.write(data);
-                            res.accept(null);
-                        } catch (Exception e) {
-                            rej.accept(e);
-                        } finally {
-                            try {
-                                out.close();
-                            } catch (IOException e) {
-                                logger.log(Level.WARNING, "Error closing output stream", e);
-                            }
-                        }
+                backend.writeFully(path, data)
+                    .then(value -> {
+                        res.accept(null);
                         return null;
                     })
                     .catchException(rej);
@@ -164,7 +169,7 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                read(path)
+                backend.read(path)
                     .then(in -> {
                         try {
                             byte[] buffer = new byte[1024];

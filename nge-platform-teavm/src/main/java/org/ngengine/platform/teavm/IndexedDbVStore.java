@@ -51,7 +51,11 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<InputStream> read(String path) {
-        return platform().runAsync(() -> new ByteArrayInputStream(TeaVMBinds.vfileReadPromise(name, path).await().getData()));
+        return platform().wrapPromise((resolve, reject) ->
+            TeaVMBinds.vfileReadAsync(name, path,
+                result -> resolve.accept(new ByteArrayInputStream(result.getData())),
+                error -> reject.accept(new IOException(error.stringValue())))
+        );
     }
 
     @Override
@@ -61,28 +65,52 @@ public class IndexedDbVStore implements VStoreBackend {
             .wrapPromise((res, rej) -> {
                 try {
                     OutputStream os = new OutputStream() {
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        private ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        private boolean dirty;
+                        private boolean closed;
 
                         @Override
-                        public void write(int b) {
+                        public void write(int b) throws IOException {
+                            ensureOpen();
                             baos.write(b);
+                            dirty = true;
+                        }
+
+                        @Override
+                        public void write(byte[] data, int offset, int length) throws IOException {
+                            ensureOpen();
+                            baos.write(data, offset, length);
+                            dirty = true;
                         }
 
                         @Override
                         public void flush() throws IOException {
+                            ensureOpen();
+                            if (!dirty) {
+                                return;
+                            }
                             try {
-                                TeaVMBinds.vfileWritePromise(name, path, baos.toByteArray()).await();
+                                TeaVMBindsAsync.vfileWrite(name, path, baos.toByteArray());
+                                dirty = false;
                             } catch (RuntimeException error) {
                                 throw new IOException("Error writing file: " + path, error);
                             }
                         }
 
                         @Override
-                        public void close() {
-                            try {
-                                flush();
-                            } catch (IOException e) {}
+                        public void close() throws IOException {
+                            if (closed) {
+                                return;
+                            }
+                            flush();
+                            closed = true;
                             baos = null;
+                        }
+
+                        private void ensureOpen() throws IOException {
+                            if (closed) {
+                                throw new IOException("Output stream is closed: " + path);
+                            }
                         }
                     };
                     res.accept(os);
@@ -93,32 +121,45 @@ public class IndexedDbVStore implements VStoreBackend {
     }
 
     @Override
+    public AsyncTask<Void> writeFully(String path, byte[] data) {
+        return platform().wrapPromise((resolve, reject) ->
+            TeaVMBinds.vfileWriteAsync(name, path, data,
+                () -> resolve.accept(null),
+                error -> reject.accept(new IOException(error.stringValue())))
+        );
+    }
+
+    @Override
     public AsyncTask<Boolean> exists(String path) {
-        return platform().runAsync(() -> TeaVMBinds.vfileExistsPromise(name, path).await().booleanValue());
+        return platform().wrapPromise((resolve, reject) ->
+            TeaVMBinds.vfileExistsAsync(name, path,
+                result -> resolve.accept(result.booleanValue()),
+                error -> reject.accept(new IOException(error.stringValue())))
+        );
     }
 
     @Override
     public AsyncTask<Void> delete(String path) {
-        return platform()
-            .runAsync(() -> {
-                TeaVMBinds.vfileDeletePromise(name, path).await();
-                return null;
-            });
+        return platform().wrapPromise((resolve, reject) ->
+            TeaVMBinds.vfileDeleteAsync(name, path,
+                () -> resolve.accept(null),
+                error -> reject.accept(new IOException(error.stringValue())))
+        );
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
-        return platform()
-            .runAsync(() -> {
+        return platform().wrapPromise((resolve, reject) ->
+            TeaVMBinds.vfileListAllAsync(name, files -> {
                 ArrayList<String> list = new ArrayList<>();
-                var files = TeaVMBinds.vfileListAllPromise(name).await();
                 if (files != null) {
                     for (int i = 0; i < files.getLength(); i++) {
                         list.add(files.get(i).stringValue());
                     }
                 }
-                return list;
-            });
+                resolve.accept(list);
+            }, error -> reject.accept(new IOException(error.stringValue())))
+        );
     }
 
     private static TeaVMPlatform platform() {

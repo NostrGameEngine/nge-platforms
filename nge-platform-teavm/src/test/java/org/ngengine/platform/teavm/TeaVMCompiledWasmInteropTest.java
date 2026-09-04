@@ -115,6 +115,12 @@ public class TeaVMCompiledWasmInteropTest {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void persistentStoreVoidCallbacksRoundTripOnCompiledBackend() throws Exception {
+        verifyPersistentStore(installPlatform());
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void compiledWasmPlatformServicesParity() throws Exception {
         String signalBase = queryParameter("signalBase");
         if (signalBase == null) {
@@ -557,6 +563,15 @@ public class TeaVMCompiledWasmInteropTest {
         assertTrue(store.listAll().await().contains(path));
         store.delete(path).await();
         assertFalse(store.exists(path).await());
+
+        String fullyWrittenPath = "roundtrip-fully.bin";
+        store.writeFully(fullyWrittenPath, value).await();
+        assertEquals(
+            "persistent-wasm-value",
+            new String(store.readFully(fullyWrittenPath).await(), StandardCharsets.UTF_8)
+        );
+        store.delete(fullyWrittenPath).await();
+        assertFalse(store.exists(fullyWrittenPath).await());
     }
 
     private static boolean awaitCanCall(TeaVMPlatform platform, String function) throws Exception {
