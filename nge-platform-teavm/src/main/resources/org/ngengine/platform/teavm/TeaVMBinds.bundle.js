@@ -11336,53 +11336,55 @@ var aes256cbcBuffer = function aes256cbcBuffer(key, iv, data, forEncryption, out
 };
 function getVFileStore(_x3) {
   return _getVFileStore.apply(this, arguments);
-}
+} // OutputStream.close() cannot return a JavaScript Promise. A stream remains
+// completely local while it is open; once close starts its IndexedDB commit,
+// keep that promise here so subsequent backend operations observe close order.
 function _getVFileStore() {
-  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(name) {
+  _getVFileStore = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33(name) {
     var globalObj, injectedStore, _t14;
-    return _regenerator().w(function (_context34) {
-      while (1) switch (_context34.p = _context34.n) {
+    return _regenerator().w(function (_context33) {
+      while (1) switch (_context33.p = _context33.n) {
         case 0:
           globalObj = _s();
           if (!(typeof (globalObj === null || globalObj === void 0 ? void 0 : globalObj.ngeVStoreFactory) === 'function')) {
-            _context34.n = 3;
+            _context33.n = 3;
             break;
           }
-          _context34.n = 1;
+          _context33.n = 1;
           return globalObj.ngeVStoreFactory(name);
         case 1:
-          injectedStore = _context34.v;
+          injectedStore = _context33.v;
           if (injectedStore) {
-            _context34.n = 2;
+            _context33.n = 2;
             break;
           }
           throw new Error("Injected VStore factory returned no store for ".concat(name));
         case 2:
-          return _context34.a(2, injectedStore);
+          return _context33.a(2, injectedStore);
         case 3:
           if (_hasIndexedDB()) {
-            _context34.n = 8;
+            _context33.n = 8;
             break;
           }
           if (!_isNodeRuntime()) {
-            _context34.n = 7;
+            _context33.n = 7;
             break;
           }
-          _context34.p = 4;
-          _context34.n = 5;
+          _context33.p = 4;
+          _context33.n = 5;
           return _getNodeFSVFileStore(name);
         case 5:
-          return _context34.a(2, _context34.v);
+          return _context33.a(2, _context33.v);
         case 6:
-          _context34.p = 6;
-          _t14 = _context34.v;
+          _context33.p = 6;
+          _t14 = _context33.v;
           console.error('Node filesystem VStore unavailable, falling back to in-memory VStore:', _t14);
-          return _context34.a(2, _getMemoryVFileStore(name));
+          return _context33.a(2, _getMemoryVFileStore(name));
         case 7:
           console.warn('IndexedDB is not supported in this environment. Falling back to an in-memory VStore.');
-          return _context34.a(2, _getMemoryVFileStore(name));
+          return _context33.a(2, _getMemoryVFileStore(name));
         case 8:
-          return _context34.a(2, new Promise(function (resolve, reject) {
+          return _context33.a(2, new Promise(function (resolve, reject) {
             var request = globalObj.indexedDB.open('nge-vstore-' + name, 1);
             request.onupgradeneeded = function (event) {
               var db = event.target.result;
@@ -11408,6 +11410,33 @@ function _getVFileStore() {
                   db.close();
                 },
                 exists: function exists(path) {
+                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
+                    return _regenerator().w(function (_context28) {
+                      while (1) switch (_context28.n) {
+                        case 0:
+                          return _context28.a(2, new Promise(function (resolve, reject) {
+                            var transaction = db.transaction(["files"], 'readonly');
+                            var store = transaction.objectStore("files");
+                            var request = store.count(path);
+                            var exists = false;
+                            request.onsuccess = function () {
+                              exists = request.result > 0;
+                            };
+                            transaction.oncomplete = function () {
+                              return resolve(exists);
+                            };
+                            var fail = function fail(event) {
+                              console.error('Error checking file existence:', event.target.error);
+                              resolve(false);
+                            };
+                            transaction.onerror = fail;
+                            transaction.onabort = fail;
+                          }));
+                      }
+                    }, _callee28);
+                  }))();
+                },
+                read: function read(path) {
                   return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
                     return _regenerator().w(function (_context29) {
                       while (1) switch (_context29.n) {
@@ -11415,42 +11444,50 @@ function _getVFileStore() {
                           return _context29.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readonly');
                             var store = transaction.objectStore("files");
-                            var request = store.count(path);
+                            var request = store.get(path);
+                            var result = null;
                             request.onsuccess = function () {
-                              resolve(request.result > 0);
+                              var value = request.result;
+                              result = value === undefined || value === null ? null : _u(value);
                             };
-                            request.onerror = function (event) {
-                              console.error('Error checking file existence:', event.target.error);
-                              resolve(false);
+                            transaction.oncomplete = function () {
+                              return resolve(result);
                             };
+                            var fail = function fail(event) {
+                              console.error('Error reading file:', event.target.error);
+                              resolve(null);
+                            };
+                            transaction.onerror = fail;
+                            transaction.onabort = fail;
                           }));
                       }
                     }, _callee29);
                   }))();
                 },
-                read: function read(path) {
+                write: function write(path, data) {
                   return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30() {
                     return _regenerator().w(function (_context30) {
                       while (1) switch (_context30.n) {
                         case 0:
                           return _context30.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction(["files"], 'readonly');
+                            var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
-                            var request = store.get(path);
-                            request.onsuccess = function () {
-                              var result = request.result;
-                              resolve(result === undefined || result === null ? null : _u(result));
+                            store.put(data, path);
+                            transaction.oncomplete = function () {
+                              return resolve();
                             };
-                            request.onerror = function (event) {
-                              console.error('Error reading file:', event.target.error);
-                              resolve(null);
+                            var fail = function fail(event) {
+                              console.error('Error writing file:', event.target.error);
+                              reject(event.target.error || new Error("Error writing file: ".concat(path)));
                             };
+                            transaction.onerror = fail;
+                            transaction.onabort = fail;
                           }));
                       }
                     }, _callee30);
                   }))();
                 },
-                write: function write(path, data) {
+                "delete": function _delete(path) {
                   return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
                     return _regenerator().w(function (_context31) {
                       while (1) switch (_context31.n) {
@@ -11458,64 +11495,51 @@ function _getVFileStore() {
                           return _context31.a(2, new Promise(function (resolve, reject) {
                             var transaction = db.transaction(["files"], 'readwrite');
                             var store = transaction.objectStore("files");
-                            var request = store.put(data, path);
-                            request.onsuccess = function () {
-                              resolve();
+                            store["delete"](path);
+                            transaction.oncomplete = function () {
+                              return resolve();
                             };
-                            request.onerror = function (event) {
-                              console.error('Error writing file:', event.target.error);
-                              resolve();
+                            var fail = function fail(event) {
+                              console.error('Error deleting file:', event.target.error);
+                              reject(event.target.error || new Error("Error deleting file: ".concat(path)));
                             };
+                            transaction.onerror = fail;
+                            transaction.onabort = fail;
                           }));
                       }
                     }, _callee31);
                   }))();
                 },
-                "delete": function _delete(path) {
+                listAll: function listAll() {
                   return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee32() {
                     return _regenerator().w(function (_context32) {
                       while (1) switch (_context32.n) {
                         case 0:
                           return _context32.a(2, new Promise(function (resolve, reject) {
-                            var transaction = db.transaction(["files"], 'readwrite');
-                            var store = transaction.objectStore("files");
-                            var request = store["delete"](path);
-                            request.onsuccess = function () {
-                              resolve();
-                            };
-                            request.onerror = function (event) {
-                              console.error('Error deleting file:', event.target.error);
-                              resolve();
-                            };
-                          }));
-                      }
-                    }, _callee32);
-                  }))();
-                },
-                listAll: function listAll() {
-                  return _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33() {
-                    return _regenerator().w(function (_context33) {
-                      while (1) switch (_context33.n) {
-                        case 0:
-                          return _context33.a(2, new Promise(function (resolve, reject) {
                             try {
                               var transaction = db.transaction(["files"], 'readonly');
                               var store = transaction.objectStore("files");
                               var _request = store.getAllKeys();
+                              var files = [];
                               _request.onsuccess = function (event) {
-                                resolve(event.target.result || []);
+                                files = event.target.result || [];
                               };
-                              _request.onerror = function (event) {
+                              transaction.oncomplete = function () {
+                                return resolve(files);
+                              };
+                              var fail = function fail(event) {
                                 console.error('Error listing files:', event.target.error);
                                 resolve([]);
                               };
+                              transaction.onerror = fail;
+                              transaction.onabort = fail;
                             } catch (e) {
                               console.error('Error during listAll operation:', e);
                               resolve([]);
                             }
                           }));
                       }
-                    }, _callee33);
+                    }, _callee32);
                   }))();
                 }
               };
@@ -11523,166 +11547,206 @@ function _getVFileStore() {
             };
           }));
       }
-    }, _callee34, null, [[4, 6]]);
+    }, _callee33, null, [[4, 6]]);
   }));
   return _getVFileStore.apply(this, arguments);
 }
+var _vfilePendingCloses = new Map();
+function _pendingVFileCloses(name, create) {
+  var closes = _vfilePendingCloses.get(name);
+  if (!closes && create) {
+    closes = new Map();
+    _vfilePendingCloses.set(name, closes);
+  }
+  return closes;
+}
+function _removePendingVFileClose(name, path, promise) {
+  var closes = _pendingVFileCloses(name, false);
+  if (!closes || closes.get(path) !== promise) {
+    return;
+  }
+  closes["delete"](path);
+  if (closes.size === 0) {
+    _vfilePendingCloses["delete"](name);
+  }
+}
+function _waitForPendingVFileClose(name, path) {
+  var closes = _pendingVFileCloses(name, false);
+  return (closes === null || closes === void 0 ? void 0 : closes.get(path)) || Promise.resolve();
+}
+function _waitForPendingVFileCloses(name) {
+  var closes = _pendingVFileCloses(name, false);
+  return closes ? Promise.all(Array.from(closes.values())) : Promise.resolve();
+}
+function _withVFileStore(_x4, _x5) {
+  return _withVFileStore2.apply(this, arguments);
+}
+function _withVFileStore2() {
+  _withVFileStore2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(name, operation) {
+    var vstore;
+    return _regenerator().w(function (_context34) {
+      while (1) switch (_context34.p = _context34.n) {
+        case 0:
+          _context34.n = 1;
+          return getVFileStore(name);
+        case 1:
+          vstore = _context34.v;
+          _context34.p = 2;
+          _context34.n = 3;
+          return operation(vstore);
+        case 3:
+          return _context34.a(2, _context34.v);
+        case 4:
+          _context34.p = 4;
+          vstore.close();
+          return _context34.f(4);
+        case 5:
+          return _context34.a(2);
+      }
+    }, _callee34, null, [[2,, 4, 5]]);
+  }));
+  return _withVFileStore2.apply(this, arguments);
+}
 var vfileExists = /*#__PURE__*/function () {
   var _ref6 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(name, path) {
-    var vstore, v;
     return _regenerator().w(function (_context16) {
       while (1) switch (_context16.n) {
         case 0:
           _context16.n = 1;
-          return getVFileStore(name);
+          return _waitForPendingVFileClose(name, path);
         case 1:
-          vstore = _context16.v;
-          _context16.n = 2;
-          return vstore.exists(path);
-        case 2:
-          v = _context16.v;
-          vstore.close();
-          return _context16.a(2, v);
+          return _context16.a(2, _withVFileStore(name, function (vstore) {
+            return vstore.exists(path);
+          }));
       }
     }, _callee16);
   }));
-  return function vfileExists(_x4, _x5) {
+  return function vfileExists(_x6, _x7) {
     return _ref6.apply(this, arguments);
   };
 }();
 var vfileRead = /*#__PURE__*/function () {
   var _ref7 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(name, path) {
-    var vstore, v;
+    var value;
     return _regenerator().w(function (_context17) {
       while (1) switch (_context17.n) {
         case 0:
           _context17.n = 1;
-          return getVFileStore(name);
+          return _waitForPendingVFileClose(name, path);
         case 1:
-          vstore = _context17.v;
           _context17.n = 2;
-          return vstore.read(path);
+          return _withVFileStore(name, function (vstore) {
+            return vstore.read(path);
+          });
         case 2:
-          v = _context17.v;
-          if (!(v === null || v === undefined)) {
+          value = _context17.v;
+          if (!(value === null || value === undefined)) {
             _context17.n = 3;
             break;
           }
-          vstore.close();
           throw new Error("File not found: ".concat(path, " in store ").concat(name));
         case 3:
-          vstore.close();
-          return _context17.a(2, _u(v));
+          return _context17.a(2, _u(value));
       }
     }, _callee17);
   }));
-  return function vfileRead(_x6, _x7) {
+  return function vfileRead(_x8, _x9) {
     return _ref7.apply(this, arguments);
   };
 }();
-var vfileWrite = /*#__PURE__*/function () {
-  var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(name, path, data) {
-    var vstore;
+var vfileWrite = function vfileWrite(name, path, data) {
+  // void
+  var bytes = _u(data);
+  var closes = _pendingVFileCloses(name, true);
+  var previous = closes.get(path) || Promise.resolve();
+  var current = previous["catch"](function () {
+    return undefined;
+  }).then(function () {
+    return _withVFileStore(name, function (vstore) {
+      return vstore.write(path, bytes);
+    });
+  });
+  closes.set(path, current);
+  current.then(function () {
+    return _removePendingVFileClose(name, path, current);
+  }, function () {
+    return _removePendingVFileClose(name, path, current);
+  });
+  return current;
+};
+var vfileDelete = /*#__PURE__*/function () {
+  var _ref8 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(name, path) {
     return _regenerator().w(function (_context18) {
       while (1) switch (_context18.n) {
         case 0:
           _context18.n = 1;
-          return getVFileStore(name);
+          return _waitForPendingVFileClose(name, path);
         case 1:
-          vstore = _context18.v;
-          _context18.n = 2;
-          return vstore.write(path, _u(data));
-        case 2:
-          vstore.close();
-        case 3:
-          return _context18.a(2);
+          return _context18.a(2, _withVFileStore(name, function (vstore) {
+            return vstore["delete"](path);
+          }));
       }
     }, _callee18);
   }));
-  return function vfileWrite(_x8, _x9, _x0) {
+  return function vfileDelete(_x0, _x1) {
     return _ref8.apply(this, arguments);
   };
 }();
-var vfileDelete = /*#__PURE__*/function () {
-  var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(name, path) {
-    var vstore;
-    return _regenerator().w(function (_context19) {
-      while (1) switch (_context19.n) {
-        case 0:
-          _context19.n = 1;
-          return getVFileStore(name);
-        case 1:
-          vstore = _context19.v;
-          _context19.n = 2;
-          return vstore["delete"](path);
-        case 2:
-          vstore.close();
-        case 3:
-          return _context19.a(2);
-      }
-    }, _callee19);
-  }));
-  return function vfileDelete(_x1, _x10) {
-    return _ref9.apply(this, arguments);
-  };
-}();
 var vfileListAll = /*#__PURE__*/function () {
-  var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(name) {
-    var vstore, files, v, _t9;
-    return _regenerator().w(function (_context20) {
-      while (1) switch (_context20.p = _context20.n) {
+  var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(name) {
+    var files, _t9;
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.p = _context19.n) {
         case 0:
-          _context20.p = 0;
-          _context20.n = 1;
-          return getVFileStore(name);
+          _context19.p = 0;
+          _context19.n = 1;
+          return _waitForPendingVFileCloses(name);
         case 1:
-          vstore = _context20.v;
-          _context20.n = 2;
-          return vstore.listAll();
+          _context19.n = 2;
+          return _withVFileStore(name, function (vstore) {
+            return vstore.listAll();
+          });
         case 2:
-          files = _context20.v;
+          files = _context19.v;
           if (!(files === undefined || files === null)) {
-            _context20.n = 3;
+            _context19.n = 3;
             break;
           }
           console.warn("No files found in store ".concat(name));
-          vstore.close();
-          return _context20.a(2, []);
+          return _context19.a(2, []);
         case 3:
-          v = files.map(function (file) {
+          return _context19.a(2, files.map(function (file) {
             return file.toString();
-          });
-          vstore.close();
-          return _context20.a(2, v);
+          }));
         case 4:
-          _context20.p = 4;
-          _t9 = _context20.v;
+          _context19.p = 4;
+          _t9 = _context19.v;
           console.error("Error listing files in store ".concat(name, ":"), _t9);
-          return _context20.a(2, []);
+          return _context19.a(2, []);
       }
-    }, _callee20, null, [[0, 4]]);
+    }, _callee19, null, [[0, 4]]);
   }));
-  return function vfileListAll(_x11) {
-    return _ref0.apply(this, arguments);
+  return function vfileListAll(_x10) {
+    return _ref9.apply(this, arguments);
   };
 }();
 var vfileExistsPromise = vfileExists;
 var vfileReadPromise = /*#__PURE__*/function () {
-  var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(name, path) {
+  var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(name, path) {
     var _t0;
-    return _regenerator().w(function (_context21) {
-      while (1) switch (_context21.n) {
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.n) {
         case 0:
           _t0 = _bw;
-          _context21.n = 1;
+          _context20.n = 1;
           return vfileRead(name, path);
         case 1:
-          return _context21.a(2, _t0(_context21.v));
+          return _context20.a(2, _t0(_context20.v));
       }
-    }, _callee21);
+    }, _callee20);
   }));
-  return function vfileReadPromise(_x12, _x13) {
-    return _ref1.apply(this, arguments);
+  return function vfileReadPromise(_x11, _x12) {
+    return _ref0.apply(this, arguments);
   };
 }();
 var vfileWritePromise = vfileWrite;
@@ -11790,14 +11854,69 @@ function toFunction(f) {
   return fun.bind(obj);
 }
 var callFunction = /*#__PURE__*/function () {
-  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(functionName, data, res, rej) {
+  var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(functionName, data, res, rej) {
     var _s8, args, executor, result, _t1;
-    return _regenerator().w(function (_context22) {
-      while (1) switch (_context22.p = _context22.n) {
+    return _regenerator().w(function (_context21) {
+      while (1) switch (_context21.p = _context21.n) {
         case 0:
-          _context22.p = 0;
+          _context21.p = 0;
           args = JSON.parse(data).args;
           executor = (_s8 = _s()) === null || _s8 === void 0 ? void 0 : _s8.ngeFunctionExecutor;
+          if (!(typeof executor === 'function')) {
+            _context21.n = 2;
+            break;
+          }
+          _context21.n = 1;
+          return executor(functionName, args);
+        case 1:
+          result = _context21.v;
+          _context21.n = 6;
+          break;
+        case 2:
+          if (!(executor && typeof executor.execute === 'function')) {
+            _context21.n = 4;
+            break;
+          }
+          _context21.n = 3;
+          return executor.execute(functionName, args);
+        case 3:
+          result = _context21.v;
+          _context21.n = 6;
+          break;
+        case 4:
+          _context21.n = 5;
+          return toFunction(functionName).apply(void 0, _toConsumableArray(args));
+        case 5:
+          result = _context21.v;
+        case 6:
+          res(JSON.stringify({
+            result: result
+          }));
+          _context21.n = 8;
+          break;
+        case 7:
+          _context21.p = 7;
+          _t1 = _context21.v;
+          console.error("Error executing function ".concat(functionName, ":"), _t1);
+          rej(String(_t1));
+        case 8:
+          return _context21.a(2);
+      }
+    }, _callee21, null, [[0, 7]]);
+  }));
+  return function callFunction(_x13, _x14, _x15, _x16) {
+    return _ref1.apply(this, arguments);
+  };
+}();
+var callFunctionPromise = /*#__PURE__*/function () {
+  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(functionName, data) {
+    var _s9;
+    var args, executor, result;
+    return _regenerator().w(function (_context22) {
+      while (1) switch (_context22.n) {
+        case 0:
+          args = JSON.parse(data).args;
+          executor = (_s9 = _s()) === null || _s9 === void 0 ? void 0 : _s9.ngeFunctionExecutor;
           if (!(typeof executor === 'function')) {
             _context22.n = 2;
             break;
@@ -11825,88 +11944,33 @@ var callFunction = /*#__PURE__*/function () {
         case 5:
           result = _context22.v;
         case 6:
-          res(JSON.stringify({
+          return _context22.a(2, JSON.stringify({
             result: result
           }));
-          _context22.n = 8;
-          break;
-        case 7:
-          _context22.p = 7;
-          _t1 = _context22.v;
-          console.error("Error executing function ".concat(functionName, ":"), _t1);
-          rej(String(_t1));
-        case 8:
-          return _context22.a(2);
       }
-    }, _callee22, null, [[0, 7]]);
+    }, _callee22);
   }));
-  return function callFunction(_x14, _x15, _x16, _x17) {
+  return function callFunctionPromise(_x17, _x18) {
     return _ref10.apply(this, arguments);
   };
 }();
-var callFunctionPromise = /*#__PURE__*/function () {
-  var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(functionName, data) {
-    var _s9;
-    var args, executor, result;
+var canCallFunction = /*#__PURE__*/function () {
+  var _ref11 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(functionName, res) {
+    var _s0, executor, canCall, _t10;
     return _regenerator().w(function (_context23) {
-      while (1) switch (_context23.n) {
+      while (1) switch (_context23.p = _context23.n) {
         case 0:
-          args = JSON.parse(data).args;
-          executor = (_s9 = _s()) === null || _s9 === void 0 ? void 0 : _s9.ngeFunctionExecutor;
-          if (!(typeof executor === 'function')) {
+          _context23.p = 0;
+          executor = (_s0 = _s()) === null || _s0 === void 0 ? void 0 : _s0.ngeFunctionExecutor;
+          if (!(executor && typeof executor.canExecute === 'function')) {
             _context23.n = 2;
             break;
           }
           _context23.n = 1;
-          return executor(functionName, args);
-        case 1:
-          result = _context23.v;
-          _context23.n = 6;
-          break;
-        case 2:
-          if (!(executor && typeof executor.execute === 'function')) {
-            _context23.n = 4;
-            break;
-          }
-          _context23.n = 3;
-          return executor.execute(functionName, args);
-        case 3:
-          result = _context23.v;
-          _context23.n = 6;
-          break;
-        case 4:
-          _context23.n = 5;
-          return toFunction(functionName).apply(void 0, _toConsumableArray(args));
-        case 5:
-          result = _context23.v;
-        case 6:
-          return _context23.a(2, JSON.stringify({
-            result: result
-          }));
-      }
-    }, _callee23);
-  }));
-  return function callFunctionPromise(_x18, _x19) {
-    return _ref11.apply(this, arguments);
-  };
-}();
-var canCallFunction = /*#__PURE__*/function () {
-  var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(functionName, res) {
-    var _s0, executor, canCall, _t10;
-    return _regenerator().w(function (_context24) {
-      while (1) switch (_context24.p = _context24.n) {
-        case 0:
-          _context24.p = 0;
-          executor = (_s0 = _s()) === null || _s0 === void 0 ? void 0 : _s0.ngeFunctionExecutor;
-          if (!(executor && typeof executor.canExecute === 'function')) {
-            _context24.n = 2;
-            break;
-          }
-          _context24.n = 1;
           return executor.canExecute(functionName);
         case 1:
-          canCall = !!_context24.v;
-          _context24.n = 3;
+          canCall = !!_context23.v;
+          _context23.n = 3;
           break;
         case 2:
           if (typeof executor === 'function' || executor && typeof executor.execute === 'function') {
@@ -11922,56 +11986,56 @@ var canCallFunction = /*#__PURE__*/function () {
             console.warn("Function ".concat(functionName, " cannot be called."));
             res(false);
           }
-          _context24.n = 5;
+          _context23.n = 5;
           break;
         case 4:
-          _context24.p = 4;
-          _t10 = _context24.v;
+          _context23.p = 4;
+          _t10 = _context23.v;
           console.error("Error checking function ".concat(functionName, ":"), _t10);
           res(false);
         case 5:
-          return _context24.a(2);
+          return _context23.a(2);
       }
-    }, _callee24, null, [[0, 4]]);
+    }, _callee23, null, [[0, 4]]);
   }));
-  return function canCallFunction(_x20, _x21) {
-    return _ref12.apply(this, arguments);
+  return function canCallFunction(_x19, _x20) {
+    return _ref11.apply(this, arguments);
   };
 }();
 var canCallFunctionPromise = /*#__PURE__*/function () {
-  var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(functionName) {
+  var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(functionName) {
     var _s1;
     var executor, _t11;
-    return _regenerator().w(function (_context25) {
-      while (1) switch (_context25.p = _context25.n) {
+    return _regenerator().w(function (_context24) {
+      while (1) switch (_context24.p = _context24.n) {
         case 0:
           executor = (_s1 = _s()) === null || _s1 === void 0 ? void 0 : _s1.ngeFunctionExecutor;
           if (!(executor && typeof executor.canExecute === 'function')) {
-            _context25.n = 2;
+            _context24.n = 2;
             break;
           }
-          _context25.n = 1;
+          _context24.n = 1;
           return executor.canExecute(functionName);
         case 1:
-          return _context25.a(2, !!_context25.v);
+          return _context24.a(2, !!_context24.v);
         case 2:
           if (!(typeof executor === 'function' || executor && typeof executor.execute === 'function')) {
-            _context25.n = 3;
+            _context24.n = 3;
             break;
           }
-          return _context25.a(2, true);
+          return _context24.a(2, true);
         case 3:
-          _context25.p = 3;
-          return _context25.a(2, !!toFunction(functionName));
+          _context24.p = 3;
+          return _context24.a(2, !!toFunction(functionName));
         case 4:
-          _context25.p = 4;
-          _t11 = _context25.v;
-          return _context25.a(2, false);
+          _context24.p = 4;
+          _t11 = _context24.v;
+          return _context24.a(2, false);
       }
-    }, _callee25, null, [[3, 4]]);
+    }, _callee24, null, [[3, 4]]);
   }));
-  return function canCallFunctionPromise(_x22) {
-    return _ref13.apply(this, arguments);
+  return function canCallFunctionPromise(_x21) {
+    return _ref12.apply(this, arguments);
   };
 }();
 var openURL = function openURL(url) {
@@ -12019,12 +12083,12 @@ res, rej) {
   });
 };
 var scryptBufferPromise = /*#__PURE__*/function () {
-  var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(password, salt, n, r, p, dkLen, output) {
+  var _ref13 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(password, salt, n, r, p, dkLen, output) {
     var derived;
-    return _regenerator().w(function (_context26) {
-      while (1) switch (_context26.n) {
+    return _regenerator().w(function (_context25) {
+      while (1) switch (_context25.n) {
         case 0:
-          _context26.n = 1;
+          _context25.n = 1;
           return (0,_noble_hashes_scrypt__WEBPACK_IMPORTED_MODULE_8__.scryptAsync)(_u(password), _u(salt), {
             N: n,
             r: r,
@@ -12032,13 +12096,13 @@ var scryptBufferPromise = /*#__PURE__*/function () {
             dkLen: dkLen
           });
         case 1:
-          derived = _context26.v;
-          return _context26.a(2, _writeBytes(output, derived));
+          derived = _context25.v;
+          return _context25.a(2, _writeBytes(output, derived));
       }
-    }, _callee26);
+    }, _callee25);
   }));
-  return function scryptBufferPromise(_x23, _x24, _x25, _x26, _x27, _x28, _x29) {
-    return _ref14.apply(this, arguments);
+  return function scryptBufferPromise(_x22, _x23, _x24, _x25, _x26, _x27, _x28) {
+    return _ref13.apply(this, arguments);
   };
 }();
 var xchacha20poly1305 = function xchacha20poly1305(key, /*byte[]*/
@@ -12344,10 +12408,10 @@ var fetchPromise = function fetchPromise(method, url, headers, body, timeoutMs) 
     return Promise.reject(new Error('Fetch is not available in this runtime'));
   }
   return fetchImpl.call(_s(), url, options).then(/*#__PURE__*/function () {
-    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(response) {
+    var _ref14 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(response) {
       var respHeaders, respBody, _t12, _t13;
-      return _regenerator().w(function (_context27) {
-        while (1) switch (_context27.n) {
+      return _regenerator().w(function (_context26) {
+        while (1) switch (_context26.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
@@ -12355,22 +12419,22 @@ var fetchPromise = function fetchPromise(method, url, headers, body, timeoutMs) 
               respHeaders[key] = value;
             });
             _t12 = Uint8Array;
-            _context27.n = 1;
+            _context26.n = 1;
             return response.arrayBuffer();
           case 1:
-            _t13 = _context27.v;
+            _t13 = _context26.v;
             respBody = new _t12(_t13);
-            return _context27.a(2, {
+            return _context26.a(2, {
               status: response.status,
               statusText: response.statusText,
               headers: JSON.stringify(respHeaders),
               body: respBody
             });
         }
-      }, _callee27);
+      }, _callee26);
     }));
-    return function (_x30) {
-      return _ref15.apply(this, arguments);
+    return function (_x29) {
+      return _ref14.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);
@@ -12419,10 +12483,10 @@ var fetchStreamPromise = function fetchStreamPromise(method, url, headers, body,
     return Promise.reject(new Error('Fetch is not available in this runtime'));
   }
   return fetchImpl.call(_s(), url, options).then(/*#__PURE__*/function () {
-    var _ref16 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(response) {
+    var _ref15 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(response) {
       var respHeaders, stream;
-      return _regenerator().w(function (_context28) {
-        while (1) switch (_context28.n) {
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.n) {
           case 0:
             clearTimeout(timeoutId);
             respHeaders = {};
@@ -12430,17 +12494,17 @@ var fetchStreamPromise = function fetchStreamPromise(method, url, headers, body,
               respHeaders[key] = value;
             });
             stream = response.body;
-            return _context28.a(2, {
+            return _context27.a(2, {
               status: response.status,
               statusText: response.statusText,
               headers: JSON.stringify(respHeaders),
               body: stream
             });
         }
-      }, _callee28);
+      }, _callee27);
     }));
-    return function (_x31) {
-      return _ref16.apply(this, arguments);
+    return function (_x30) {
+      return _ref15.apply(this, arguments);
     };
   }())["catch"](function (error) {
     clearTimeout(timeoutId);

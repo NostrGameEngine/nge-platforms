@@ -32,6 +32,8 @@ package org.ngengine.platform.teavm;
 
 import java.io.IOException;
 import java.io.InputStream;
+import org.teavm.interop.Async;
+import org.teavm.interop.AsyncCallback;
 import org.teavm.jso.core.JSString;
 import org.teavm.jso.streams.ReadableStream;
 import org.teavm.jso.streams.ReadableStreamDefaultReader;
@@ -60,11 +62,18 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     }
 
     private ReadableStreamReadResult fetch() {
-        return getReader().read().await();
+        return readStream(getReader());
+    }
+
+    @Async
+    private static native ReadableStreamReadResult readStream(ReadableStreamDefaultReader reader);
+
+    private static void readStream(ReadableStreamDefaultReader reader, AsyncCallback<ReadableStreamReadResult> callback) {
+        TeaVMBinds.readStreamAsync(reader, callback::complete, error -> callback.error(new IOException(error.stringValue())));
     }
 
     @Override
-    public synchronized void close() {
+    public void close() {
         if (closed) return;
         closed = true;
         done = true;
@@ -73,7 +82,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
         bufferLength = 0;
         if (reader == null) return;
         try {
-            reader.cancel(JSString.valueOf("Closed")).await();
+            reader.cancel(JSString.valueOf("Closed"));
             reader.releaseLock();
         } catch (Exception e) {
             // Ignore
@@ -81,7 +90,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     }
 
     @Override
-    public synchronized int read() throws IOException {
+    public int read() throws IOException {
         if (!ensureBuffer()) return -1;
         int v = buffer.get(bufferPos) & 0xFF;
         bufferPos++;
@@ -89,7 +98,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     }
 
     @Override
-    public synchronized int read(byte[] output, int offset, int length) throws IOException {
+    public int read(byte[] output, int offset, int length) throws IOException {
         if (output == null) throw new NullPointerException("output");
         if (offset < 0 || length < 0 || offset > output.length - length) {
             throw new IndexOutOfBoundsException("offset=" + offset + ", length=" + length + ", output.length=" + output.length);
@@ -107,7 +116,7 @@ public class TeaVMReadableStreamWrapperInputStream extends InputStream {
     }
 
     @Override
-    public synchronized int available() {
+    public int available() {
         return buffer == null ? 0 : Math.max(0, bufferLength - bufferPos);
     }
 

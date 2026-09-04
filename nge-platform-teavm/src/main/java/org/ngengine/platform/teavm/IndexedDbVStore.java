@@ -37,11 +37,15 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.VStore.VStoreBackend;
 
 public class IndexedDbVStore implements VStoreBackend {
+
+    private static final Logger logger = Logger.getLogger(IndexedDbVStore.class.getName());
 
     private final String name;
 
@@ -51,7 +55,15 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<InputStream> read(String path) {
-        return platform().runAsync(() -> new ByteArrayInputStream(TeaVMBinds.vfileReadPromise(name, path).await().getData()));
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileReadAsync(
+                    name,
+                    path,
+                    result -> resolve.accept(new ByteArrayInputStream(result.getData())),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
@@ -61,28 +73,56 @@ public class IndexedDbVStore implements VStoreBackend {
             .wrapPromise((res, rej) -> {
                 try {
                     OutputStream os = new OutputStream() {
-                        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        private ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                        private boolean dirty = true;
+                        private boolean closed;
 
                         @Override
-                        public void write(int b) {
+                        public void write(int b) throws IOException {
+                            ensureOpen();
                             baos.write(b);
+                            dirty = true;
+                        }
+
+                        @Override
+                        public void write(byte[] data, int offset, int length) throws IOException {
+                            ensureOpen();
+                            baos.write(data, offset, length);
+                            dirty = true;
                         }
 
                         @Override
                         public void flush() throws IOException {
-                            try {
-                                TeaVMBinds.vfileWritePromise(name, path, baos.toByteArray()).await();
-                            } catch (RuntimeException error) {
-                                throw new IOException("Error writing file: " + path, error);
-                            }
+                            ensureOpen();
                         }
 
                         @Override
-                        public void close() {
-                            try {
-                                flush();
-                            } catch (IOException e) {}
+                        public void close() throws IOException {
+                            if (closed) {
+                                return;
+                            }
+                            if (dirty) {
+                                // An open stream is only an in-memory buffer. Closing it starts the
+                                // asynchronous IndexedDB commit; the JavaScript backend records that
+                                // pending close so later accesses can wait for transaction completion.
+                                TeaVMBinds.vfileWriteAsync(
+                                    name,
+                                    path,
+                                    baos.toByteArray(),
+                                    () -> {},
+                                    error ->
+                                        logger.log(Level.WARNING, "Error closing file " + path + ": " + error.stringValue())
+                                );
+                                dirty = false;
+                            }
+                            closed = true;
                             baos = null;
+                        }
+
+                        private void ensureOpen() throws IOException {
+                            if (closed) {
+                                throw new IOException("Output stream is closed: " + path);
+                            }
                         }
                     };
                     res.accept(os);
@@ -94,31 +134,48 @@ public class IndexedDbVStore implements VStoreBackend {
 
     @Override
     public AsyncTask<Boolean> exists(String path) {
-        return platform().runAsync(() -> TeaVMBinds.vfileExistsPromise(name, path).await().booleanValue());
+        return platform()
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileExistsAsync(
+                    name,
+                    path,
+                    result -> resolve.accept(result.booleanValue()),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
     public AsyncTask<Void> delete(String path) {
         return platform()
-            .runAsync(() -> {
-                TeaVMBinds.vfileDeletePromise(name, path).await();
-                return null;
-            });
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileDeleteAsync(
+                    name,
+                    path,
+                    () -> resolve.accept(null),
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     @Override
     public AsyncTask<List<String>> listAll() {
         return platform()
-            .runAsync(() -> {
-                ArrayList<String> list = new ArrayList<>();
-                var files = TeaVMBinds.vfileListAllPromise(name).await();
-                if (files != null) {
-                    for (int i = 0; i < files.getLength(); i++) {
-                        list.add(files.get(i).stringValue());
-                    }
-                }
-                return list;
-            });
+            .wrapPromise((resolve, reject) ->
+                TeaVMBinds.vfileListAllAsync(
+                    name,
+                    files -> {
+                        ArrayList<String> list = new ArrayList<>();
+                        if (files != null) {
+                            for (int i = 0; i < files.getLength(); i++) {
+                                list.add(files.get(i).stringValue());
+                            }
+                        }
+                        resolve.accept(list);
+                    },
+                    error -> reject.accept(new IOException(error.stringValue()))
+                )
+            );
     }
 
     private static TeaVMPlatform platform() {

@@ -869,15 +869,19 @@ async function getVFileStore(name) {
                         const transaction = db.transaction(["files"], 'readonly');
                         const store = transaction.objectStore("files");
                         const request = store.count(path);
+                        let exists = false;
 
                         request.onsuccess = () => {
-                            resolve(request.result > 0);
+                            exists = request.result > 0;
                         };
 
-                        request.onerror = (event) => {
+                        transaction.oncomplete = () => resolve(exists);
+                        const fail = (event) => {
                             console.error('Error checking file existence:', event.target.error);
                             resolve(false);
                         };
+                        transaction.onerror = fail;
+                        transaction.onabort = fail;
                     });
                 },
 
@@ -886,16 +890,20 @@ async function getVFileStore(name) {
                         const transaction = db.transaction(["files"], 'readonly');
                         const store = transaction.objectStore("files");
                         const request = store.get(path);
+                        let result = null;
 
                         request.onsuccess = () => {
-                            const result = request.result;
-                            resolve(result === undefined || result === null ? null : _u(result));
+                            const value = request.result;
+                            result = value === undefined || value === null ? null : _u(value);
                         };
 
-                        request.onerror = (event) => {
+                        transaction.oncomplete = () => resolve(result);
+                        const fail = (event) => {
                             console.error('Error reading file:', event.target.error);
                             resolve(null);
                         };
+                        transaction.onerror = fail;
+                        transaction.onabort = fail;
                     });
                 },
 
@@ -903,16 +911,15 @@ async function getVFileStore(name) {
                     return new Promise((resolve, reject) => {
                         const transaction = db.transaction(["files"], 'readwrite');
                         const store = transaction.objectStore("files");
-                        const request = store.put(data, path);
+                        store.put(data, path);
 
-                        request.onsuccess = () => {
-                            resolve();
-                        };
-
-                        request.onerror = (event) => {
+                        transaction.oncomplete = () => resolve();
+                        const fail = (event) => {
                             console.error('Error writing file:', event.target.error);
-                            resolve();
+                            reject(event.target.error || new Error(`Error writing file: ${path}`));
                         };
+                        transaction.onerror = fail;
+                        transaction.onabort = fail;
                     });
                 },
 
@@ -920,16 +927,15 @@ async function getVFileStore(name) {
                     return new Promise((resolve, reject) => {
                         const transaction = db.transaction(["files"], 'readwrite');
                         const store = transaction.objectStore("files");
-                        const request = store.delete(path);
+                        store.delete(path);
 
-                        request.onsuccess = () => {
-                            resolve();
-                        };
-
-                        request.onerror = (event) => {
+                        transaction.oncomplete = () => resolve();
+                        const fail = (event) => {
                             console.error('Error deleting file:', event.target.error);
-                            resolve();  
+                            reject(event.target.error || new Error(`Error deleting file: ${path}`));
                         };
+                        transaction.onerror = fail;
+                        transaction.onabort = fail;
                     });
                 },
 
@@ -939,15 +945,19 @@ async function getVFileStore(name) {
                             const transaction = db.transaction(["files"], 'readonly');
                             const store = transaction.objectStore("files");
                             const request = store.getAllKeys();
+                            let files = [];
 
                             request.onsuccess = (event) => {
-                                resolve(event.target.result||[]);
+                                files = event.target.result || [];
                             };
 
-                            request.onerror = (event) => {
+                            transaction.oncomplete = () => resolve(files);
+                            const fail = (event) => {
                                 console.error('Error listing files:', event.target.error);
                                 resolve([]);
                             };
+                            transaction.onerror = fail;
+                            transaction.onabort = fail;
 
                          
                         } catch (e) {
@@ -963,48 +973,92 @@ async function getVFileStore(name) {
     });
 }
 
-const vfileExists = async (name, path) => { // boolean
+// OutputStream.close() cannot return a JavaScript Promise. A stream remains
+// completely local while it is open; once close starts its IndexedDB commit,
+// keep that promise here so subsequent backend operations observe close order.
+const _vfilePendingCloses = new Map();
+
+function _pendingVFileCloses(name, create) {
+    let closes = _vfilePendingCloses.get(name);
+    if (!closes && create) {
+        closes = new Map();
+        _vfilePendingCloses.set(name, closes);
+    }
+    return closes;
+}
+
+function _removePendingVFileClose(name, path, promise) {
+    const closes = _pendingVFileCloses(name, false);
+    if (!closes || closes.get(path) !== promise) {
+        return;
+    }
+    closes.delete(path);
+    if (closes.size === 0) {
+        _vfilePendingCloses.delete(name);
+    }
+}
+
+function _waitForPendingVFileClose(name, path) {
+    const closes = _pendingVFileCloses(name, false);
+    return closes?.get(path) || Promise.resolve();
+}
+
+function _waitForPendingVFileCloses(name) {
+    const closes = _pendingVFileCloses(name, false);
+    return closes ? Promise.all(Array.from(closes.values())) : Promise.resolve();
+}
+
+async function _withVFileStore(name, operation) {
     const vstore = await getVFileStore(name);
-    const v = await vstore.exists(path);
-    vstore.close();
-    return v;
+    try {
+        return await operation(vstore);
+    } finally {
+        vstore.close();
+    }
+}
+
+const vfileExists = async (name, path) => { // boolean
+    await _waitForPendingVFileClose(name, path);
+    return _withVFileStore(name, vstore => vstore.exists(path));
 }
 
 const vfileRead = async (name, path) => { // byte[]
-    const vstore = await getVFileStore(name);
-    const v  = await vstore.read(path);
-    if (v === null || v === undefined) {
-        vstore.close();
+    await _waitForPendingVFileClose(name, path);
+    const value = await _withVFileStore(name, vstore => vstore.read(path));
+    if (value === null || value === undefined) {
         throw new Error(`File not found: ${path} in store ${name}`);
     }
-    vstore.close();
-    return _u(v);
+    return _u(value);
 }
 
-const vfileWrite = async (name, path, data) => { // void
-    const vstore = await getVFileStore(name);
-    await vstore.write(path, _u(data));
-    vstore.close();
+const vfileWrite = (name, path, data) => { // void
+    const bytes = _u(data);
+    const closes = _pendingVFileCloses(name, true);
+    const previous = closes.get(path) || Promise.resolve();
+    const current = previous.catch(() => undefined)
+        .then(() => _withVFileStore(name, vstore => vstore.write(path, bytes)));
+    closes.set(path, current);
+    current.then(
+        () => _removePendingVFileClose(name, path, current),
+        () => _removePendingVFileClose(name, path, current)
+    );
+    return current;
 }
 
 const vfileDelete = async (name, path) => { // void
-    const vstore = await getVFileStore(name);
-    await vstore.delete(path);
-    vstore.close();
-}   
+    await _waitForPendingVFileClose(name, path);
+    return _withVFileStore(name, vstore => vstore.delete(path));
+}
 
 const vfileListAll = async (name) => { // str[]
-    try{
-        const vstore = await getVFileStore(name);
-        const files = await vstore.listAll();
+    try {
+        await _waitForPendingVFileCloses(name);
+        const files = await _withVFileStore(name, vstore => vstore.listAll());
         if (files === undefined || files === null) {
             console.warn(`No files found in store ${name}`);
-            vstore.close();
             return [];
         }
-        const v = files.map(file => file.toString());
-        vstore.close();
-        return v;
+        return files.map(file => file.toString());
     } catch (e) {
         console.error(`Error listing files in store ${name}:`, e);
         return [];

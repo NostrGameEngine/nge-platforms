@@ -139,20 +139,16 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                write(path)
+                backend
+                    .write(path)
                     .then(out -> {
-                        try {
-                            out.write(data);
-                            res.accept(null);
-                        } catch (Exception e) {
-                            rej.accept(e);
-                        } finally {
-                            try {
-                                out.close();
-                            } catch (IOException e) {
-                                logger.log(Level.WARNING, "Error closing output stream", e);
-                            }
+                        try (OutputStream output = out) {
+                            output.write(data);
+                        } catch (Throwable error) {
+                            rej.accept(error);
+                            return null;
                         }
+                        res.accept(null);
                         return null;
                     })
                     .catchException(rej);
@@ -164,7 +160,8 @@ public class VStore {
             .get()
             .getVStoreQueue()
             .enqueue((res, rej) -> {
-                read(path)
+                backend
+                    .read(path)
                     .then(in -> {
                         try {
                             byte[] buffer = new byte[1024];

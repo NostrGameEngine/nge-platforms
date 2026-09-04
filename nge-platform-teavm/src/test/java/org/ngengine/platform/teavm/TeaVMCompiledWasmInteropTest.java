@@ -82,6 +82,8 @@ import org.teavm.junit.TeaVMTestRunner;
 @SkipJVM
 public class TeaVMCompiledWasmInteropTest {
 
+    private static TeaVMPlatform installedPlatform;
+
     private static final int PRIVATE_KEY_SANITY_SAMPLES = 32;
     private static final int STRESS_MESSAGES = 256;
     private static final Duration TIMEOUT = Duration.ofSeconds(20);
@@ -111,6 +113,19 @@ public class TeaVMCompiledWasmInteropTest {
             assertFalse(detail, detail.contains("Unsupported data type for conversion to Uint8Array"));
         }
         assertTrue("Reading a missing VStore entry must reject", rejected);
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void persistentStoreVoidCallbacksRoundTripOnCompiledBackend() throws Exception {
+        verifyPersistentStore(installPlatform());
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void persistentStoreOperationsRespectInvocationOrder() throws Exception {
+        installPlatform();
+        verifyPendingPersistentStoreOperations();
     }
 
     @Test
@@ -508,9 +523,11 @@ public class TeaVMCompiledWasmInteropTest {
     }
 
     private static TeaVMPlatform installPlatform() {
-        TeaVMPlatform platform = new TeaVMPlatform();
-        NGEPlatform.set(platform);
-        return platform;
+        if (installedPlatform == null) {
+            installedPlatform = new TeaVMPlatform();
+            NGEPlatform.set(installedPlatform);
+        }
+        return installedPlatform;
     }
 
     private static Map<String, Object> checkPrivateKeyGeneration(TeaVMPlatform platform) {
@@ -557,6 +574,68 @@ public class TeaVMCompiledWasmInteropTest {
         assertTrue(store.listAll().await().contains(path));
         store.delete(path).await();
         assertFalse(store.exists(path).await());
+
+        String fullyWrittenPath = "roundtrip-fully.bin";
+        store.writeFully(fullyWrittenPath, value).await();
+        assertEquals("persistent-wasm-value", new String(store.readFully(fullyWrittenPath).await(), StandardCharsets.UTF_8));
+        store.delete(fullyWrittenPath).await();
+        assertFalse(store.exists(fullyWrittenPath).await());
+
+        String emptyPath = "empty.bin";
+        store.write(emptyPath).await().close();
+        assertTrue(store.exists(emptyPath).await());
+        assertEquals(0, store.readFully(emptyPath).await().length);
+        store.delete(emptyPath).await();
+    }
+
+    private static void verifyPendingPersistentStoreOperations() throws Exception {
+        String storeName = "nge-vstore-operation-ordering";
+        VStore store = new VStore(new IndexedDbVStore(storeName));
+        byte[] initialValue = utf8("initial-persistent-value");
+        byte[] value = utf8("ordered-persistent-value");
+
+        String openStreamPath = "open-stream.bin";
+        store.writeFully(openStreamPath, initialValue).await();
+        OutputStream openStream = store.write(openStreamPath).await();
+        openStream.write(value);
+        assertEquals(
+            "An open stream must not block or publish its buffered replacement",
+            "initial-persistent-value",
+            new String(store.readFully(openStreamPath).await(), StandardCharsets.UTF_8)
+        );
+        assertTrue(store.listAll().await().contains(openStreamPath));
+        openStream.close();
+        assertEquals(
+            "Closing the stream must publish its buffered replacement",
+            "ordered-persistent-value",
+            new String(store.readFully(openStreamPath).await(), StandardCharsets.UTF_8)
+        );
+
+        String readAfterWritePath = "read-after-write.bin";
+        OutputStream readAfterWrite = store.write(readAfterWritePath).await();
+        readAfterWrite.write(value);
+        readAfterWrite.close();
+        assertEquals(
+            "ordered-persistent-value",
+            new String(store.readFully(readAfterWritePath).await(), StandardCharsets.UTF_8)
+        );
+
+        String listAfterWritePath = "list-after-write.bin";
+        OutputStream listAfterWrite = store.write(listAfterWritePath).await();
+        listAfterWrite.write(value);
+        listAfterWrite.close();
+        assertTrue("Listing must wait for an earlier close", store.listAll().await().contains(listAfterWritePath));
+
+        String deleteAfterWritePath = "delete-after-write.bin";
+        OutputStream deleteAfterWrite = store.write(deleteAfterWritePath).await();
+        deleteAfterWrite.write(value);
+        deleteAfterWrite.close();
+        store.delete(deleteAfterWritePath).await();
+        assertFalse("Delete must wait for an earlier close", store.exists(deleteAfterWritePath).await());
+
+        store.delete(openStreamPath).await();
+        store.delete(readAfterWritePath).await();
+        store.delete(listAfterWritePath).await();
     }
 
     private static boolean awaitCanCall(TeaVMPlatform platform, String function) throws Exception {
@@ -717,9 +796,21 @@ public class TeaVMCompiledWasmInteropTest {
     }
 
     private static String stackTrace(Throwable failure) {
-        StringBuilder out = new StringBuilder(String.valueOf(failure));
-        for (StackTraceElement element : failure.getStackTrace()) {
-            out.append("\n  at ").append(element);
+        StringBuilder out = new StringBuilder();
+        Throwable current = failure;
+        while (current != null) {
+            if (out.length() > 0) {
+                out.append("\nCaused by: ");
+            }
+            out.append(current);
+            for (StackTraceElement element : current.getStackTrace()) {
+                out.append("\n  at ").append(element);
+            }
+            Throwable cause = current.getCause();
+            if (cause == current) {
+                break;
+            }
+            current = cause;
         }
         return out.toString();
     }

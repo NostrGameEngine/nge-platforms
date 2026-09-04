@@ -36,6 +36,7 @@ import org.ngengine.platform.teavm.webrtc.RTCIceCandidate;
 import org.ngengine.platform.teavm.webrtc.RTCMessageCallback;
 import org.ngengine.platform.teavm.webrtc.RTCPeerConnection;
 import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
+import org.teavm.jso.JSBody;
 import org.teavm.jso.JSBuffer;
 import org.teavm.jso.JSBufferType;
 import org.teavm.jso.JSByRef;
@@ -53,6 +54,8 @@ import org.teavm.jso.core.JSString;
 import org.teavm.jso.core.JSUndefined;
 import org.teavm.jso.function.JSConsumer;
 import org.teavm.jso.streams.ReadableStream;
+import org.teavm.jso.streams.ReadableStreamDefaultReader;
+import org.teavm.jso.streams.ReadableStreamReadResult;
 
 /**
  * Run ./gradlew build to generate the TeaVMBinds.bundle.js file
@@ -69,6 +72,24 @@ public class TeaVMBinds implements JSObject {
     public interface HttpStreamResponseCallback extends JSObject {
         void accept(int status, String headersJson, ReadableStream body);
     }
+
+    @JSFunctor
+    public interface ReadableStreamReadCallback extends JSObject {
+        void accept(ReadableStreamReadResult result);
+    }
+
+    /** Callback used by JavaScript operations that do not produce a value. */
+    @JSFunctor
+    public interface VoidCallback extends JSObject {
+        void run();
+    }
+
+    @JSBody(params = { "reader", "resolve", "reject" }, script = "reader.read().then(resolve, error => reject(String(error)));")
+    public static native void readStreamAsync(
+        ReadableStreamDefaultReader reader,
+        ReadableStreamReadCallback resolve,
+        JSConsumer<JSString> reject
+    );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -393,11 +414,11 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileExistsAsync(String name, String path, JSConsumer<JSBoolean> res, JSConsumer<String> rej);
+    public static native void vfileExistsAsync(String name, String path, JSConsumer<JSBoolean> res, JSConsumer<JSString> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileReadAsync(String name, String path, JSConsumer<BytesWrapper> res, JSConsumer<String> rej);
+    public static native void vfileReadAsync(String name, String path, JSConsumer<BytesWrapper> res, JSConsumer<JSString> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -405,8 +426,8 @@ public class TeaVMBinds implements JSObject {
         String name,
         String path,
         @JSByRef(optional = true) byte[] data,
-        JSConsumer<Void> callback,
-        JSConsumer<String> errorCallback
+        VoidCallback callback,
+        JSConsumer<JSString> errorCallback
     );
 
     @JSTopLevel
@@ -414,13 +435,13 @@ public class TeaVMBinds implements JSObject {
     public static native void vfileDeleteAsync(
         String name,
         String path,
-        JSConsumer<Void> callback,
-        JSConsumer<String> errorCallback
+        VoidCallback callback,
+        JSConsumer<JSString> errorCallback
     );
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
-    public static native void vfileListAllAsync(String name, JSConsumer<JSArray<JSString>> res, JSConsumer<String> rej);
+    public static native void vfileListAllAsync(String name, JSConsumer<JSArray<JSString>> res, JSConsumer<JSString> rej);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
@@ -766,7 +787,7 @@ public class TeaVMBinds implements JSObject {
         @JSByRef(optional = true) byte[] body,
         int timeoutMs,
         HttpStreamResponseCallback res,
-        JSConsumer<String> rej
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
