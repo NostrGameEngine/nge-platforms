@@ -2971,6 +2971,17 @@
             "type": "jdk.internal.misc.Unsafe"
         },
         {
+            "type": "org.bouncycastle.jcajce.provider.asymmetric.CMCE$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.bouncycastle.jcajce.provider.asymmetric.COMPOSITE$Mappings",
             "methods": [
                 {
@@ -2983,6 +2994,17 @@
         },
         {
             "type": "org.bouncycastle.jcajce.provider.asymmetric.CONTEXT$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.bouncycastle.jcajce.provider.asymmetric.CompositeKEMs$Mappings",
             "methods": [
                 {
                     "name": "<init>",
@@ -3104,6 +3126,17 @@
         },
         {
             "type": "org.bouncycastle.jcajce.provider.asymmetric.Falcon$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.bouncycastle.jcajce.provider.asymmetric.FrodoKEM$Mappings",
             "methods": [
                 {
                     "name": "<init>",
@@ -3634,6 +3667,17 @@
             ]
         },
         {
+            "type": "org.bouncycastle.jcajce.provider.symmetric.ARGON2$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.bouncycastle.jcajce.provider.symmetric.ARIA$Mappings",
             "methods": [
                 {
@@ -3811,6 +3855,17 @@
         },
         {
             "type": "org.bouncycastle.jcajce.provider.symmetric.IDEA$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.bouncycastle.jcajce.provider.symmetric.LEA$Mappings",
             "methods": [
                 {
                     "name": "<init>",
@@ -4086,6 +4141,17 @@
         },
         {
             "type": "org.bouncycastle.jcajce.provider.symmetric.VMPCKSA3$Mappings",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.bouncycastle.jcajce.provider.symmetric.XChaCha$Mappings",
             "methods": [
                 {
                     "name": "<init>",
