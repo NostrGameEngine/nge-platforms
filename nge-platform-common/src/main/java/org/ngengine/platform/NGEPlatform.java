@@ -67,6 +67,10 @@ public abstract class NGEPlatform {
         NGEPlatform.platform = platform;
     }
 
+    public static boolean isSet() {
+        return platform != null;
+    }
+
     public static NGEPlatform get() {
         if (NGEPlatform.platform == null) { // DCL
             synchronized (NGEPlatform.class) {

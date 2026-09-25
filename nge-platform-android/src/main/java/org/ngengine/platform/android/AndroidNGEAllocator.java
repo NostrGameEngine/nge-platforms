@@ -2,14 +2,19 @@ package org.ngengine.platform.android;
 
 import java.lang.ref.PhantomReference;
 import java.lang.ref.ReferenceQueue;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.saferalloc.SaferAlloc;
+import org.ngengine.saferalloc.SaferAllocFunctionPointers;
+import org.ngengine.saferalloc.SaferAllocNative;
 
 public final class AndroidNGEAllocator implements NGEAllocator {
+    @Override
+    public boolean rawAddressesAreNative() { return true; }
 
     private static final ReferenceQueue<ByteBuffer> refQueue = new ReferenceQueue<>();
     private static final ConcurrentHashMap<Long, AllocationRef> allocations = new ConcurrentHashMap<>();
@@ -19,14 +24,15 @@ public final class AndroidNGEAllocator implements NGEAllocator {
     static {
         reaperThread.setDaemon(true);
         reaperThread.start();
+        SaferAlloc.ensureLoaded();
     }
 
     private static void reapLoop() {
         for (;;) {
             try {
                 AllocationRef ref = (AllocationRef) refQueue.remove();
-                AndroidNGEAllocatorGuard.notifyGC();
                 ref.freeFromQueue();
+                AndroidNGEAllocatorGuard.notifyGC();
             } catch (InterruptedException e) {
                 return;
             } catch (Throwable t) {
@@ -102,6 +108,118 @@ public final class AndroidNGEAllocator implements NGEAllocator {
     }
 
     @Override
+    public void beforeAlloc(long size) {
+        AndroidNGEAllocatorGuard.beforeAlloc(size);
+    }
+
+    @Override
+    public void notifyGC() {
+        AndroidNGEAllocatorGuard.notifyGC();
+    }
+
+    @Override
+    public long mallocFunctionPointer() {
+        return SaferAllocFunctionPointers.malloc();
+    }
+
+    @Override
+    public long callocFunctionPointer() {
+        return SaferAllocFunctionPointers.calloc();
+    }
+
+    @Override
+    public long reallocFunctionPointer() {
+        return SaferAllocFunctionPointers.realloc();
+    }
+
+    @Override
+    public long freeFunctionPointer() {
+        return SaferAllocFunctionPointers.free();
+    }
+
+    @Override
+    public long alignedAllocFunctionPointer() {
+        return SaferAllocFunctionPointers.alignedAlloc();
+    }
+
+    @Override
+    public long alignedFreeFunctionPointer() {
+        return SaferAllocFunctionPointers.alignedFree();
+    }
+
+    @Override
+    public long mallocRaw(long size) {
+        if (size < 0) {
+            throw new IllegalArgumentException("size < 0");
+        }
+        beforeAlloc(size);
+        long address = SaferAllocNative.malloc(size);
+        if (address == 0L && size != 0L) {
+            throw new OutOfMemoryError("SaferAlloc malloc failed: " + size);
+        }
+        return address;
+    }
+
+    @Override
+    public long callocRaw(long count, long size) {
+        if (count < 0 || size < 0) {
+            throw new IllegalArgumentException("count/size < 0");
+        }
+        if (count != 0 && size > Long.MAX_VALUE / count) {
+            throw new OutOfMemoryError("calloc overflow");
+        }
+        long requestedBytes = count * size;
+        beforeAlloc(requestedBytes);
+        long address = SaferAllocNative.calloc(count, size);
+        if (address == 0L && requestedBytes != 0L) {
+            throw new OutOfMemoryError("SaferAlloc calloc failed: " + count + "*" + size);
+        }
+        return address;
+    }
+
+    @Override
+    public long reallocRaw(long address, long size) {
+        if (size < 0) {
+            throw new IllegalArgumentException("size < 0");
+        }
+        // The old size is unavailable, so the requested size estimates pressure.
+        beforeAlloc(size);
+        long resized = SaferAllocNative.realloc(address, size);
+        if (resized == 0L && size != 0L) {
+            throw new OutOfMemoryError("SaferAlloc realloc failed: " + size);
+        }
+        return resized;
+    }
+
+    @Override
+    public void freeRaw(long address) {
+        if (address != 0L) {
+            SaferAllocNative.free(address);
+        }
+    }
+
+    @Override
+    public long mallocAlignedRaw(long alignment, long size) {
+        if (alignment <= 0) {
+            throw new IllegalArgumentException("alignment <= 0");
+        }
+        if (size < 0) {
+            throw new IllegalArgumentException("size < 0");
+        }
+        beforeAlloc(size);
+        long address = SaferAllocNative.mallocAligned(size, alignment);
+        if (address == 0L && size != 0L) {
+            throw new OutOfMemoryError("SaferAlloc aligned_alloc failed: " + size);
+        }
+        return address;
+    }
+
+    @Override
+    public void freeAlignedRaw(long address) {
+        freeRaw(address);
+    }
+
+    @Override
     public ByteBuffer malloc(int size) {
         AndroidNGEAllocatorGuard.beforeAlloc(size);
         return register(SaferAlloc.malloc(size));
@@ -151,6 +269,11 @@ public final class AndroidNGEAllocator implements NGEAllocator {
 
     @Override
     public void free(ByteBuffer buffer) {
+        freeBuffer(buffer);
+    }
+
+    @Override
+    public void freeBuffer(Buffer buffer) {
         if (buffer == null) {
             return;
         }

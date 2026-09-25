@@ -42,6 +42,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.SafeFlag;
 import org.teavm.classlib.PlatformDetector;
+import org.teavm.interop.Address;
 import org.teavm.jso.JSBody;
 import org.teavm.junit.JsModuleTest;
 import org.teavm.junit.ServeJS;
@@ -57,6 +58,52 @@ import org.teavm.junit.TeaVMTestRunner;
 @JsModuleTest
 @SkipJVM
 public class TeaVMBackendParityTest {
+
+    @Test
+    public void allocatorUsesHandlesOnJsAndLinearAddressesOnWasmGc() {
+        TeaVMNGEAllocator allocator = new TeaVMNGEAllocator();
+        assertEquals(PlatformDetector.isWebAssemblyGC(), allocator.rawAddressesAreNative());
+        ByteBuffer managed = allocator.mallocAligned(32, 32);
+        long managedAddress = allocator.address(managed);
+        assertTrue(managedAddress > 0);
+        assertEquals(managedAddress, allocator.address(managed));
+        ByteBuffer external = ByteBuffer.allocateDirect(4);
+        long externalAddress = allocator.address(external);
+        assertTrue(externalAddress > 0);
+        if (PlatformDetector.isWebAssemblyGC()) {
+            Address.fromLong(externalAddress).putByte((byte) 19);
+            assertEquals(19, external.get(0));
+        } else {
+            allocator.freeRaw(externalAddress);
+        }
+
+        long raw = allocator.callocRaw(8, 1);
+        assertTrue(raw > 0);
+        if (PlatformDetector.isWebAssemblyGC()) {
+            assertEquals(0, Address.fromLong(raw).getByte());
+            Address.fromLong(raw).putByte((byte) 37);
+            assertEquals(0, managedAddress & 31L);
+        } else {
+            assertTrue(raw != managedAddress);
+        }
+
+        long resized = allocator.reallocRaw(raw, 16);
+        assertTrue(resized > 0);
+        if (PlatformDetector.isWebAssemblyGC()) {
+            assertEquals(37, Address.fromLong(resized).getByte());
+        }
+        allocator.freeRaw(resized);
+
+        long aligned = allocator.mallocAlignedRaw(64, 48);
+        assertEquals(0, aligned & 63L);
+        allocator.freeAlignedRaw(aligned);
+        assertEquals(0L, allocator.mallocFunctionPointer());
+
+        if (!PlatformDetector.isWebAssemblyGC()) {
+            allocator.freeRaw(managedAddress);
+            assertTrue(allocator.address(managed) != managedAddress);
+        }
+    }
 
     @Test
     public void safeFlagRoundTripsAcrossCompiledBackends() {

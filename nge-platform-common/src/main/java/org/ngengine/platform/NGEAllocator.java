@@ -30,13 +30,12 @@
  */
 package org.ngengine.platform;
 
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
 /**
- * A native memory allocator interface.
- * ByteBuffers returned by this allocator are managed and the underlying memory
- * will be reclaimed as soon as the ByteBuffer is garbage collected.
- * They are also hardened against common memory safety issues.
+ * Platform memory allocator. Returned buffers are runtime-managed; raw values
+ * are native addresses only when {@link #rawAddressesAreNative()} is true.
  */
 public interface NGEAllocator {
     ByteBuffer malloc(int size);
@@ -47,6 +46,11 @@ public interface NGEAllocator {
 
     ByteBuffer mallocAligned(int size, int alignment);
 
+    /**
+     * Returns a native base address when supported, otherwise an opaque handle.
+     * A buffer obtained through this API remains runtime-owned: its address must
+     * not be passed to {@link #freeRaw(long)} on native-address backends.
+     */
     long address(ByteBuffer buffer);
 
     /**
@@ -66,4 +70,50 @@ public interface NGEAllocator {
      * @param buffer the buffer to release; implementations may ignore {@code null}
      */
     void free(ByteBuffer buffer);
+
+    /** True when raw values are memory addresses rather than allocator-local handles. */
+    default boolean rawAddressesAreNative() {
+        return false;
+    }
+
+    default long mallocRaw(long size) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    default long callocRaw(long count, long size) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    default long reallocRaw(long address, long size) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    default void freeRaw(long address) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    default long mallocAlignedRaw(long alignment, long size) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    default void freeAlignedRaw(long address) {
+        throw new UnsupportedOperationException("Raw allocation is unavailable");
+    }
+
+    /** Zero means this backend has no callable native function pointer. */
+    default long mallocFunctionPointer() { return 0L; }
+    default long callocFunctionPointer() { return 0L; }
+    default long reallocFunctionPointer() { return 0L; }
+    default long freeFunctionPointer() { return 0L; }
+    default long alignedAllocFunctionPointer() { return 0L; }
+    default long alignedFreeFunctionPointer() { return 0L; }
+
+    default void freeBuffer(Buffer buffer) {
+        if (buffer instanceof ByteBuffer) {
+            free((ByteBuffer) buffer);
+        }
+    }
+
+    default void beforeAlloc(long size) { }
+    default void notifyGC() { }
 }

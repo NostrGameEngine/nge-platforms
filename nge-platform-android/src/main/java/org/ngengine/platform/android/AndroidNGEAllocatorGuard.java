@@ -128,10 +128,11 @@ public class AndroidNGEAllocatorGuard {
     private static final AtomicLong highPressureCount = new AtomicLong(0L);
     private static final AtomicLong lowPressureCount = new AtomicLong(0L);
     private static volatile LongSupplier allocatedBytesSupplier = SaferAlloc::currentAllocatedBytes;
-    private static volatile LongSupplier nowSupplier = System::currentTimeMillis;
+    private static volatile LongSupplier nowSupplier = System::nanoTime;
     private static volatile Runnable gcInvoker = System::gc;
 
     public static void beforeAlloc(long size){
+        if (size < 0) return;
         long now = nowSupplier.getAsLong();
         long currentBytes = allocatedBytesSupplier.getAsLong();
         long currentSoftBudget = softBudget.get();
@@ -159,7 +160,7 @@ public class AndroidNGEAllocatorGuard {
             long minimumBytesForMaintenanceGC = (long) (currentSoftBudget * maintenanceGcMinUsageRatio);
             if (currentBytes >= minimumBytesForMaintenanceGC) {
                 long last = lastGCRun.get();
-                if (now - last >= maintenanceGcIntervalMillis) {
+                if (hasElapsed(now, last, millisToNanos(maintenanceGcIntervalMillis))) {
                     requestGC(now);
                 }
             }
@@ -187,7 +188,7 @@ public class AndroidNGEAllocatorGuard {
 
         long now = nowSupplier.getAsLong();
         long lastUpdate = lastAdaptUpdate.get();
-        if (now - lastUpdate < adaptIntervalMillis) {
+        if (!hasElapsed(now, lastUpdate, millisToNanos(adaptIntervalMillis))) {
             return;
         }
         if (!lastAdaptUpdate.compareAndSet(lastUpdate, now)) {
@@ -223,23 +224,47 @@ public class AndroidNGEAllocatorGuard {
     }
 
     private static void requestGC(long now) {
-        if (now - lastGCRun.get() >= gcIntervalMillis) {
-            if (LOGGER.isLoggable(Level.FINER)) {
-                LOGGER.log(Level.FINER, "!!! Requesting GC...");
+        long minimumInterval = millisToNanos(gcIntervalMillis);
+        for (;;) {
+            long last = lastGCRun.get();
+            if (!hasElapsed(now, last, minimumInterval)) {
+                return;
             }
-
-            // Calling gc() twice is a common heuristic to increase the likelihood of a full
-            // garbage collection cycle, which is important for timely release of native memory.
-            gcInvoker.run();
-            gcInvoker.run();
-
-            lastGCRun.updateAndGet(v -> {
-                if (v < now) return now;
-                return v;
-            });
+            if (!lastGCRun.compareAndSet(last, now)) {
+                continue;
+            }
+            break;
         }
+
+        if (LOGGER.isLoggable(Level.FINER)) {
+            LOGGER.log(Level.FINER, "!!! Requesting GC...");
+        }
+
+        // Calling gc() twice is a common heuristic to increase the likelihood of a full
+        // garbage collection cycle, which is important for timely release of native memory.
+        gcInvoker.run();
+        gcInvoker.run();
     }
-    
+
+    // Test-only hooks to keep unit tests deterministic without real native allocations or GC calls.
+    static void setTestHooks(LongSupplier allocatedBytes, LongSupplier now, Runnable gcAction) {
+        allocatedBytesSupplier = allocatedBytes != null ? allocatedBytes : SaferAlloc::currentAllocatedBytes;
+        nowSupplier = now != null ? now : System::nanoTime;
+        gcInvoker = gcAction != null ? gcAction : System::gc;
+    }
+
+    static void resetStateForTests() {
+        softBudget.set(initialSoftBudget);
+        lastGCRun.set(0L);
+        lastAdaptUpdate.set(0L);
+        highPressureCount.set(0L);
+        lowPressureCount.set(0L);
+    }
+
+    static long getSoftBudgetForTests() {
+        return softBudget.get();
+    }
+
     private static long clampBudget(long candidate) {
         if (candidate < minSoftBudget) {
             return minSoftBudget;
@@ -254,12 +279,26 @@ public class AndroidNGEAllocatorGuard {
         return a + b;
     }
 
+    private static boolean hasElapsed(long now, long last, long intervalNanos) {
+        return now - last >= intervalNanos;
+    }
+
+    private static long millisToNanos(long millis) {
+        if (millis > Long.MAX_VALUE / 1_000_000L) {
+            return Long.MAX_VALUE;
+        }
+        return millis * 1_000_000L;
+    }
+
     private static String human(long bytes) {
         if (bytes >= 1024L * 1024L * 1024L) {
-            return String.format(Locale.ROOT, "%.2f GB", bytes / (1024d * 1024d * 1024d));
+            return String.format(Locale.ROOT, "%.2f GB", bytes / (1024.0 * 1024.0 * 1024.0));
         }
         if (bytes >= 1024L * 1024L) {
-            return String.format(Locale.ROOT, "%.2f MB", bytes / (1024d * 1024d));
+            return String.format(Locale.ROOT, "%.2f MB", bytes / (1024.0 * 1024.0));
+        }
+        if (bytes >= 1024L) {
+            return String.format(Locale.ROOT, "%.2f KB", bytes / 1024.0);
         }
         return bytes + " B";
     }
@@ -301,6 +340,9 @@ public class AndroidNGEAllocatorGuard {
         }
         try {
             float value = Float.parseFloat(raw.trim());
+            if (Float.isNaN(value) || Float.isInfinite(value)) {
+                throw new NumberFormatException("non-finite");
+            }
             return clamp(value, minValue, maxValue);
         } catch (NumberFormatException e) {
             LOGGER.log(Level.WARNING, "Invalid value for {0}: {1}. Using default {2}.",

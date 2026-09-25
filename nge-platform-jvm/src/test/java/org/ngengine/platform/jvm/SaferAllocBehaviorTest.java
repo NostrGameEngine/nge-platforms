@@ -47,6 +47,31 @@ import org.ngengine.saferalloc.SaferAlloc;
 public class SaferAllocBehaviorTest {
 
     @Test
+    public void rawAllocatorSupportsJmePointerOperations() {
+        NGEAllocator allocator = new JVMNGEAllocator();
+        assertNotEquals(0L, allocator.mallocFunctionPointer());
+        assertNotEquals(0L, allocator.callocFunctionPointer());
+        assertNotEquals(0L, allocator.reallocFunctionPointer());
+        assertNotEquals(0L, allocator.freeFunctionPointer());
+        assertNotEquals(0L, allocator.alignedAllocFunctionPointer());
+        assertNotEquals(0L, allocator.alignedFreeFunctionPointer());
+
+        long address = allocator.callocRaw(1L, 32L);
+        assertNotEquals(0L, address);
+        try {
+            address = allocator.reallocRaw(address, 64L);
+            assertNotEquals(0L, address);
+        } finally {
+            allocator.freeRaw(address);
+        }
+
+        long aligned = allocator.mallocAlignedRaw(16L, 64L);
+        assertNotEquals(0L, aligned);
+        assertEquals(0L, aligned % 16L);
+        allocator.freeAlignedRaw(aligned);
+    }
+
+    @Test
     public void callocReturnsZeroInitializedDirectBufferWithExpectedCapacity() {
         ByteBuffer buffer = SaferAlloc.calloc(1, 1024);
         assertNotNull(buffer);

@@ -30,6 +30,10 @@
  */
 package org.ngengine.platform.jvm;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.junit.After;
@@ -65,9 +69,9 @@ public class TestJVMNGEAllocatorGuard {
 
         currentBytes.set((long) (initialBudget * 0.95f));
         JVMNGEAllocatorGuard.beforeAlloc(0L);
-        now.set(3_000L);
+        now.set(3_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
-        now.set(6_000L);
+        now.set(6_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
 
         long grownBudget = JVMNGEAllocatorGuard.getSoftBudgetForTests();
@@ -76,7 +80,7 @@ public class TestJVMNGEAllocatorGuard {
 
         currentBytes.set(0L);
         for (int i = 0; i < 8; i++) {
-            now.addAndGet(3_000L);
+            now.addAndGet(3_000_000_000L);
             JVMNGEAllocatorGuard.beforeAlloc(0L);
         }
 
@@ -96,16 +100,16 @@ public class TestJVMNGEAllocatorGuard {
 
         currentBytes.set((long) (initialBudget * 0.95f));
         JVMNGEAllocatorGuard.beforeAlloc(0L);
-        now.set(3_000L);
+        now.set(3_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
-        now.set(6_000L);
+        now.set(6_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
 
         long grownBudget = JVMNGEAllocatorGuard.getSoftBudgetForTests();
         Assert.assertTrue(grownBudget > initialBudget);
 
         currentBytes.set(grownBudget + 64L * MIB);
-        now.addAndGet(3_000L);
+        now.addAndGet(3_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
 
         Assert.assertTrue("Expected explicit GC request on over-budget burst", gcCalls.get() >= 2);
@@ -125,9 +129,42 @@ public class TestJVMNGEAllocatorGuard {
         JVMNGEAllocatorGuard.beforeAlloc(0L);
         Assert.assertEquals(0, gcCalls.get());
 
-        now.set(61_000L);
+        now.set(61_000_000_000L);
         JVMNGEAllocatorGuard.beforeAlloc(0L);
 
         Assert.assertTrue("Expected maintenance GC after long silence under non-trivial usage", gcCalls.get() >= 2);
+    }
+
+    @Test
+    public void concurrentRequestsShareOneGcInterval() throws InterruptedException {
+        AtomicLong now = new AtomicLong(2_000_000_000L);
+        AtomicLong currentBytes = new AtomicLong(JVMNGEAllocatorGuard.getSoftBudgetForTests() + 1L);
+        AtomicInteger gcCalls = new AtomicInteger();
+        JVMNGEAllocatorGuard.setTestHooks(currentBytes::get, now::get, gcCalls::incrementAndGet);
+
+        int workers = 16;
+        CountDownLatch ready = new CountDownLatch(workers);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(workers);
+        try {
+            for (int i = 0; i < workers; i++) {
+                executor.execute(() -> {
+                    ready.countDown();
+                    try {
+                        start.await();
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                    JVMNGEAllocatorGuard.beforeAlloc(1L);
+                });
+            }
+            Assert.assertTrue(ready.await(5L, TimeUnit.SECONDS));
+            start.countDown();
+        } finally {
+            executor.shutdown();
+            Assert.assertTrue(executor.awaitTermination(5L, TimeUnit.SECONDS));
+        }
+        Assert.assertEquals("Only one request may call GC during the interval", 2, gcCalls.get());
     }
 }
