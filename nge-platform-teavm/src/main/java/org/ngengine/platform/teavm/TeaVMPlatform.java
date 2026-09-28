@@ -508,7 +508,9 @@ public class TeaVMPlatform extends NGEPlatform {
         }
 
         public Object await() throws Exception {
-            TeaVMBinds.getPromise(promiseHandle).await();
+            if (!this.completed) {
+                TeaVMBinds.getPromise(promiseHandle).await();
+            }
             if (this.failed) {
                 throw new ExecutionException("Promise failed with error", this.error);
             }
