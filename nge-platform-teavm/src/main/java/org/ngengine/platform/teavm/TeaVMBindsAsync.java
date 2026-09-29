@@ -40,6 +40,8 @@ import org.ngengine.platform.teavm.webrtc.RTCSessionDescription;
 import org.ngengine.platform.transport.NGEHttpResponse;
 import org.teavm.interop.Async;
 import org.teavm.interop.AsyncCallback;
+import org.teavm.jso.JSBody;
+import org.teavm.jso.JSObject;
 
 public class TeaVMBindsAsync {
 
@@ -140,8 +142,13 @@ public class TeaVMBindsAsync {
 
     private static void rtcSetLocalDescription(RTCPeerConnection conn, String sdp, String type, AsyncCallback<Void> callback) {
         try {
-            TeaVMBinds.rtcSetLocalDescriptionPromise(conn, sdp, type).await();
-            callback.complete(null);
+            TeaVMBinds.rtcSetLocalDescriptionAsync(
+                conn,
+                sdp,
+                type,
+                () -> callback.complete(null),
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -152,8 +159,13 @@ public class TeaVMBindsAsync {
 
     private static void rtcSetRemoteDescription(RTCPeerConnection conn, String sdp, String type, AsyncCallback<Void> callback) {
         try {
-            TeaVMBinds.rtcSetRemoteDescriptionPromise(conn, sdp, type).await();
-            callback.complete(null);
+            TeaVMBinds.rtcSetRemoteDescriptionAsync(
+                conn,
+                sdp,
+                type,
+                () -> callback.complete(null),
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -164,8 +176,12 @@ public class TeaVMBindsAsync {
 
     private static void rtcAddIceCandidate(RTCPeerConnection conn, RTCIceCandidate candidate, AsyncCallback<Void> callback) {
         try {
-            TeaVMBinds.rtcAddIceCandidatePromise(conn, candidate).await();
-            callback.complete(null);
+            TeaVMBinds.rtcAddIceCandidateAsync(
+                conn,
+                candidate,
+                () -> callback.complete(null),
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -176,7 +192,11 @@ public class TeaVMBindsAsync {
 
     private static void rtcCreateAnswer(RTCPeerConnection conn, AsyncCallback<RTCSessionDescription> callback) {
         try {
-            callback.complete(TeaVMBinds.rtcCreateAnswerPromise(conn).await());
+            TeaVMBinds.rtcCreateAnswerAsync(
+                conn,
+                callback::complete,
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -187,7 +207,11 @@ public class TeaVMBindsAsync {
 
     private static void rtcCreateOffer(RTCPeerConnection conn, AsyncCallback<RTCSessionDescription> callback) {
         try {
-            callback.complete(TeaVMBinds.rtcCreateOfferPromise(conn).await());
+            TeaVMBinds.rtcCreateOfferAsync(
+                conn,
+                callback::complete,
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -205,7 +229,15 @@ public class TeaVMBindsAsync {
         AsyncCallback<NGEHttpResponse> callback
     ) {
         try {
-            completeHttpResponse(callback, TeaVMBinds.fetchPromise(method, url, headersJson, body, timeoutMs).await());
+            TeaVMBinds.fetchAsync(
+                method,
+                url,
+                headersJson,
+                body,
+                timeoutMs,
+                (status, headers, responseBody) -> completeHttpResponse(callback, httpResponse(status, headers, responseBody)),
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
@@ -229,19 +261,31 @@ public class TeaVMBindsAsync {
         AsyncCallback<NGEHttpResponse> callback
     ) {
         try {
-            completeHttpResponse(callback, TeaVMBinds.fetchBufferPromise(method, url, headersJson, body, timeoutMs).await());
+            TeaVMBinds.fetchBufferAsync(
+                method,
+                url,
+                headersJson,
+                body,
+                timeoutMs,
+                (status, headers, responseBody) -> completeHttpResponse(callback, httpResponse(status, headers, responseBody)),
+                error -> callback.error(new RuntimeException(error.stringValue()))
+            );
         } catch (Throwable error) {
             callback.error(error);
         }
     }
+
+    // Reuse the response conversion, including the Wasm GC body copy and size check.
+    @JSBody(params = { "status", "headers", "body" }, script = "return { status: status, headers: headers, body: body };")
+    private static native TeaVMHttpResponse httpResponse(int status, String headers, JSObject body);
 
     private static void completeHttpResponse(AsyncCallback<NGEHttpResponse> callback, TeaVMHttpResponse response) {
         try {
             int status = response.getStatus();
             NGEPlatform platform = NGEPlatform.get();
             Map<String, List<String>> respHeaders = platform.fromJSON(response.getHeaders(), Map.class);
-            byte[] data = TeaVMPlatform.readHttpResponseBody(response, platform);
-            callback.complete(new NGEHttpResponse(status, respHeaders, data, status >= 200 && status < 300));
+            byte[] body = TeaVMPlatform.readHttpResponseBody(response, platform);
+            callback.complete(new NGEHttpResponse(status, respHeaders, body, status >= 200 && status < 300));
         } catch (Throwable e) {
             callback.error(e);
         }

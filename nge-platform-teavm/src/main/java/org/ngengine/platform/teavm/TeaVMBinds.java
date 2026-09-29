@@ -552,8 +552,8 @@ public class TeaVMBinds implements JSObject {
         RTCPeerConnection conn,
         String sdp,
         String type,
-        JSConsumer<Void> res,
-        JSConsumer<String> rej
+        VoidCallback res,
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -562,8 +562,8 @@ public class TeaVMBinds implements JSObject {
         RTCPeerConnection conn,
         String sdp,
         String type,
-        JSConsumer<Void> res,
-        JSConsumer<String> rej
+        VoidCallback res,
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -571,8 +571,8 @@ public class TeaVMBinds implements JSObject {
     public static native void rtcAddIceCandidateAsync(
         RTCPeerConnection conn,
         RTCIceCandidate candidate,
-        JSConsumer<Void> res,
-        JSConsumer<String> rej
+        VoidCallback res,
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -580,7 +580,7 @@ public class TeaVMBinds implements JSObject {
     public static native void rtcCreateAnswerAsync(
         RTCPeerConnection conn,
         JSConsumer<RTCSessionDescription> res,
-        JSConsumer<String> rej
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -588,7 +588,7 @@ public class TeaVMBinds implements JSObject {
     public static native void rtcCreateOfferAsync(
         RTCPeerConnection conn,
         JSConsumer<RTCSessionDescription> res,
-        JSConsumer<String> rej
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -735,7 +735,7 @@ public class TeaVMBinds implements JSObject {
         @JSByRef(optional = true) byte[] body,
         int timeoutMs,
         HttpResponseCallback res,
-        JSConsumer<String> rej
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel
@@ -747,7 +747,7 @@ public class TeaVMBinds implements JSObject {
         @JSBuffer(JSBufferType.UINT8) ByteBuffer body,
         int timeoutMs,
         HttpResponseCallback res,
-        JSConsumer<String> rej
+        JSConsumer<JSString> rej
     );
 
     @JSTopLevel

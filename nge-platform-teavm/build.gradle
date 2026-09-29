@@ -82,7 +82,8 @@ tasks.named('test') {
             "TeaVMCompiledWasmInteropTest",
             "TeaVMSecp256k1Test",
             "TeaVMWebsocketTransportUnitTest",
-            "TeaVMPromiseAwaitTest"
+            "TeaVMPromiseAwaitTest",
+            "TeaVMBindsAsyncTest"
         ]
         ["js", "wasm-gc"].each { backend ->
             jsModuleTests.each { testClass ->
