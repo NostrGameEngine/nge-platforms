@@ -32,12 +32,17 @@ package org.ngengine.platform.jvm;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.ec.CustomNamedCurves;
+import org.bouncycastle.math.ec.ECAlgorithms;
+import org.bouncycastle.math.ec.ECPoint;
 import org.ngengine.platform.NGEUtils;
 
 final class Point {
 
     private static final BigInteger p = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16);
     private static final BigInteger n = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16);
+    private static final X9ECParameters SCHNORR_CURVE = CustomNamedCurves.getByName("secp256k1");
     public static final Point G = new Point(
         new BigInteger("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", 16),
         new BigInteger("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16),
@@ -216,10 +221,15 @@ final class Point {
      */
     public static Point schnorrVerify(BigInteger s, Point P, BigInteger e) {
         BigInteger t = n.subtract(e).mod(n);
-        JacobianPoint JG = G.toJacobian();
-        JacobianPoint JP = P.toJacobian();
-        JacobianPoint R = JacobianPoint.doubleScalarWNAF(JG, s, JP, t);
-        return R.toAffine();
+        // Verification uses public scalars. Reuse Bouncy Castle's specialized
+        // secp256k1 field arithmetic instead of generic BigInteger division for
+        // every Jacobian coordinate. Secret-key and nonce operations keep their
+        // existing implementation in mul().
+        ECPoint publicPoint = SCHNORR_CURVE.getCurve().validatePoint(P.getX(), P.getY());
+        ECPoint result = ECAlgorithms.sumOfTwoMultiplies(SCHNORR_CURVE.getG(), s, publicPoint, t);
+        if (result.isInfinity()) return INFINITY;
+        result = result.normalize();
+        return new Point(result.getAffineXCoord().toBigInteger(), result.getAffineYCoord().toBigInteger());
     }
 
     /**
