@@ -30,9 +30,11 @@
  */
 package org.ngengine.platform;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 
+import com.sun.net.httpserver.HttpServer;
 import java.time.Duration;
+import java.net.InetSocketAddress;
 import org.junit.Test;
 
 public class TestPlatform {
@@ -40,12 +42,25 @@ public class TestPlatform {
     @Test
     public void testHttpGetBytes() throws Exception {
         NGEPlatform platform = NGEPlatform.get();
-        AsyncTask<byte[]> bytesTask = platform.httpGetBytes(
-            "https://proof.ovh.net/files/1Mb.dat",
-            Duration.ofSeconds(10),
-            null
-        );
-        byte bytes[] = bytesTask.await();
-        assertEquals(bytes[0], 114);
+        byte[] expected = new byte[] { 0, 114, (byte) 0xff, 10 };
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/bytes", exchange -> {
+            exchange.sendResponseHeaders(200, expected.length);
+            try (var responseBody = exchange.getResponseBody()) {
+                responseBody.write(expected);
+            }
+        });
+        server.start();
+
+        try {
+            AsyncTask<byte[]> bytesTask = platform.httpGetBytes(
+                "http://127.0.0.1:" + server.getAddress().getPort() + "/bytes",
+                Duration.ofSeconds(10),
+                null
+            );
+            assertArrayEquals(expected, bytesTask.await());
+        } finally {
+            server.stop(0);
+        }
     }
 }
