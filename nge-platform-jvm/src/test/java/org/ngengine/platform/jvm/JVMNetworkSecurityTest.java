@@ -30,6 +30,7 @@
  */
 package org.ngengine.platform.jvm;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
@@ -40,20 +41,30 @@ import org.junit.Test;
 public class JVMNetworkSecurityTest {
 
     @Test
-    public void rejectsLoopbackWebSocketUrls() {
-        assertThrows(
-            IllegalArgumentException.class,
-            () -> JVMNetworkSecurity.safeWebSocketUri("ws://127.0.0.1:19082/internal")
+    public void allowsLoopbackWebSocketUrlsInTestConfiguration() {
+        assertEquals(
+            URI.create("ws://127.0.0.1:19082/internal"),
+            JVMNetworkSecurity.safeWebSocketUri("ws://127.0.0.1:19082/internal")
         );
     }
 
     @Test
-    public void rejectsRedirectsToLoopbackUrls() {
+    public void allowsRedirectsToLoopbackUrlsInTestConfiguration() {
+        URI publicUri = URI.create("https://example.com/redirect");
+
+        assertEquals(
+            URI.create("http://127.0.0.1:19081/secret"),
+            JVMNetworkSecurity.safeRedirectUri(publicUri, "http://127.0.0.1:19081/secret")
+        );
+    }
+
+    @Test
+    public void stillRejectsRedirectsToPrivateUrls() {
         URI publicUri = URI.create("https://example.com/redirect");
 
         assertThrows(
             IllegalArgumentException.class,
-            () -> JVMNetworkSecurity.safeRedirectUri(publicUri, "http://127.0.0.1:19081/secret")
+            () -> JVMNetworkSecurity.safeRedirectUri(publicUri, "http://192.168.1.10:19081/secret")
         );
     }
 

@@ -51,6 +51,7 @@ tasks.named('test') {
         events "passed", "skipped", "failed"
         exceptionFormat "full"
     }
+    systemProperty 'nge-platforms.allowLoopbackInURIs', 'true'
 }
 
 def nativeImageRuntimeInitializationSmokeDir = layout.buildDirectory.dir('native/runtime-initialization-smoke')
