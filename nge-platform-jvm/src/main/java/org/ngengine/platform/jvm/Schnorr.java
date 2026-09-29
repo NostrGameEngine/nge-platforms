@@ -186,7 +186,7 @@ class Schnorr {
         BigInteger e = Util.bigIntFromBytes(Point.taggedHash(TAG_CHALLENGE, challengeBuffer)).mod(Point.getn());
 
         Point R = Point.schnorrVerify(s, P, e);
-        return R != null && R.hasEvenY() && R.getX().compareTo(r) == 0;
+        return R != null && !R.isInfinite() && R.hasEvenY() && R.getX().compareTo(r) == 0;
     }
 
     public static byte[] genPubKey(byte[] secKey) {
