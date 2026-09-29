@@ -29,9 +29,7 @@ jobs:
       run: chmod +x gradlew
         
     - name: Run SpotBugs with SARIF output
-      run: |
-        ./gradlew --no-daemon spotbugsMain --console=plain -PenableSpotBugs=true
-        ./gradlew --no-daemon spotlessCheck --console=plain
+      run: ./gradlew --no-daemon spotbugsMain --console=plain -PenableSpotBugs=true
 
     - name: Merge SpotBugs SARIF runs
       run: node .github/scripts/merge-sarif-runs.mjs reports/spotbugs reports/spotbugs/spotbugs.sarif

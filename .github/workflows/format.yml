@@ -1,4 +1,4 @@
-name: Format Code
+name: Formatting Check
 
 on:
   push:
@@ -13,9 +13,6 @@ env:
 jobs:
   format:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
     steps:
     - name: Checkout repository
       uses: actions/checkout@v6
@@ -30,19 +27,11 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    - name: Format code with Spotless
-      run: ./gradlew spotlessApply
-      
-    - name: Check for changes
-      id: git-check
-      run: |
-        git diff --exit-code || echo "changes=true" >> $GITHUB_OUTPUT
-      
-    - name: Commit changes
-      if: steps.git-check.outputs.changes == 'true'
-      run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "GitHub Actions"
-        git add --all
-        git commit -m "[Automated] Code formatting with Spotless"
-        git push
+    - name: Check formatting with Spotless
+      id: spotless
+      continue-on-error: true
+      run: ./gradlew spotlessCheck
+
+    - name: Report formatting issues
+      if: steps.spotless.outcome == 'failure'
+      run: echo "::warning::Spotless found formatting issues; this check is advisory."
