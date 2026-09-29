@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -81,6 +82,7 @@ jobs:
 
   create-reachability-pr:
     name: Create PR with reachability updates
+    continue-on-error: true
     if: needs.run-reachability-harness.outputs.has_changes == 'true'
     needs:
       - run-reachability-harness
