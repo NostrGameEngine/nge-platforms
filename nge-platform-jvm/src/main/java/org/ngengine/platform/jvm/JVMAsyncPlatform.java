@@ -254,13 +254,17 @@ public class JVMAsyncPlatform extends NGEPlatform {
     @Override
     public String toJSON(Collection obj) {
         Context ctx = context.get();
-        return ctx.json.toJson(obj);
+        StringBuilder json = new StringBuilder();
+        ctx.json.toJson(obj, json);
+        return json.toString();
     }
 
     @Override
     public String toJSON(Map obj) {
         Context ctx = context.get();
-        return ctx.json.toJson(obj);
+        StringBuilder json = new StringBuilder();
+        ctx.json.toJson(obj, json);
+        return json.toString();
     }
 
     @Override
