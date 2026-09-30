@@ -284,7 +284,6 @@ public class JVMAsyncPlatform extends NGEPlatform {
     }
 
     private String schnorrSign(String data, byte[] priv, Point publicPoint) throws FailedToSignException {
-        if (publicPoint != null && priv.length != 32) throw new IllegalArgumentException("The private key must be 32 bytes.");
         if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
@@ -302,8 +301,8 @@ public class JVMAsyncPlatform extends NGEPlatform {
         byte[] key = copyRemaining(privateKey.get());
         final Point publicPoint;
         try {
-            if (key.length != 32 || !getMemoryLimits().checkForKeys(key.length)) {
-                throw new IllegalArgumentException("The private key must be a 32-byte array within buffer limits.");
+            if (!getMemoryLimits().checkForKeys(key.length)) {
+                throw new IllegalArgumentException("Input exceeds buffer limits");
             }
             publicPoint = Schnorr.preparePublicPoint(key);
             if (publicPoint == null) throw new IllegalArgumentException("Invalid Schnorr private key");

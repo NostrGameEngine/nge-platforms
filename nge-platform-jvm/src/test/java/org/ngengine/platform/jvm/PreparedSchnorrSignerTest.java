@@ -90,7 +90,9 @@ public class PreparedSchnorrSignerTest {
         key.set(ByteBuffer.wrap(new byte[32]));
         assertThrows(Exception.class, () -> signer.sign("00".repeat(32)).await());
         key.set(ByteBuffer.wrap(new byte[] { 3 }));
-        assertThrows(Exception.class, () -> signer.sign("00".repeat(32)).await());
+        assertTrue(
+            platform.schnorrVerify("00".repeat(32), signer.sign("00".repeat(32)).await(), Schnorr.genPubKey(new byte[] { 3 }))
+        );
     }
 
     @Test
@@ -149,5 +151,18 @@ public class PreparedSchnorrSignerTest {
             );
         }
         assertThrows(IndexOutOfBoundsException.class, () -> Util.bigIntFromBytes(bytes, 70, 32));
+    }
+
+    @Test
+    public void equivalentUnsignedKeyEncodingsPreserveStatelessCompatibility() throws Exception {
+        for (int size : new int[] { 1, 16, 32, 33 }) {
+            byte[] key = new byte[size];
+            key[size - 1] = 3;
+            SchnorrSigner signer = platform.createSchnorrSigner(() -> ByteBuffer.wrap(key));
+            String message = "00".repeat(32);
+            byte[] pub = Schnorr.genPubKey(key);
+            assertTrue(platform.schnorrVerify(message, signer.sign(message).await(), pub));
+            assertTrue(platform.schnorrVerify(message, platform.schnorrSign(message, key), pub));
+        }
     }
 }
