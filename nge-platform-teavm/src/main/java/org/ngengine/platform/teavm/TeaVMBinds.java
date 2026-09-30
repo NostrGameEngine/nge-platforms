@@ -91,6 +91,11 @@ public class TeaVMBinds implements JSObject {
         JSConsumer<JSString> reject
     );
 
+    /** Schedule a ready executor worker without nested zero-delay timers. */
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void runSoon(VoidCallback callback);
+
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef(optional = true)

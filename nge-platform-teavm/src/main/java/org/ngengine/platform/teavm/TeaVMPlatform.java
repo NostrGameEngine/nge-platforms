@@ -47,8 +47,6 @@ import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.ngengine.platform.AsyncExecutor;
@@ -645,50 +643,6 @@ public class TeaVMPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
-    private AsyncExecutor newJsExecutor() {
-        AtomicBoolean closed = new AtomicBoolean();
-
-        AsyncExecutor aexc = new AsyncExecutor() {
-            @Override
-            public <T> AsyncTask<T> run(Callable<T> r) {
-                if (closed.get()) {
-                    return wrapPromise((res, rej) -> rej.accept(new IllegalStateException("Executor already shutdown")));
-                }
-                return wrapPromise((res, rej) -> {
-                    Thread worker = new Thread(() -> {
-                        try {
-                            res.accept(r.call());
-                        } catch (Throwable e) {
-                            rej.accept(e);
-                        }
-                    });
-                    worker.setName("TeaVM Executor");
-                    worker.start();
-                });
-            }
-
-            @Override
-            public <T> AsyncTask<T> runLater(Callable<T> r, long delay, TimeUnit unit) {
-                long delayMs = unit.toMillis(delay);
-
-                if (delayMs == 0) {
-                    return run(r);
-                }
-
-                return run(() -> {
-                    TeaVMBinds.delayPromise(NGEUtils.safeInt(delayMs)).await();
-                    return r.call();
-                });
-            }
-
-            @Override
-            public void close() {
-                closed.set(true);
-            }
-        };
-        return aexc;
-    }
-
     <T> AsyncTask<T> runAsync(Callable<T> task) {
         return defaultExecutor.run(task);
     }
@@ -761,7 +715,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncExecutor newAsyncExecutor(Object hint) {
-        return newJsExecutor();
+        return new TeaVMAsyncExecutor(this);
     }
 
     @Override

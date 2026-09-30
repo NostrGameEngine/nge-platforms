@@ -1677,6 +1677,31 @@ export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res, rej
         .catch(error => rej(String(error)));
 };
 
+// Each callback is a separate macrotask. This yields to I/O without the
+// minimum delay applied to repeated nested setTimeout(..., 0) calls.
+let _workerChannel;
+let _workerSequence = 0;
+const _workerCallbacks = new Map();
+export const runSoon = (callback) => {
+    if (typeof setImmediate === 'function') {
+        setImmediate(callback);
+    } else if (typeof MessageChannel === 'function') {
+        if (!_workerChannel) {
+            _workerChannel = new MessageChannel();
+            _workerChannel.port1.onmessage = (event) => {
+                const next = _workerCallbacks.get(event.data);
+                _workerCallbacks.delete(event.data);
+                if (next) next();
+            };
+        }
+        const id = _workerSequence++;
+        _workerCallbacks.set(id, callback);
+        _workerChannel.port2.postMessage(id);
+    } else {
+        setTimeout(callback, 0);
+    }
+};
+
 export const newPromise = ()=>{
     let res, rej;
     const p = new Promise((resolve, reject) => {
