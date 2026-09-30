@@ -41,6 +41,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.teavm.classlib.PlatformDetector;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.core.JSArray;
@@ -392,7 +393,7 @@ public class TeaVMJsConverter {
 
         // Owned JSON arrays have no accessors. A typed transfer avoids interop
         // wrappers for string leaves while keeping the Java copy independent.
-        if (ownedJson) {
+        if (ownedJson && PlatformDetector.isWebAssemblyGC()) {
             String[] strings = getStringArray(jsArray);
             if (strings != null) return new ArrayList<>(Arrays.asList(strings));
         }
