@@ -131,10 +131,19 @@ public class TeaVMBackendParityTest {
         assertEquals(Double.valueOf(1.25), nested.get(6));
         assertTrue(((java.util.List<?>) ((Map<?, ?>) nested.get(7)).get("x")).isEmpty());
         nested.set(1, "changed");
+        org.teavm.jso.JSObject original = (org.teavm.jso.JSObject) TeaVMBinds.fromJSON(json);
+        Map<String, Object> publicCopy = TeaVMJsConverter.toJavaMap(original);
+        ((java.util.List<Object>) publicCopy.get("nested")).set(1, "changed");
+        assertEquals(json, TeaVMBinds.toJSON(original));
         Map<String, Object> fresh = platform.fromJSON(json, Map.class);
         assertEquals(Boolean.TRUE, ((java.util.List<?>) fresh.get("nested")).get(1));
         assertTrue(platform.fromJSON("[]", java.util.List.class).isEmpty());
         assertTrue(platform.fromJSON("{}", Map.class).isEmpty());
+        java.util.List<String> strings = platform.fromJSON("[\"alpha\",\"🦊\",\"\\ud800\"]", java.util.List.class);
+        assertEquals(Arrays.asList("alpha", "🦊", String.valueOf((char) 0xD800)), strings);
+        strings.set(0, "changed");
+        assertEquals("alpha", ((java.util.List<?>) platform.fromJSON("[\"alpha\",\"🦊\"]", java.util.List.class)).get(0));
+        assertEquals(Arrays.asList("a", null, "b"), platform.fromJSON("[\"a\",null,\"b\"]", java.util.List.class));
         assertEquals("[1,2,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new int[] { 1, 2, 3 })));
         assertEquals("[\"a\",true,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new Object[] { "a", true, 3 })));
     }
@@ -179,6 +188,40 @@ public class TeaVMBackendParityTest {
                 platform.schnorrVerify(digest, malformed, pub);
                 throw new AssertionError("native verifier accepted malformed hex");
             } catch (IllegalArgumentException expected) {}
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void asyncSchnorrTasksSupportAwaitingCallbacksAndPropagateFailures() throws Exception {
+        TeaVMPlatform platform = installedPlatform();
+        byte[] secret = new byte[32];
+        secret[31] = 3;
+        ByteBuffer key = direct(platform, secret).asReadOnlyBuffer();
+        ByteBuffer pub = platform.genPubKey(key);
+        byte[] pubBytes = platform.genPubKey(secret);
+        String digest = "01ab".repeat(16);
+        Thread caller = Thread.currentThread();
+        org.ngengine.platform.AsyncTask<String> signing = platform.schnorrSignAsync(digest, key);
+        String signature = signing
+            .then(value -> {
+                assertFalse(caller == Thread.currentThread());
+                assertTrue(platform.schnorrVerifyAsync(digest, value, pub).await());
+                return value;
+            })
+            .await();
+        assertTrue(signing.isSuccess());
+        assertEquals(signature, signing.then(value -> value).await());
+        assertTrue(platform.schnorrVerifyAsync(digest, signature, pubBytes).await());
+        assertTrue(platform.schnorrVerify(digest, platform.schnorrSignAsync(digest, secret).await(), pub));
+        assertFalse(platform.schnorrVerifyAsync("00".repeat(32), signature, pub).await());
+        org.ngengine.platform.AsyncTask<String> failed = platform.schnorrSignAsync(digest, new byte[32]);
+        try {
+            failed.await();
+            throw new AssertionError("invalid secret signed");
+        } catch (java.util.concurrent.ExecutionException expected) {
+            assertTrue(failed.isFailed());
+            assertTrue(expected.getCause() != null);
         }
     }
 

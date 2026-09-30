@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -141,8 +142,31 @@ public class TeaVMPlatform extends NGEPlatform {
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
         JSObject jsObj = (JSObject) TeaVMBinds.fromJSON(json);
-        return TeaVMJsConverter.toJavaObject(jsObj, claz);
+        try {
+            return TeaVMJsConverter.toJavaObject(jsObj, claz, true);
+        } finally {
+            if (
+                PlatformDetector.isWebAssemblyGC() &&
+                (Map.class.isAssignableFrom(claz) || List.class.isAssignableFrom(claz) || Set.class.isAssignableFrom(claz))
+            ) {
+                // These targets contain independent Java copies. Wasm's generic
+                // wrappers may retain the parsed native containers until the
+                // current JavaScript job ends, so release their child references.
+                // Never consume objects supplied to the public converter.
+                releaseParsedTree(jsObj);
+            }
+        }
     }
+
+    @JSBody(
+        params = "root",
+        script = "const pending = [root]; while (pending.length) { " +
+        "const node = pending.pop(); if (node && typeof node === 'object') { " +
+        "const keys = Object.keys(node); for (let i = 0; i < keys.length; i++) { " +
+        "const key = keys[i]; const value = node[key]; " +
+        "if (value && typeof value === 'object') pending.push(value); node[key] = null; } } }"
+    )
+    private static native void releaseParsedTree(JSObject root);
 
     @SuppressWarnings("unchecked")
     static Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
@@ -669,58 +693,22 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> schnorrSignAsync(String data, byte privKey[]) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrSign(data, privKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrSign(data, privKey));
     }
 
     @Override
     public AsyncTask<String> schnorrSignAsync(String data, ByteBuffer privKey) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrSign(data, privKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrSign(data, privKey));
     }
 
     @Override
     public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrVerify(data, sign, pubKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrVerify(data, sign, pubKey));
     }
 
     @Override
     public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, ByteBuffer pubKey) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrVerify(data, sign, pubKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrVerify(data, sign, pubKey));
     }
 
     @Override
