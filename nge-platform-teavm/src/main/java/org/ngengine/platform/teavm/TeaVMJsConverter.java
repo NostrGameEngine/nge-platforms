@@ -63,7 +63,15 @@ public class TeaVMJsConverter {
             return null;
         }
 
-        if (obj instanceof Map) {
+        // JSON trees contain mostly strings and numbers. Avoid reflection and
+        // collection checks for every primitive leaf, especially across Wasm.
+        if (obj instanceof String) {
+            return JSString.valueOf((String) obj);
+        } else if (obj instanceof Number) {
+            return JSNumber.valueOf(((Number) obj).doubleValue());
+        } else if (obj instanceof Boolean) {
+            return JSBoolean.valueOf((Boolean) obj);
+        } else if (obj instanceof Map) {
             return mapToJSObject((Map<?, ?>) obj);
         } else if (obj instanceof Collection) {
             return collectionToJSArray((Collection<?>) obj);
@@ -72,12 +80,6 @@ public class TeaVMJsConverter {
         } else if (obj.getClass().isArray()) {
             // Handle primitive arrays
             return primitiveArrayToJSArray(obj);
-        } else if (obj instanceof String) {
-            return JSString.valueOf((String) obj);
-        } else if (obj instanceof Number) {
-            return JSNumber.valueOf(((Number) obj).doubleValue());
-        } else if (obj instanceof Boolean) {
-            return JSBoolean.valueOf((Boolean) obj);
         } else if (obj instanceof Date) {
             // Convert Date to a JS date (as milliseconds since epoch)
             return JSNumber.valueOf(((Date) obj).getTime());
@@ -305,7 +307,6 @@ public class TeaVMJsConverter {
             } else if (value instanceof Boolean) {
                 setProperty(result, key, JSBoolean.valueOf((Boolean) value));
             } else {
-                System.out.println(value.getClass());
                 setProperty(result, key, JSString.valueOf(String.valueOf(value)));
             }
         }
@@ -378,21 +379,10 @@ public class TeaVMJsConverter {
         }
 
         JSArray array = (JSArray) jsArray;
-        List<Object> list = new ArrayList<>();
-
-        for (int i = 0; i < array.getLength(); i++) {
-            JSObject item = (JSObject) array.get(i);
-
-            if (item == null) {
-                list.add(null);
-            } else if (isJSArray(item)) {
-                list.add(toJavaList(item));
-            } else if (isJSObject(item) && !isPrimitive(item)) {
-                list.add(toJavaMap(item));
-            } else {
-                // Handle primitives
-                list.add(convertJSPrimitive(item));
-            }
+        int length = array.getLength();
+        List<Object> list = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            list.add(convertJSValue((JSObject) array.get(i)));
         }
 
         return list;
@@ -414,22 +404,10 @@ public class TeaVMJsConverter {
             return null;
         }
 
-        Map<String, Object> map = new HashMap<>();
-
         String[] keys = getObjectKeys(jsObj);
+        Map<String, Object> map = new HashMap<>(Math.max(16, keys.length));
         for (String key : keys) {
-            JSObject value = getProperty(jsObj, key);
-
-            if (value == null) {
-                map.put(key, null);
-            } else if (isJSArray(value)) {
-                map.put(key, toJavaList(value));
-            } else if (isJSObject(value) && !isPrimitive(value)) {
-                map.put(key, toJavaMap(value));
-            } else {
-                // Handle primitives
-                map.put(key, convertJSPrimitive(value));
-            }
+            map.put(key, convertJSValue(getProperty(jsObj, key)));
         }
 
         return map;
@@ -460,64 +438,46 @@ public class TeaVMJsConverter {
         return result;
     }
 
-    /**
-     * Convert a JavaScript primitive value to its Java equivalent.
-     */
-    private static Object convertJSPrimitive(JSObject value) {
-        if (value == null) {
-            return null;
-        }
-
-        if (isString(value)) {
-            return String.valueOf(value);
-        } else if (isNumber(value)) {
-            double d = getNumberValue(value);
-            // Check if it's an integer
-            if (d == Math.floor(d) && !Double.isInfinite(d)) {
-                if (d >= Integer.MIN_VALUE && d <= Integer.MAX_VALUE) {
-                    return (int) d;
-                } else {
+    /** Convert a JSON tree value with one native type check per node. */
+    private static Object convertJSValue(JSObject value) {
+        switch (valueType(value)) {
+            case 0:
+                return null;
+            case 1:
+                return ((JSString) value).stringValue();
+            case 2:
+                double d = getNumberValue(value);
+                // Preserve the existing Integer/Long/Double conversion policy.
+                if (d == Math.floor(d) && !Double.isInfinite(d)) {
+                    if (d >= Integer.MIN_VALUE && d <= Integer.MAX_VALUE) return (int) d;
                     return (long) d;
                 }
-            }
-            return d;
-        } else if (isBoolean(value)) {
-            return getBooleanValue(value);
+                return d;
+            case 3:
+                return getBooleanValue(value);
+            case 4:
+                return toJavaList(value);
+            case 5:
+                return toJavaMap(value);
+            default:
+                return String.valueOf(value);
         }
-
-        // Default case
-        return String.valueOf(value);
     }
+
+    @JSBody(
+        params = "obj",
+        script = "if (obj == null) return 0; " +
+        "switch (typeof obj) { " +
+        "case 'string': return 1; case 'number': return 2; case 'boolean': return 3; " +
+        "case 'object': return Array.isArray(obj) ? 4 : 5; default: return 6; }"
+    )
+    private static native int valueType(JSObject obj);
 
     /**
      * Check if a JSObject is a JS Array.
      */
     @JSBody(params = "obj", script = "return Array.isArray(obj);")
     private static native boolean isJSArray(JSObject obj);
-
-    /**
-     * Check if a JSObject is a JS Object (not array, not primitive).
-     */
-    @JSBody(params = "obj", script = "return obj !== null && typeof obj === 'object' && !Array.isArray(obj);")
-    private static native boolean isJSObject(JSObject obj);
-
-    /**
-     * Check if a JSObject is a JS primitive value.
-     */
-    @JSBody(
-        params = "obj",
-        script = "return obj === null || " +
-        "typeof obj === 'string' || " +
-        "typeof obj === 'number' || " +
-        "typeof obj === 'boolean';"
-    )
-    private static native boolean isPrimitive(JSObject obj);
-
-    /**
-     * Check if a JSObject is a string.
-     */
-    @JSBody(params = "obj", script = "return typeof obj === 'string';")
-    private static native boolean isString(JSObject obj);
 
     /**
      * Check if a JSObject is a number.

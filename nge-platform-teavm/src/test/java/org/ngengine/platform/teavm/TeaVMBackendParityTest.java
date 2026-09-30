@@ -104,6 +104,33 @@ public class TeaVMBackendParityTest {
     }
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void jsonTreeConversionPreservesTypesAndIndependentCollections() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        String json =
+            "{\"text\":\"Unicode 🦊 café 漢字\",\"nested\":[null,true,false,1,-2147483648,2147483648,1.25,{\"x\":[]}]}";
+        Map<String, Object> tree = platform.fromJSON(json, Map.class);
+        assertEquals("Unicode 🦊 café 漢字", tree.get("text"));
+        java.util.List<Object> nested = (java.util.List<Object>) tree.get("nested");
+        assertEquals(null, nested.get(0));
+        assertEquals(Boolean.TRUE, nested.get(1));
+        assertEquals(Boolean.FALSE, nested.get(2));
+        assertTrue(nested.get(3) instanceof Integer);
+        assertEquals(Integer.valueOf(Integer.MIN_VALUE), nested.get(4));
+        assertTrue(nested.get(5) instanceof Long);
+        assertEquals(Long.valueOf(2147483648L), nested.get(5));
+        assertEquals(Double.valueOf(1.25), nested.get(6));
+        assertTrue(((java.util.List<?>) ((Map<?, ?>) nested.get(7)).get("x")).isEmpty());
+        nested.set(1, "changed");
+        Map<String, Object> fresh = platform.fromJSON(json, Map.class);
+        assertEquals(Boolean.TRUE, ((java.util.List<?>) fresh.get("nested")).get(1));
+        assertTrue(platform.fromJSON("[]", java.util.List.class).isEmpty());
+        assertTrue(platform.fromJSON("{}", Map.class).isEmpty());
+        assertEquals("[1,2,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new int[] { 1, 2, 3 })));
+        assertEquals("[\"a\",true,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new Object[] { "a", true, 3 })));
+    }
+
+    @Test
     public void safeFlagRoundTripsAcrossCompiledBackends() {
         SafeFlag flag = new SafeFlag(false);
         assertFalse(flag.get());
