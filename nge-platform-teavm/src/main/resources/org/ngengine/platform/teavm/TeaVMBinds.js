@@ -5,7 +5,7 @@ import { sha256 as _sha256 } from '@noble/hashes/sha2.js';
 import { extract as _hkdf_extract, expand as _hkdf_expand } from '@noble/hashes/hkdf'
 import { base64 as _base64 } from '@scure/base';
 import { cbc } from '@noble/ciphers/aes';
-import {  randomBytes as _randomBytes } from '@noble/hashes/utils.js';
+import { randomBytes as _randomBytes, bytesToHex as _bytesToHex } from '@noble/hashes/utils.js';
 import { scryptAsync as _scryptAsync } from '@noble/hashes/scrypt'
 import { xchacha20poly1305 as _xchacha20poly1305 } from '@noble/ciphers/chacha'
 
@@ -407,6 +407,15 @@ export const genPubKeyBuffer = (secKey, output) => {
 
 export const sha256 = (data /*byte[]*/) => { // Uint8Array (byte[])
     return _u(_sha256(_u(data)));
+};
+
+const _utf8Encoder = new TextEncoder();
+const _unpairedSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+export const sha256String = (data) => {
+    // Match Java's UTF-8 replacement byte ('?'), including repeated unpaired
+    // surrogates. TextEncoder alone would replace them with U+FFFD instead.
+    return _bytesToHex(_sha256(_utf8Encoder.encode(data.replace(_unpairedSurrogate, '?'))));
 };
 
 export const sha256Buffer = (data, output) => {

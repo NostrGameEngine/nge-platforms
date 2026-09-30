@@ -38,6 +38,8 @@ import static org.junit.Assert.assertTrue;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.SafeFlag;
@@ -57,6 +59,40 @@ import org.teavm.junit.TeaVMTestRunner;
 @JsModuleTest
 @SkipJVM
 public class TeaVMBackendParityTest {
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void stringHashAndJsonPreserveBinaryAndConverterSemantics() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        org.ngengine.platform.NGEPlatform.set(platform);
+        String[] inputs = { "", "abc", "Unicode 🦊 café 漢字" + (char) 0x2028 + (char) 0x2029, "large".repeat(14000) };
+        for (String input : inputs) {
+            assertEquals(hex(platform.sha256(utf8(input))), platform.sha256(input));
+        }
+        // JVM UTF-8 uses '?' for each unpaired surrogate. TeaVM's prior
+        // charset path threw at a terminal high surrogate instead of hashing.
+        assertEquals(
+            "c5f52145eb20c4459c27628bca8310c10b5e266c54257572770742a2e4693d6f",
+            platform.sha256("unpaired" + (char) 0xD800)
+        );
+        assertEquals(
+            "c5f52145eb20c4459c27628bca8310c10b5e266c54257572770742a2e4693d6f",
+            platform.sha256("unpaired" + (char) 0xDC00)
+        );
+        assertEquals(
+            "cdb51ffa914a7391d6a327c86f01e26981fcc205b4b78c308cbd68fe3d315f78",
+            platform.sha256("unpaired" + (char) 0xD800 + (char) 0xD800)
+        );
+        Map<String, Object> tree = new LinkedHashMap<>();
+        tree.put("null", null);
+        tree.put("text", inputs[2]);
+        tree.put("nested", Arrays.asList(Arrays.asList("quoted\"", "slash\\", "\n\r\t\b\f", null), true, 1.25));
+        assertEquals(TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(tree)), platform.toJSON(tree));
+        assertEquals(
+            TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(Arrays.asList(tree, null))),
+            platform.toJSON(Arrays.asList(tree, null))
+        );
+    }
 
     @Test
     public void safeFlagRoundTripsAcrossCompiledBackends() {

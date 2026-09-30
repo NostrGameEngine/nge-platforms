@@ -128,6 +128,10 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String sha256String(String data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native int sha256Buffer(
         @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer output

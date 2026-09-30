@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,6 +42,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -64,6 +64,7 @@ import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.classlib.PlatformDetector;
+import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
@@ -116,13 +117,18 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String toJSON(Collection obj) {
-        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
+        return stringifyJSON(TeaVMJsConverter.toJSObject(obj));
     }
 
     @Override
     public String toJSON(Map obj) {
-        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
+        return stringifyJSON(TeaVMJsConverter.toJSObject(obj));
     }
+
+    // The converter already produces a plain JSON tree without JS BigInts.
+    // Serializing it directly avoids cloning the complete tree a second time.
+    @JSBody(params = { "object" }, script = "return JSON.stringify(object);")
+    private static native String stringifyJSON(JSObject object);
 
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
@@ -344,9 +350,8 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String sha256(String data) {
-        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-        byte[] hash = TeaVMBinds.sha256(bytes);
-        return NGEUtils.bytesToHex(hash);
+        Objects.requireNonNull(data, "data");
+        return TeaVMBinds.sha256String(data);
     }
 
     @Override
