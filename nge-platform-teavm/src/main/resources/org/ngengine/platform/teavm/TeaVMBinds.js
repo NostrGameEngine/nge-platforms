@@ -418,6 +418,12 @@ export const sha256String = (data) => {
     return _bytesToHex(_sha256(_utf8Encoder.encode(data.replace(_unpairedSurrogate, '?'))));
 };
 
+export const sha256JSON = (data) => {
+    // JSON.stringify produces well-formed JSON, including escaped unpaired
+    // surrogates. Keep the large serialized text entirely in the host runtime.
+    return _bytesToHex(_sha256(_utf8Encoder.encode(JSON.stringify(data))));
+};
+
 export const sha256Buffer = (data, output) => {
     return _writeBytes(output, _sha256(_u(data)));
 };

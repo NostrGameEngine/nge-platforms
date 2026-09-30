@@ -74,6 +74,11 @@ public class TeaVMPlatform extends NGEPlatform {
         return true;
     }
 
+    @Override
+    public String sha256JSON(Collection obj) {
+        return TeaVMBinds.sha256JSON(TeaVMJsConverter.toJSObject(obj));
+    }
+
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
     private static final Cleaner CLEANER = Cleaner.create();

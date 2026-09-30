@@ -97,6 +97,10 @@ public class TeaVMBackendParityTest {
             TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(Arrays.asList(tree, null))),
             platform.toJSON(Arrays.asList(tree, null))
         );
+        for (String input : new String[] { inputs[2], inputs[3], "unpaired" + (char) 0xD800 }) {
+            java.util.List<Object> payload = Arrays.asList(0, 1700000000L, input, tree);
+            assertEquals(hex(platform.sha256(utf8(platform.toJSON(payload)))), platform.sha256JSON(payload));
+        }
     }
 
     @Test

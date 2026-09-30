@@ -134,6 +134,11 @@ public abstract class NGEPlatform {
         return false;
     }
 
+    /** Hashes the UTF-8 JSON representation, allowing native writers to avoid a string round trip. */
+    public String sha256JSON(Collection obj) {
+        return sha256(toJSON(obj));
+    }
+
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);
