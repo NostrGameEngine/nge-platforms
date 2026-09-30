@@ -63,6 +63,7 @@ public abstract class NGEPlatform {
     private static volatile VStoreInterceptor storeInterceptor;
     private static volatile NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
+    private static final MemoryLimits DEFAULT_MEMORY_LIMITS = new MemoryLimits();
 
     public static synchronized void set(NGEPlatform platform) {
         if (NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
@@ -792,7 +793,10 @@ public abstract class NGEPlatform {
     }
 
     public MemoryLimits getMemoryLimits() {
-        return new MemoryLimits();
+        // The default limits are immutable. String and binary validation can
+        // share them instead of allocating a policy object for every value.
+        // Platforms can still override this method with their own policy.
+        return DEFAULT_MEMORY_LIMITS;
     }
 
     public abstract NGEAllocator getNativeAllocator();

@@ -386,7 +386,7 @@ public class NGEUtils {
             return EMPTY_STRING_ARRAY;
         }
         if (tags instanceof Iterable) {
-            ArrayList<String> list = new ArrayList<>();
+            ArrayList<String> list = new ArrayList<>(tags instanceof Collection ? ((Collection<?>) tags).size() : 10);
             for (Object o : (Iterable<?>) tags) {
                 list.add(safeString(o));
             }

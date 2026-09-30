@@ -146,6 +146,19 @@ public class TeaVMBackendParityTest {
         assertEquals(Arrays.asList("a", null, "b"), platform.fromJSON("[\"a\",null,\"b\"]", java.util.List.class));
         assertEquals("[1,2,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new int[] { 1, 2, 3 })));
         assertEquals("[\"a\",true,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new Object[] { "a", true, 3 })));
+        String[] source = { "a", null, "🦊", String.valueOf((char) 0xD800) };
+        org.teavm.jso.JSObject copied = TeaVMJsConverter.toJSObject(source);
+        source[0] = "changed";
+        assertEquals("[\"a\",null,\"🦊\",\"\\ud800\"]", TeaVMBinds.toJSON(copied));
+        assertEquals(
+            "[[\"a\",null,\"🦊\",\"\\ud800\"],[]]",
+            platform.toJSON(Arrays.asList(Arrays.asList("a", null, "🦊", String.valueOf((char) 0xD800)), Arrays.asList()))
+        );
+        org.ngengine.platform.MemoryLimits limits = platform.getMemoryLimits();
+        assertTrue(limits.checkForString(1024 * 1024));
+        assertFalse(limits.checkForString(1024 * 1024 + 1));
+        assertFalse(limits.checkForString(-1));
+        assertFalse(limits.checkForString(Integer.MAX_VALUE));
     }
 
     @Test

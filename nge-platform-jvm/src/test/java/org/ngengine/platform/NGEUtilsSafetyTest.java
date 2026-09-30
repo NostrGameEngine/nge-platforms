@@ -109,4 +109,28 @@ public class NGEUtilsSafetyTest {
         String[] out = NGEUtils.safeStringArray(in);
         assertArrayEquals(new String[] { "x", "", "y" }, out);
     }
+
+    @Test
+    public void stringMemoryLimitsPreserveBoundariesWithoutOverflow() {
+        MemoryLimits limits = new MemoryLimits();
+        assertTrue(limits.checkForString(0));
+        assertTrue(limits.checkForString(1024 * 1024));
+        assertTrue(!limits.checkForString(1024 * 1024 + 1));
+        assertTrue(!limits.checkForString(-1));
+        assertTrue(!limits.checkForString(Integer.MIN_VALUE));
+        assertTrue(!limits.checkForString(Integer.MAX_VALUE));
+    }
+
+    @Test
+    public void inheritedStringLimitRespectsCustomPolicyHook() {
+        MemoryLimits limits = new MemoryLimits() {
+            @Override
+            protected boolean checkLimit(long size, long limit) {
+                return size >= 0 && size <= 4;
+            }
+        };
+        assertTrue(limits.checkForString(2));
+        assertTrue(!limits.checkForString(3));
+        assertTrue(!limits.checkForString(-1));
+    }
 }
