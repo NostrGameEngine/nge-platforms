@@ -37,6 +37,9 @@ import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.Random;
+import org.bouncycastle.crypto.ec.CustomNamedCurves;
+import org.bouncycastle.math.ec.ECAlgorithms;
+import org.bouncycastle.math.ec.ECPoint;
 import org.junit.Test;
 
 public class SchnorrVectorTest {
@@ -92,6 +95,37 @@ public class SchnorrVectorTest {
         }
         assertTrue(Point.schnorrVerify(BigInteger.ZERO, Point.getG(), BigInteger.ZERO).isInfinite());
         assertTrue(Point.schnorrVerify(BigInteger.ONE, Point.getG(), BigInteger.ONE).isInfinite());
+    }
+
+    @Test
+    public void fixedBaseMultiplicationMatchesReferenceAtBoundariesAndRandomScalars() {
+        BigInteger[] boundaries = {
+            BigInteger.ZERO,
+            BigInteger.ONE,
+            BigInteger.ONE.negate(),
+            Point.getn().subtract(BigInteger.ONE),
+            Point.getn(),
+            Point.getn().add(BigInteger.ONE),
+            BigInteger.ONE.shiftLeft(256).subtract(BigInteger.ONE),
+            BigInteger.ONE.shiftLeft(300),
+        };
+        Random random = new Random(341);
+        for (int i = 0; i < boundaries.length + 64; i++) {
+            BigInteger scalar = i < boundaries.length ? boundaries[i] : new BigInteger(256, random);
+            ECPoint expected = ECAlgorithms
+                .referenceMultiply(CustomNamedCurves.getByName("secp256k1").getG(), scalar)
+                .normalize();
+            Point actual = Point.mul(Point.getG(), scalar);
+            assertEquals(expected.isInfinity(), actual.isInfinite());
+            if (!expected.isInfinity()) {
+                assertEquals(expected.getAffineXCoord().toBigInteger(), actual.getX());
+                assertEquals(expected.getAffineYCoord().toBigInteger(), actual.getY());
+                assertEquals(
+                    actual.hasEvenY() ? actual : Point.mul(actual, Point.getn().subtract(BigInteger.ONE)),
+                    Point.liftX(actual.toBytes())
+                );
+            }
+        }
     }
 
     private static byte[] hex(String value) {
