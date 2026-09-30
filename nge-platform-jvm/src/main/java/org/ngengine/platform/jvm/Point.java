@@ -59,6 +59,7 @@ final class Point {
     private final BigInteger[] coords;
     private final ECPoint curvePoint;
     private byte[] cachedBytes;
+    private volatile Point evenPoint;
     private static final Point INFINITY = new Point(null, null, false);
 
     public Point(BigInteger x, BigInteger y) {
@@ -160,6 +161,22 @@ final class Point {
         return hasEvenY(this);
     }
 
+    Point withEvenY() {
+        if (hasEvenY()) return this;
+        Point result = evenPoint;
+        if (result == null) {
+            synchronized (this) {
+                result = evenPoint;
+                if (result == null) {
+                    ECPoint point = curvePoint != null ? curvePoint : SCHNORR_CURVE.getCurve().validatePoint(getX(), getY());
+                    result = new Point(point.negate());
+                    evenPoint = result;
+                }
+            }
+        }
+        return result;
+    }
+
     public static boolean hasEvenY(Point P) {
         return P.curvePoint != null ? !P.curvePoint.getAffineYCoord().testBitZero() : !P.getY().testBit(0);
     }
@@ -181,6 +198,10 @@ final class Point {
 
     public static byte[] taggedHash(String tag, byte[] msg) {
         byte[] tagHash = NGEUtils.getPlatform().sha256(tag.getBytes(StandardCharsets.UTF_8));
+        return taggedHash(tagHash, msg);
+    }
+
+    static byte[] taggedHash(byte[] tagHash, byte[] msg) {
         int len = (tagHash.length * 2) + msg.length;
         byte[] buf = new byte[len];
         System.arraycopy(tagHash, 0, buf, 0, tagHash.length);

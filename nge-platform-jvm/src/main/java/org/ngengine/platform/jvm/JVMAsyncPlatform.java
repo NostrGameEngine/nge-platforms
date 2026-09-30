@@ -54,6 +54,7 @@ import java.util.Collection;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Callable;
@@ -69,6 +70,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.crypto.Mac;
@@ -104,6 +106,7 @@ import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.SafeFlag;
+import org.ngengine.platform.SchnorrSigner;
 import org.ngengine.platform.ThrowableFunction;
 import org.ngengine.platform.VStore;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
@@ -277,15 +280,58 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String schnorrSign(String data, byte priv[]) throws FailedToSignException {
+        return schnorrSign(data, priv, null);
+    }
+
+    private String schnorrSign(String data, byte[] priv, Point publicPoint) throws FailedToSignException {
+        if (publicPoint != null && priv.length != 32) throw new IllegalArgumentException("The private key must be 32 bytes.");
         if (!getMemoryLimits().checkForData(data.length() * 2)) throw new IllegalArgumentException(
             "Input exceeds buffer limits"
         );
         if (!getMemoryLimits().checkForKeys(priv.length)) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         byte dataB[] = NGEUtils.hexToByteArray(data);
-        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM.get() ? null : randomBytes(32));
+        byte sigB[] = Schnorr.sign(dataB, priv, _NO_AUX_RANDOM.get() ? null : randomBytes(32), publicPoint);
         String sig = NGEUtils.bytesToHex(sigB);
         return sig;
+    }
+
+    @Override
+    public SchnorrSigner createSchnorrSigner(Supplier<ByteBuffer> privateKey) {
+        Objects.requireNonNull(privateKey, "privateKey");
+        byte[] key = copyRemaining(privateKey.get());
+        final Point publicPoint;
+        try {
+            if (key.length != 32 || !getMemoryLimits().checkForKeys(key.length)) {
+                throw new IllegalArgumentException("The private key must be a 32-byte array within buffer limits.");
+            }
+            publicPoint = Schnorr.preparePublicPoint(key);
+            if (publicPoint == null) throw new IllegalArgumentException("Invalid Schnorr private key");
+        } finally {
+            Arrays.fill(key, (byte) 0);
+        }
+
+        // Only public state is retained. Read the key again for each signature;
+        // the supplier can reject access after its owner destroys the key.
+        return data -> {
+            byte[] signingKey = copyRemaining(privateKey.get());
+            return wrapPromise((res, rej) -> {
+                try {
+                    CompletableFuture.runAsync(() -> {
+                        try {
+                            res.accept(schnorrSign(data, signingKey, publicPoint));
+                        } catch (Exception e) {
+                            rej.accept(e);
+                        } finally {
+                            Arrays.fill(signingKey, (byte) 0);
+                        }
+                    });
+                } catch (RuntimeException e) {
+                    Arrays.fill(signingKey, (byte) 0);
+                    rej.accept(e);
+                }
+            });
+        };
     }
 
     @Override

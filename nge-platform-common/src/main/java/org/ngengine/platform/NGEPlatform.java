@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
@@ -273,6 +275,18 @@ public abstract class NGEPlatform {
     }
 
     public abstract String schnorrSign(String data, byte privKey[]) throws FailedToSignException;
+
+    /**
+     * Creates a signer that may prepare public key state once. The supplier is
+     * consulted for every signature, so key destruction remains effective.
+     * It must supply the same key throughout the signer's lifetime; no private
+     * key snapshot is retained by this factory. Platforms without a prepared
+     * implementation preserve their existing signing path.
+     */
+    public SchnorrSigner createSchnorrSigner(Supplier<ByteBuffer> privateKey) {
+        Objects.requireNonNull(privateKey, "privateKey");
+        return data -> schnorrSignAsync(data, privateKey.get());
+    }
 
     public String schnorrSign(String data, ByteBuffer privKey) throws FailedToSignException {
         return schnorrSign(data, copyRemaining(privKey));

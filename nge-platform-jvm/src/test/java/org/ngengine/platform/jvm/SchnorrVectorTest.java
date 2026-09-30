@@ -73,6 +73,11 @@ public class SchnorrVectorTest {
                         signature,
                         Schnorr.sign(message, hex(vector[1]), hex(vector[3]))
                     );
+                    assertArrayEquals(
+                        "BIP-340 prepared signing vector " + vector[0],
+                        signature,
+                        Schnorr.sign(message, hex(vector[1]), hex(vector[3]), Schnorr.preparePublicPoint(hex(vector[1])))
+                    );
                 }
                 checked++;
             }

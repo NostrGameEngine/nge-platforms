@@ -68,23 +68,7 @@ class Util {
     }
 
     public static BigInteger bigIntFromBytes(byte[] bytes, int offset, int length) {
-        if (bytes.length == 0) return BigInteger.ZERO;
-
-        // Calculate actual data length by skipping leading zeros
-        int dataStart = offset;
-        while (dataStart < offset + length && bytes[dataStart] == 0) {
-            dataStart++;
-        }
-
-        // If all bytes are zero, return zero
-        if (dataStart >= offset + length) return BigInteger.ZERO;
-
-        // Create a byte array with leading 0x00 to ensure positive representation
-        int dataLength = offset + length - dataStart;
-        byte[] result = new byte[dataLength + 1];
-        System.arraycopy(bytes, dataStart, result, 1, dataLength);
-
-        return new BigInteger(result);
+        return new BigInteger(1, bytes, offset, length);
     }
 
     public static byte[] xor(byte[] b0, byte[] b1, byte ret[]) {
