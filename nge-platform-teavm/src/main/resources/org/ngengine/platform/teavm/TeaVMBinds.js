@@ -5,7 +5,7 @@ import { sha256 as _sha256 } from '@noble/hashes/sha2.js';
 import { extract as _hkdf_extract, expand as _hkdf_expand } from '@noble/hashes/hkdf'
 import { base64 as _base64 } from '@scure/base';
 import { cbc } from '@noble/ciphers/aes';
-import { randomBytes as _randomBytes, bytesToHex as _bytesToHex } from '@noble/hashes/utils.js';
+import { randomBytes as _randomBytes, bytesToHex as _bytesToHex, hexToBytes as _hexToBytes } from '@noble/hashes/utils.js';
 import { scryptAsync as _scryptAsync } from '@noble/hashes/scrypt'
 import { xchacha20poly1305 as _xchacha20poly1305 } from '@noble/ciphers/chacha'
 
@@ -449,12 +449,22 @@ export const signBuffer = (data, privKeyBytes, output) => {
     return _writeBytes(output, _schnorr.sign(_u(data), _u(privKeyBytes)));
 };
 
+export const signHex = (data, privKeyBytes) => {
+    return _bytesToHex(_schnorr.sign(_hexToBytes(data), _u(privKeyBytes)));
+};
+
 export const verify = (data /*byte[]*/, pub /*byte[]*/, sig/*byte[]*/) => { // bool
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
 };
 
 export const verifyBuffer = (data, pub, sig) => {
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
+};
+
+export const verifyHex = (data, pub, sig) => {
+    const message = _hexToBytes(data);
+    const signature = _hexToBytes(sig);
+    return _schnorr.verify(signature, message, _u(pub));
 };
 
 export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => { // Uint8Array (byte[])

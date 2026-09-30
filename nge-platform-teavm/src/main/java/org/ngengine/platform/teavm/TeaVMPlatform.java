@@ -382,10 +382,14 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String schnorrSign(String data, ByteBuffer privKey) {
-        ByteBuffer message = directHex(data);
-        ByteBuffer output = allocateOutput(64);
-        finishOutput(output, TeaVMBinds.signBuffer(message, directInput(privKey), output));
-        return NGEUtils.bytesToHex(output);
+        try {
+            return TeaVMBinds.signHex(data, directInput(privKey));
+        } catch (RuntimeException error) {
+            // Preserve Java input-validation errors without decoding valid hex
+            // twice on the normal path. Noble performs the native decoding.
+            NGEUtils.hexToByteArray(data);
+            throw error;
+        }
     }
 
     @Override
@@ -397,7 +401,13 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public boolean schnorrVerify(String data, String sign, ByteBuffer pubKey) {
-        return TeaVMBinds.verifyBuffer(directHex(data), directInput(pubKey), directHex(sign));
+        try {
+            return TeaVMBinds.verifyHex(data, directInput(pubKey), sign);
+        } catch (RuntimeException error) {
+            NGEUtils.hexToByteArray(data);
+            NGEUtils.hexToByteArray(sign);
+            throw error;
+        }
     }
 
     private void verifyRandomness(byte bytes[], int n) throws Exception {
@@ -978,28 +988,6 @@ public class TeaVMPlatform extends NGEPlatform {
         // makes the JavaScript view cover exactly the caller's remaining bytes,
         // including the zero-length case.
         return direct.slice();
-    }
-
-    private static ByteBuffer directHex(String value) {
-        if (value == null) {
-            throw new NullPointerException("value");
-        }
-        if ((value.length() & 1) != 0) {
-            throw new IllegalArgumentException("Hex value must contain an even number of characters");
-        }
-
-        ByteBuffer output = allocateOutput(value.length() / 2);
-        output.limit(value.length() / 2);
-        for (int i = 0; i < value.length(); i += 2) {
-            int high = Character.digit(value.charAt(i), 16);
-            int low = Character.digit(value.charAt(i + 1), 16);
-            if (high < 0 || low < 0) {
-                throw new IllegalArgumentException("Invalid hexadecimal value");
-            }
-            output.put((byte) ((high << 4) | low));
-        }
-        output.flip();
-        return output;
     }
 
     private static ByteBuffer finishOutput(ByteBuffer output, int length) {

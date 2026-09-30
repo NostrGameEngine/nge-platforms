@@ -169,6 +169,10 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String signHex(String data, @JSBuffer(JSBufferType.UINT8) ByteBuffer privKeyBytes);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native boolean verify(
         @JSByRef(optional = true) byte[] data,
         @JSByRef(optional = true) byte[] pub,
@@ -182,6 +186,10 @@ public class TeaVMBinds implements JSObject {
         @JSBuffer(JSBufferType.UINT8) ByteBuffer pub,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer sig
     );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean verifyHex(String data, @JSBuffer(JSBufferType.UINT8) ByteBuffer pub, String sig);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

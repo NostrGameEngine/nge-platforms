@@ -60,11 +60,20 @@ import org.teavm.junit.TeaVMTestRunner;
 @SkipJVM
 public class TeaVMBackendParityTest {
 
+    private static TeaVMPlatform installedPlatform;
+
+    private static TeaVMPlatform installedPlatform() {
+        if (installedPlatform == null) {
+            installedPlatform = new TeaVMPlatform();
+            org.ngengine.platform.NGEPlatform.set(installedPlatform);
+        }
+        return installedPlatform;
+    }
+
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void stringHashAndJsonPreserveBinaryAndConverterSemantics() {
-        TeaVMPlatform platform = new TeaVMPlatform();
-        org.ngengine.platform.NGEPlatform.set(platform);
+        TeaVMPlatform platform = installedPlatform();
         assertTrue(platform.supportsMinimalJSONEscaping());
         assertEquals(
             "[\"<>&" + (char) 0x2028 + (char) 0x2029 + "\\ud800\\u0001\"]",
@@ -128,6 +137,49 @@ public class TeaVMBackendParityTest {
         assertTrue(platform.fromJSON("{}", Map.class).isEmpty());
         assertEquals("[1,2,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new int[] { 1, 2, 3 })));
         assertEquals("[\"a\",true,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new Object[] { "a", true, 3 })));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void nativeSchnorrHexPreservesVerificationAndKeyViews() {
+        TeaVMPlatform platform = installedPlatform();
+        byte[] secret = new byte[32];
+        secret[31] = 3;
+        ByteBuffer storage = direct(platform, new byte[36]);
+        storage.position(2);
+        storage.put(secret);
+        storage.position(2);
+        storage.limit(34);
+        ByteBuffer key = storage.asReadOnlyBuffer();
+        String digest = "01ab".repeat(16);
+        String signature = platform.schnorrSign(digest, key);
+        assertEquals(128, signature.length());
+        ByteBuffer pub = platform.genPubKey(key);
+        assertTrue(platform.schnorrVerify(digest, signature, pub));
+        assertTrue(
+            platform.schnorrVerify(digest.toUpperCase(java.util.Locale.ROOT), signature.toUpperCase(java.util.Locale.ROOT), pub)
+        );
+        assertTrue(platform.schnorrVerify(digest, signature, platform.genPubKey(secret)));
+        assertTrue(platform.schnorrVerify(digest, platform.schnorrSign(digest, secret), pub));
+        assertFalse(platform.schnorrVerify("00".repeat(32), signature, pub));
+        assertFalse(platform.schnorrVerify(digest, "00".repeat(64), pub));
+        assertArrayEquals(secret, bytes(key));
+        assertEquals(2, key.position());
+        assertEquals(34, key.limit());
+        for (String malformed : new String[] { "0", "GF", "FG", "ＦＦ", "١٢" }) {
+            try {
+                org.ngengine.platform.NGEUtils.hexToByteArray(malformed);
+                throw new AssertionError("common decoder accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+            try {
+                platform.schnorrSign(malformed, key);
+                throw new AssertionError("native signer accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+            try {
+                platform.schnorrVerify(digest, malformed, pub);
+                throw new AssertionError("native verifier accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+        }
     }
 
     @Test
