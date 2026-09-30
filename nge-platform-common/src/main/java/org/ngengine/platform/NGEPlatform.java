@@ -125,6 +125,15 @@ public abstract class NGEPlatform {
 
     public abstract String toJSON(Map obj);
 
+    /**
+     * Whether the JSON writer escapes only syntax, control characters and
+     * unpaired UTF-16 surrogates, without extra HTML or script escaping.
+     * Callers must still respect the writer's numeric precision.
+     */
+    public boolean supportsMinimalJSONEscaping() {
+        return false;
+    }
+
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);

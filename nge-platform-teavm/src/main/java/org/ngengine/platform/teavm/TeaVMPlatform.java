@@ -69,6 +69,11 @@ import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
 
+    @Override
+    public boolean supportsMinimalJSONEscaping() {
+        return true;
+    }
+
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
     private static final Cleaner CLEANER = Cleaner.create();

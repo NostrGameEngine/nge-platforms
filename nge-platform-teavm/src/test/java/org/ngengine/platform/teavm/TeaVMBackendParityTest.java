@@ -65,6 +65,11 @@ public class TeaVMBackendParityTest {
     public void stringHashAndJsonPreserveBinaryAndConverterSemantics() {
         TeaVMPlatform platform = new TeaVMPlatform();
         org.ngengine.platform.NGEPlatform.set(platform);
+        assertTrue(platform.supportsMinimalJSONEscaping());
+        assertEquals(
+            "[\"<>&" + (char) 0x2028 + (char) 0x2029 + "\\ud800\\u0001\"]",
+            platform.toJSON(Arrays.asList("<>&" + (char) 0x2028 + (char) 0x2029 + (char) 0xD800 + (char) 1))
+        );
         String[] inputs = { "", "abc", "Unicode 🦊 café 漢字" + (char) 0x2028 + (char) 0x2029, "large".repeat(14000) };
         for (String input : inputs) {
             assertEquals(hex(platform.sha256(utf8(input))), platform.sha256(input));
