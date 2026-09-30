@@ -306,6 +306,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
             publicPoint = Schnorr.preparePublicPoint(key);
             if (publicPoint == null) throw new IllegalArgumentException("Invalid Schnorr private key");
+            // Populate the public encoding before the context is shared. The
+            // cache is then read-only throughout concurrent signing requests.
+            publicPoint.toBytes();
         } finally {
             Arrays.fill(key, (byte) 0);
         }
