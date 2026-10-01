@@ -252,6 +252,39 @@ public class TeaVMBackendParityTest {
         }
     }
 
+    @JSBody(
+        params = "enabled",
+        script = "if (enabled) { Object.prototype.kind = 42; Object.prototype.content = 'inherited'; " +
+        "Object.prototype.tags = [['t', 'inherited']]; } else { " +
+        "delete Object.prototype.kind; delete Object.prototype.content; delete Object.prototype.tags; }"
+    )
+    private static native void inheritedFields(boolean enabled);
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonReadsOnlyOwnedObjectProperties() {
+        TeaVMPlatform platform = installedPlatform();
+        inheritedFields(true);
+        try {
+            org.ngengine.platform.JsonObject object = platform.parseJsonObject("{}");
+            assertEquals(0, object.getInt("kind"));
+            assertEquals("", object.getString("content"));
+            assertTrue(object.getStringRows("tags").isEmpty());
+        } finally {
+            inheritedFields(false);
+        }
+        for (String json : new String[] { "null", "[]", "[[\"x\",\"y\"]]", "42", "\"text\"", "true", "false", " \n [] \t" }) {
+            boolean rejected = false;
+            try {
+                platform.parseJsonObject(json);
+            } catch (IllegalArgumentException expected) {
+                assertEquals("JSON root must be an object", expected.getMessage());
+                rejected = true;
+            }
+            assertTrue("Non-object JSON root accepted: " + json, rejected);
+        }
+    }
+
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void nativeSchnorrHexPreservesVerificationAndKeyViews() {

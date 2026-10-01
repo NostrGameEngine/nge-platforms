@@ -139,12 +139,21 @@ public class TeaVMPlatform extends NGEPlatform {
     @JSBody(params = { "object" }, script = "return JSON.stringify(object);")
     private static native String stringifyJSON(JSObject object);
 
-    @JSBody(params = "json", script = "return JSON.parse(json);")
+    @JSBody(
+        params = "json",
+        script = "const object = JSON.parse(json); " +
+        "if (object === null || typeof object !== 'object' || Array.isArray(object)) " +
+        "return null; " +
+        // Typed reads must have the same own-property semantics as the Map decoder.
+        "return Object.setPrototypeOf(object, null);"
+    )
     private static native JSObject parseJSONTree(String json);
 
     @Override
     public org.ngengine.platform.JsonObject parseJsonObject(String json) {
-        return new TeaVMJsonObject(parseJSONTree(json));
+        JSObject root = parseJSONTree(json);
+        if (root == null) throw new IllegalArgumentException("JSON root must be an object");
+        return new TeaVMJsonObject(root);
     }
 
     @Override
