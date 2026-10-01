@@ -61,10 +61,17 @@ import org.teavm.junit.TeaVMTestRunner;
 public class TeaVMBackendParityTest {
 
     private static TeaVMPlatform installedPlatform;
+    private static org.ngengine.platform.MemoryLimits testLimits;
 
     private static TeaVMPlatform installedPlatform() {
         if (installedPlatform == null) {
-            installedPlatform = new TeaVMPlatform();
+            installedPlatform =
+                new TeaVMPlatform() {
+                    @Override
+                    public org.ngengine.platform.MemoryLimits getMemoryLimits() {
+                        return testLimits != null ? testLimits : super.getMemoryLimits();
+                    }
+                };
             org.ngengine.platform.NGEPlatform.set(installedPlatform);
         }
         return installedPlatform;
@@ -159,6 +166,90 @@ public class TeaVMBackendParityTest {
         assertFalse(limits.checkForString(1024 * 1024 + 1));
         assertFalse(limits.checkForString(-1));
         assertFalse(limits.checkForString(Integer.MAX_VALUE));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void stringRowsRemainOwnedAndValidatedAfterBulkConversion() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<java.util.List<String>> rows = platform.fromJSON(
+            "[[\"t\",\"first\"],[\"p\",\"🦊\",\"\\ud800\"]]",
+            java.util.List.class
+        );
+        String[] copy = org.ngengine.platform.NGEUtils.safeStringArray(rows.get(0));
+        rows.get(0).set(1, "changed");
+        assertArrayEquals(new String[] { "t", "first" }, copy);
+        copy[0] = "changed independently";
+        assertEquals("t", rows.get(0).get(0));
+        assertArrayEquals(
+            new String[] { "a", "", "42" },
+            org.ngengine.platform.NGEUtils.safeStringArray(new java.util.ArrayList<Object>(Arrays.asList("a", null, 42)))
+        );
+        assertArrayEquals(
+            new String[] { "a", "", "42" },
+            org.ngengine.platform.NGEUtils.safeStringArray(new java.util.LinkedList<Object>(Arrays.asList("a", null, 42)))
+        );
+        try {
+            org.ngengine.platform.NGEUtils.safeStringArray(Arrays.asList("x".repeat(1024 * 1024 + 1)));
+            throw new AssertionError("String limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowsPreserveLimitsOwnershipAndFallbackValues() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"text\":\"🦊\",\"kind\":1,\"created_at\":1700000000,\"tags\":[[],[\"t\",null,\"\\ud800\"]]}"
+        );
+        assertEquals("🦊", object.getString("text"));
+        assertEquals(1, object.getInt("kind"));
+        assertEquals(java.time.Instant.ofEpochSecond(1700000000L), object.getSecondsInstant("created_at"));
+        java.util.List<java.util.List<String>> rows = object.getStringRows("tags");
+        assertEquals(Arrays.asList(Arrays.asList("t", "", String.valueOf((char) 0xD800))), rows);
+        try {
+            rows.get(0).set(1, "changed");
+            throw new AssertionError("Mutable JSON tag row escaped");
+        } catch (UnsupportedOperationException expected) {
+            assertEquals("", rows.get(0).get(1));
+        }
+        try {
+            rows.add(Arrays.asList("new"));
+            throw new AssertionError("Mutable JSON matrix escaped");
+        } catch (UnsupportedOperationException expected) {
+            assertEquals(1, rows.size());
+        }
+        assertEquals(
+            Arrays.asList(Arrays.asList("t", "", "42", "true")),
+            platform.parseJsonObject("{\"tags\":[[\"t\",null,42,true]]}").getStringRows("tags")
+        );
+        assertTrue(platform.parseJsonObject("{}").getStringRows("tags").isEmpty());
+        int[] checks = { 0 };
+        testLimits =
+            new org.ngengine.platform.MemoryLimits() {
+                @Override
+                protected boolean checkLimit(long size, long limit) {
+                    checks[0]++;
+                    return size != 14 && super.checkLimit(size, limit);
+                }
+            };
+        try {
+            platform.parseJsonObject("{\"tags\":[[\"t\",\"allowed\"]]}").getStringRows("tags");
+            throw new AssertionError("Custom string policy was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertEquals(2, checks[0]);
+        } finally {
+            testLimits = null;
+        }
+
+        try {
+            platform.parseJsonObject("{\"tags\":[[\"" + "x".repeat(1024 * 1024 + 1) + "\"]]}").getStringRows("tags");
+            throw new AssertionError("Native JSON string limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
     }
 
     @Test

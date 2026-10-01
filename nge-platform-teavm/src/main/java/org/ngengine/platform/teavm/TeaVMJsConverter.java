@@ -41,7 +41,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.teavm.classlib.PlatformDetector;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.jso.core.JSArray;
@@ -393,7 +392,7 @@ public class TeaVMJsConverter {
 
         // Owned JSON arrays have no accessors. A typed transfer avoids interop
         // wrappers for string leaves while keeping the Java copy independent.
-        if (ownedJson && PlatformDetector.isWebAssemblyGC()) {
+        if (ownedJson) {
             String[] strings = getStringArray(jsArray);
             if (strings != null) return new ArrayList<>(Arrays.asList(strings));
         }
@@ -465,7 +464,7 @@ public class TeaVMJsConverter {
     // Read primitive values through typed interop. Generic JSObject values in
     // Wasm need WeakRef-backed wrappers, even for a string consumed immediately.
     // This path is exclusively for owned JSON trees without getters or proxies.
-    private static Object convertProperty(JSObject object, String key) {
+    static Object convertProperty(JSObject object, String key) {
         switch (propertyType(object, key)) {
             case 0:
                 return null;

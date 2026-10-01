@@ -139,6 +139,14 @@ public class TeaVMPlatform extends NGEPlatform {
     @JSBody(params = { "object" }, script = "return JSON.stringify(object);")
     private static native String stringifyJSON(JSObject object);
 
+    @JSBody(params = "json", script = "return JSON.parse(json);")
+    private static native JSObject parseJSONTree(String json);
+
+    @Override
+    public org.ngengine.platform.JsonObject parseJsonObject(String json) {
+        return new TeaVMJsonObject(parseJSONTree(json));
+    }
+
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
         JSObject jsObj = (JSObject) TeaVMBinds.fromJSON(json);

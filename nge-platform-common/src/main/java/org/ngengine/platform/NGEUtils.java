@@ -385,6 +385,14 @@ public class NGEUtils {
         if (tags == null) {
             return EMPTY_STRING_ARRAY;
         }
+        if (tags instanceof List && tags instanceof java.util.RandomAccess) {
+            List<?> source = (List<?>) tags;
+            String[] result = new String[source.size()];
+            for (int i = 0; i < result.length; i++) {
+                result[i] = safeString(source.get(i));
+            }
+            return result;
+        }
         if (tags instanceof Iterable) {
             ArrayList<String> list = new ArrayList<>(tags instanceof Collection ? ((Collection<?>) tags).size() : 10);
             for (Object o : (Iterable<?>) tags) {

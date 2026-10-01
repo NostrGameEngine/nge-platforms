@@ -144,6 +144,18 @@ public abstract class NGEPlatform {
 
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
+    /**
+     * Parses an object with typed reads and owned immutable string rows.
+     *
+     * @throws IllegalArgumentException if the JSON root is not an object
+     */
+    @SuppressWarnings("unchecked")
+    public JsonObject parseJsonObject(String json) {
+        Object root = fromJSON(json, Object.class);
+        if (!(root instanceof Map)) throw new IllegalArgumentException("JSON root must be an object");
+        return JsonObject.fromMap((Map<String, Object>) root);
+    }
+
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);
 
     public ByteBuffer secp256k1SharedSecret(ByteBuffer privKey, ByteBuffer pubKey) {
