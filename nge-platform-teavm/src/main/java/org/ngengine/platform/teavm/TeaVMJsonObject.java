@@ -112,7 +112,7 @@ final class TeaVMJsonObject extends JsonObject {
         }
 
         private Object writeReplace() {
-            return new ArrayList<>(this);
+            return Collections.unmodifiableList(new ArrayList<>(this));
         }
     }
 
@@ -137,7 +137,7 @@ final class TeaVMJsonObject extends JsonObject {
         }
 
         private Object writeReplace() {
-            return new ArrayList<>(this);
+            return Collections.unmodifiableList(new ArrayList<>(this));
         }
     }
 
