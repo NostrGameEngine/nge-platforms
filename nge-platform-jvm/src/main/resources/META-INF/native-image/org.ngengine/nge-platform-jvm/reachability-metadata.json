@@ -4586,6 +4586,23 @@
                     ]
                 },
                 {
+                    "name": "redirectedLoopbackUrlsAreAllowedInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.JVMAsyncPlatformRedirectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "redirectedLoopbackUrlsAreRejected",
                     "parameterTypes": [
                         
@@ -5203,6 +5220,41 @@
                     ]
                 },
                 {
+                    "name": "allowsLoopbackWebSocketUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "allowsRedirectsToLoopbackUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "detectsPrivateAndLocalAddresses",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "stillRejectsRedirectsToPrivateUrls",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "detectsPrivateAndLocalAddresses",
                     "parameterTypes": [
                         
@@ -5592,6 +5644,47 @@
                     "parameterTypes": [
                         
                     ]
+                },
+                {
+                    "name": "rawAllocatorSupportsJmePointerOperations",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.SaferAllocBehaviorTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "callocReturnsZeroInitializedDirectBufferWithExpectedCapacity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "copiedPayloadSurvivesAllocatorChurnWhenReferenceIsRetained",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "jvmNgeAllocatorRetainedCopySurvivesChurn",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "liveAllocationsDoNotAliasAddressesOrContents",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
@@ -5602,6 +5695,53 @@
                     "name": "genPubKey",
                     "parameterTypes": [
                         "byte[]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.TestJVMNGEAllocatorGuard",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "concurrentRequestsShareOneGcInterval",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setUp",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldAdaptBudgetUpThenDown",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestGcOnBurstEvenWithAdaptiveBudget",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestMaintenanceGcAfterSilence",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "tearDown",
+                    "parameterTypes": [
+                        
                     ]
                 }
             ]
@@ -6148,6 +6288,18 @@
             ]
         },
         {
+            "type": "sun.text.resources.FormatData"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en_US"
+        },
+        {
+            "type": "sun.text.resources.JavaTimeSupplementary"
+        },
+        {
             "type": "sun.text.resources.cldr.FormatData"
         },
         {
@@ -6158,6 +6310,15 @@
         },
         {
             "type": "sun.util.resources.cldr.CalendarData"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en_US"
         },
         {
             "type": "tel.schich.libdatachannel.CandidatePair",
@@ -6453,6 +6614,9 @@
         },
         {
             "glob": "META-INF/native-image/org.ngengine/nge-platform-jvm/native-image.properties"
+        },
+        {
+            "glob": "META-INF/services/com.sun.net.httpserver.spi.HttpServerProvider"
         },
         {
             "glob": "META-INF/services/java.net.spi.InetAddressResolverProvider"
