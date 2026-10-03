@@ -40,6 +40,7 @@ import java.util.RandomAccess;
 import org.ngengine.platform.JsonObject;
 import org.ngengine.platform.MemoryLimits;
 import org.ngengine.platform.NGEUtils;
+import org.teavm.classlib.PlatformDetector;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 
@@ -103,7 +104,9 @@ final class TeaVMJsonObject extends JsonObject {
                 if (!limits.checkForString(maximum)) {
                     throw new IllegalArgumentException("Input string is too large: " + maximum);
                 }
-                return Collections.unmodifiableList(new StringRows(rows));
+                return Collections.unmodifiableList(
+                    PlatformDetector.isWebAssemblyGC() ? new WasmStringRows(rows) : new StringRows(rows)
+                );
             }
         }
         ArrayList<List<String>> result = new ArrayList<>();
@@ -160,6 +163,93 @@ final class TeaVMJsonObject extends JsonObject {
         @Override
         public int size() {
             return length(row);
+        }
+
+        private Object writeReplace() {
+            return Collections.unmodifiableList(new ArrayList<>(this));
+        }
+    }
+
+    // JS retains its native string views. Wasm owns UTF-16 buffers, so revisit
+    // cached dimensions and bounded Java values without changing the JS layout.
+    private static final class WasmStringRows extends AbstractList<List<String>> implements RandomAccess, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private final JSObject rows;
+        private final int size;
+        private transient WasmStringRow[] cache;
+
+        WasmStringRows(JSObject rows) {
+            this.rows = rows;
+            this.size = length(rows);
+        }
+
+        @Override
+        public List<String> get(int index) {
+            if (index < 0 || index >= size) throw new IndexOutOfBoundsException(index);
+            if (cache == null) cache = new WasmStringRow[size];
+            WasmStringRow row = cache[index];
+            if (row == null) cache[index] = row = new WasmStringRow(element(rows, index));
+            return row;
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+
+        private Object writeReplace() {
+            return Collections.unmodifiableList(new ArrayList<>(this));
+        }
+    }
+
+    private static final class WasmStringRow extends AbstractList<String> implements RandomAccess, Serializable {
+
+        private static final long serialVersionUID = 1L;
+        private static final int MAX_CACHED_CELLS = 64;
+        private static final int MAX_CACHED_CHARACTERS = 4096;
+        private final JSObject row;
+        private final int size;
+        private transient String[] values;
+        private transient int reads;
+        private transient int cachedCharacters;
+
+        WasmStringRow(JSObject row) {
+            this.row = row;
+            this.size = length(row);
+        }
+
+        @Override
+        public String get(int index) {
+            if (index < 0 || index >= size) throw new IndexOutOfBoundsException(index);
+            if (size <= MAX_CACHED_CELLS) {
+                // Avoid extra arrays during initial reads. Revisited immutable rows
+                // can reuse owned Java strings instead of copying UTF-16 each time.
+                String[] cached = values;
+                if (cached == null) {
+                    if (reads < size) {
+                        reads++;
+                        return stringElement(row, index);
+                    }
+                    values = cached = new String[size];
+                }
+                String value = cached[index];
+                if (value == null) {
+                    value = stringElement(row, index);
+                    int characters = value.length();
+                    if (characters <= MAX_CACHED_CHARACTERS - cachedCharacters) {
+                        cached[index] = value;
+                        cachedCharacters += characters;
+                    }
+                }
+                return value;
+            }
+            return stringElement(row, index);
+        }
+
+        @Override
+        public int size() {
+            return size;
         }
 
         private Object writeReplace() {

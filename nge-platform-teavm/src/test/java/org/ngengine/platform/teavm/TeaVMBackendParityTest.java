@@ -293,6 +293,66 @@ public class TeaVMBackendParityTest {
         }
     }
 
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowBoundsRemainStableAcrossRepeatedReads() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"tags\":[[],[\"t\",null,\"🦊\",\"\\ud800\"],[],[\"empty\"]]}"
+        );
+        java.util.List<java.util.List<String>> first = object.getStringRows("tags");
+        java.util.List<java.util.List<String>> second = object.getStringRows("tags");
+        assertEquals(first, second);
+        for (int repeat = 0; repeat < 3; repeat++) {
+            assertEquals(2, first.size());
+            assertEquals(4, first.get(0).size());
+            assertEquals(1, first.get(1).size());
+            assertEquals("", first.get(0).get(1));
+            assertEquals("🦊", first.get(0).get(2));
+            assertEquals(String.valueOf((char) 0xD800), first.get(0).get(3));
+            for (int index : new int[] { -1, 2, Integer.MAX_VALUE }) {
+                try {
+                    first.get(index);
+                    throw new AssertionError("Accepted invalid row index " + index);
+                } catch (IndexOutOfBoundsException expected) {
+                    assertEquals(new IndexOutOfBoundsException(index).getMessage(), expected.getMessage());
+                }
+            }
+            for (int index : new int[] { -1, 4, Integer.MAX_VALUE }) {
+                try {
+                    first.get(0).get(index);
+                    throw new AssertionError("Accepted invalid cell index " + index);
+                } catch (IndexOutOfBoundsException expected) {
+                    assertEquals(new IndexOutOfBoundsException(index).getMessage(), expected.getMessage());
+                }
+            }
+        }
+        assertEquals(first, platform.fromJSON(platform.toJSON(first), java.util.List.class));
+        assertTrue(platform.parseJsonObject("{\"tags\":[[],[]]}").getStringRows("tags").isEmpty());
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowsPreserveWideAndLongValuesAcrossRepeatedReads() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<java.util.List<String>> expected = new java.util.ArrayList<>();
+        for (int width : new int[] { 64, 65 }) {
+            java.util.List<String> row = new java.util.ArrayList<>();
+            for (int i = 0; i < width; i++) row.add("x".repeat(i));
+            expected.add(row);
+        }
+        String astral = "🦊".repeat(2048);
+        expected.add(Arrays.asList(astral, String.valueOf((char) 0xD800)));
+        expected.add(Arrays.asList("t", astral + String.valueOf((char) 0xD800)));
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(platform.toJSON(Map.of("tags", expected)));
+        java.util.List<java.util.List<String>> actual = object.getStringRows("tags");
+        for (int repeat = 0; repeat < 5; repeat++) {
+            assertEquals(expected, actual);
+            assertEquals(expected, platform.fromJSON(platform.toJSON(actual), java.util.List.class));
+        }
+        assertEquals(expected, object.getStringRows("tags"));
+    }
+
     @JSBody(
         params = "enabled",
         script = "if (enabled) { Object.prototype.kind = 42; Object.prototype.content = 'inherited'; " +
