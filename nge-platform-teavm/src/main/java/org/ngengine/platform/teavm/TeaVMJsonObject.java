@@ -66,13 +66,31 @@ final class TeaVMJsonObject extends JsonObject {
 
     @Override
     public int getInt(String name) {
+        double value = intProperty(object, name);
+        if (!Double.isNaN(value)) return (int) value;
         return NGEUtils.safeInt(TeaVMJsConverter.convertProperty(object, name));
     }
 
+    @JSBody(
+        params = { "object", "name" },
+        script = "const value = object[name]; return typeof value === 'number' && Number.isInteger(value) && " +
+        "value >= -2147483648 && value <= 2147483647 ? value : NaN;"
+    )
+    private static native double intProperty(JSObject object, String name);
+
     @Override
     public Instant getSecondsInstant(String name) {
+        double value = secondsProperty(object, name);
+        if (!Double.isNaN(value)) return Instant.ofEpochSecond((long) value);
         return NGEUtils.safeSecondsInstant(TeaVMJsConverter.convertProperty(object, name));
     }
+
+    @JSBody(
+        params = { "object", "name" },
+        script = "const value = object[name]; return typeof value === 'number' && Number.isSafeInteger(value) " +
+        "? value : NaN;"
+    )
+    private static native double secondsProperty(JSObject object, String name);
 
     @Override
     public List<List<String>> getStringRows(String name) {

@@ -303,6 +303,76 @@ public class TeaVMBackendParityTest {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonNumbersMatchGenericConversionAtBoundaries() {
+        TeaVMPlatform platform = installedPlatform();
+        for (String literal : new String[] {
+            "0",
+            "-0",
+            "1",
+            "-1",
+            "1.9",
+            "-1.9",
+            "2147483647",
+            "2147483648",
+            "-2147483648",
+            "-2147483649",
+            "9007199254740991",
+            "9007199254740992",
+            "9007199254740993",
+            "9223372036854775807",
+            "-9223372036854775808",
+            "1e400",
+            "-1e400",
+            "\"1700000000\"",
+            "\"1970-01-01T00:00:01Z\"",
+            "true",
+            "\"invalid\"",
+        }) {
+            String json = "{\"value\":" + literal + "}";
+            org.ngengine.platform.JsonObject typed = platform.parseJsonObject(json);
+            Object generic = platform.fromJSON(json, Map.class).get("value");
+            Integer expectedInt = null;
+            Throwable intFailure = null;
+            try {
+                expectedInt = org.ngengine.platform.NGEUtils.safeInt(generic);
+            } catch (Throwable failure) {
+                intFailure = failure;
+            }
+            if (intFailure == null) {
+                assertEquals(literal, expectedInt.intValue(), typed.getInt("value"));
+            } else {
+                try {
+                    typed.getInt("value");
+                    throw new AssertionError("Accepted invalid int " + literal);
+                } catch (Exception failure) {
+                    assertEquals(literal, intFailure.getClass(), failure.getClass());
+                    assertEquals(literal, intFailure.getMessage(), failure.getMessage());
+                }
+            }
+            java.time.Instant expectedInstant = null;
+            Throwable instantFailure = null;
+            try {
+                expectedInstant = org.ngengine.platform.NGEUtils.safeSecondsInstant(generic);
+            } catch (Throwable failure) {
+                instantFailure = failure;
+            }
+            if (instantFailure == null) {
+                assertEquals(literal, expectedInstant, typed.getSecondsInstant("value"));
+            } else {
+                try {
+                    typed.getSecondsInstant("value");
+                    throw new AssertionError("Accepted invalid timestamp " + literal);
+                } catch (Exception failure) {
+                    assertEquals(literal, instantFailure.getClass(), failure.getClass());
+                    assertEquals(literal, instantFailure.getMessage(), failure.getMessage());
+                }
+            }
+        }
+        assertEquals(0, platform.parseJsonObject("{\"value\":null}").getInt("value"));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void typedJsonReadsOnlyOwnedObjectProperties() {
         TeaVMPlatform platform = installedPlatform();
         inheritedFields(true);
