@@ -79,6 +79,47 @@ public class TeaVMBackendParityTest {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedStringGetterPreservesFallbackValuesAndCustomLimits() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"text\":\"a\\u0000\\ud800\\udfff🦊\",\"empty\":\"\",\"null\":null,\"number\":42,\"flag\":true}"
+        );
+        assertEquals("a\u0000\ud800\udfff🦊", object.getString("text"));
+        assertEquals("", object.getString("empty"));
+        assertEquals("", object.getString("null"));
+        assertEquals("", object.getString("missing"));
+        assertEquals("42", object.getString("number"));
+        assertEquals("true", object.getString("flag"));
+        int[] checks = { 0 };
+        testLimits =
+            new org.ngengine.platform.MemoryLimits() {
+                @Override
+                protected boolean checkLimit(long size, long limit) {
+                    checks[0]++;
+                    return size != 14 && super.checkLimit(size, limit);
+                }
+            };
+        try {
+            assertEquals("", object.getString("empty"));
+            assertEquals("42", object.getString("number"));
+            assertEquals(2, checks[0]);
+            platform.parseJsonObject("{\"text\":\"allowed\"}").getString("text");
+            throw new AssertionError("Custom string policy was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertEquals(3, checks[0]);
+        } finally {
+            testLimits = null;
+        }
+        try {
+            platform.parseJsonObject("{\"text\":\"" + "x".repeat(1024 * 1024 + 1) + "\"}").getString("text");
+            throw new AssertionError("String size limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void stringHashAndJsonPreserveBinaryAndConverterSemantics() {
         TeaVMPlatform platform = installedPlatform();
         assertTrue(platform.supportsMinimalJSONEscaping());

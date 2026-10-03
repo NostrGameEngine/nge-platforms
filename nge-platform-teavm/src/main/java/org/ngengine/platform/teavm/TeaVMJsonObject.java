@@ -53,8 +53,16 @@ final class TeaVMJsonObject extends JsonObject {
 
     @Override
     public String getString(String name) {
+        String value = stringProperty(object, name);
+        if (value != null) return NGEUtils.safeString(value);
         return NGEUtils.safeString(TeaVMJsConverter.convertProperty(object, name));
     }
+
+    @JSBody(
+        params = { "object", "name" },
+        script = "const value = object[name]; return typeof value === 'string' ? value : null;"
+    )
+    private static native String stringProperty(JSObject object, String name);
 
     @Override
     public int getInt(String name) {
