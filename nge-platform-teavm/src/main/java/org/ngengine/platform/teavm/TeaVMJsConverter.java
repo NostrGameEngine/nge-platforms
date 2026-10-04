@@ -326,6 +326,11 @@ public class TeaVMJsConverter {
      * Converts a Java Collection to a JavaScript array.
      */
     private static JSArray collectionToJSArray(Collection<?> collection) {
+        if (!org.teavm.classlib.PlatformDetector.isWebAssemblyGC()) {
+            // Traverse a bulk copy without erased iterator calls for every leaf.
+            // Wasm retains iteration to avoid the extra managed array allocation.
+            return arrayToJSArray(collection.toArray());
+        }
         JSArray array = JSArray.create(collection.size());
         int index = 0;
 

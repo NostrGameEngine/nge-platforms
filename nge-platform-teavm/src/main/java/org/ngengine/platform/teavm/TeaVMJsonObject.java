@@ -120,16 +120,18 @@ final class TeaVMJsonObject extends JsonObject {
 
         private static final long serialVersionUID = 1L;
         private final JSObject rows;
+        private final int size;
         private transient StringRow[] cache;
 
         StringRows(JSObject rows) {
             this.rows = rows;
+            this.size = length(rows);
         }
 
         @Override
         public List<String> get(int index) {
-            if (index < 0 || index >= length(rows)) throw new IndexOutOfBoundsException(index);
-            if (cache == null) cache = new StringRow[length(rows)];
+            if (index < 0 || index >= size) throw new IndexOutOfBoundsException(index);
+            if (cache == null) cache = new StringRow[size];
             StringRow row = cache[index];
             if (row == null) cache[index] = row = new StringRow(element(rows, index));
             return row;
@@ -137,7 +139,7 @@ final class TeaVMJsonObject extends JsonObject {
 
         @Override
         public int size() {
-            return length(rows);
+            return size;
         }
 
         private Object writeReplace() {
@@ -148,21 +150,44 @@ final class TeaVMJsonObject extends JsonObject {
     private static final class StringRow extends AbstractList<String> implements RandomAccess, Serializable {
 
         private static final long serialVersionUID = 1L;
+        private static final int MAX_CACHED_CELLS = 64;
+        private static final int MAX_CACHED_CHARACTERS = 4096;
         private final JSObject row;
+        private final int size;
+        private transient String[] values;
+        private transient boolean firstCellRead;
+        private transient int cachedCharacters;
 
         StringRow(JSObject row) {
             this.row = row;
+            this.size = length(row);
         }
 
         @Override
         public String get(int index) {
-            if (index < 0 || index >= length(row)) throw new IndexOutOfBoundsException(index);
-            return stringElement(row, index);
+            if (index < 0 || index >= size) throw new IndexOutOfBoundsException(index);
+            String[] cached = values;
+            // Revisiting the key cell signals reuse without updating a counter
+            // on every cell of a first traversal. Other cells remain lazy.
+            if (cached == null && index == 0 && size <= MAX_CACHED_CELLS) {
+                if (firstCellRead) values = cached = new String[size]; else firstCellRead = true;
+            }
+            if (cached == null) return stringElement(row, index);
+            String value = cached[index];
+            if (value == null) {
+                value = stringElement(row, index);
+                int characters = value.length();
+                if (characters <= MAX_CACHED_CHARACTERS - cachedCharacters) {
+                    cached[index] = value;
+                    cachedCharacters += characters;
+                }
+            }
+            return value;
         }
 
         @Override
         public int size() {
-            return length(row);
+            return size;
         }
 
         private Object writeReplace() {
@@ -170,8 +195,8 @@ final class TeaVMJsonObject extends JsonObject {
         }
     }
 
-    // JS retains its native string views. Wasm owns UTF-16 buffers, so revisit
-    // cached dimensions and bounded Java values without changing the JS layout.
+    // Wasm owns UTF-16 buffers; both adapters bound their per-row reuse. The
+    // backend-specific classes keep compiled list access monomorphic.
     private static final class WasmStringRows extends AbstractList<List<String>> implements RandomAccess, Serializable {
 
         private static final long serialVersionUID = 1L;
@@ -224,7 +249,7 @@ final class TeaVMJsonObject extends JsonObject {
             if (index < 0 || index >= size) throw new IndexOutOfBoundsException(index);
             if (size <= MAX_CACHED_CELLS) {
                 // Avoid extra arrays during initial reads. Revisited immutable rows
-                // can reuse owned Java strings instead of copying UTF-16 each time.
+                // can reuse Java strings instead of crossing the string boundary again.
                 String[] cached = values;
                 if (cached == null) {
                     if (reads < size) {

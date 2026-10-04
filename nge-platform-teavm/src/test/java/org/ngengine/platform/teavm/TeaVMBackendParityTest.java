@@ -79,6 +79,51 @@ public class TeaVMBackendParityTest {
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void collectionEncodingPreservesOrderTypesAndFreshCopies() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<Object> values = new java.util.ArrayList<>(
+            Arrays.asList(
+                null,
+                true,
+                false,
+                1,
+                -1L,
+                1.25,
+                "🦊" + (char) 0xD800,
+                Arrays.asList("nested", null),
+                Map.of("value", "quoted\""),
+                new Object[] { "array", true }
+            )
+        );
+        String expected =
+            "[null,true,false,1,-1,1.25,\"🦊\\ud800\",[\"nested\",null],{\"value\":\"quoted\\\"\"},[\"array\",true]]";
+        for (java.util.Collection<?> collection : Arrays.asList(
+            values,
+            new java.util.LinkedList<>(values),
+            java.util.Collections.unmodifiableList(values),
+            new java.util.LinkedHashSet<>(values),
+            new java.util.AbstractCollection<Object>() {
+                @Override
+                public java.util.Iterator<Object> iterator() {
+                    return values.iterator();
+                }
+
+                @Override
+                public int size() {
+                    return values.size();
+                }
+            }
+        )) assertEquals(expected, platform.toJSON(collection));
+        org.teavm.jso.JSObject nativeCopy = TeaVMJsConverter.toJSObject(values);
+        values.set(6, "changed");
+        ((java.util.List<String>) values.get(7)).set(0, "changed nested");
+        assertEquals(expected, TeaVMBinds.toJSON(nativeCopy));
+        assertFalse(expected.equals(platform.toJSON(values)));
+        assertEquals("[]", platform.toJSON(java.util.Collections.emptyList()));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void typedStringGetterPreservesFallbackValuesAndCustomLimits() {
         TeaVMPlatform platform = installedPlatform();
         org.ngengine.platform.JsonObject object = platform.parseJsonObject(
@@ -351,6 +396,37 @@ public class TeaVMBackendParityTest {
             assertEquals(expected, platform.fromJSON(platform.toJSON(actual), java.util.List.class));
         }
         assertEquals(expected, object.getStringRows("tags"));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void repeatedTypedRowsPreserveListViewsAndMutationFailures() {
+        java.util.List<java.util.List<String>> rows = installedPlatform()
+            .parseJsonObject("{\"tags\":[[\"t\",\"\",\"🦊\",\"\\ud800\"],[\"p\",\"value\"]]}")
+            .getStringRows("tags");
+        java.util.List<String> expected = Arrays.asList("t", "", "🦊", String.valueOf((char) 0xD800));
+        java.util.List<String> row = rows.get(0);
+        for (int repeat = 0; repeat < 20; repeat++) {
+            for (int index : new int[] { 3, 0, 2, 2, 1 }) assertEquals(expected.get(index), row.get(index));
+            assertEquals(expected, row);
+            assertEquals(expected.hashCode(), row.hashCode());
+            assertArrayEquals(expected.toArray(new String[0]), row.toArray(new String[0]));
+            assertEquals(expected.subList(1, 4), row.subList(1, 4));
+            java.util.ListIterator<String> iterator = row.listIterator(row.size());
+            for (int index = row.size() - 1; index >= 0; index--) assertEquals(expected.get(index), iterator.previous());
+        }
+        try {
+            row.subList(1, 3).clear();
+            throw new AssertionError("Mutable cached row sublist escaped");
+        } catch (UnsupportedOperationException expectedFailure) {
+            assertEquals(expected, row);
+        }
+        try {
+            rows.get(1).listIterator().add("changed");
+            throw new AssertionError("Mutable cached row iterator escaped");
+        } catch (UnsupportedOperationException expectedFailure) {
+            assertEquals(Arrays.asList("p", "value"), rows.get(1));
+        }
     }
 
     @JSBody(
