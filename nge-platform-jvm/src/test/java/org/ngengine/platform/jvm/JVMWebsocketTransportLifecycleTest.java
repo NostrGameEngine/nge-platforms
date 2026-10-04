@@ -71,7 +71,8 @@ public class JVMWebsocketTransportLifecycleTest {
 
     // The existing JVM test task enables loopback URI validation. A numeric
     // address avoids DNS and the controlled client never opens a connection.
-    private static final String URL = "ws://127.0.0.1:80/lifecycle";
+    // The controlled builder performs no network I/O; keep the real URI guard active.
+    private static final String URL = "ws://8.8.8.8:80/lifecycle";
 
     @Test(timeout = 10000)
     public void closeBeforeOpenCancelsAttemptAndAbortsLateOpen() throws Exception {
