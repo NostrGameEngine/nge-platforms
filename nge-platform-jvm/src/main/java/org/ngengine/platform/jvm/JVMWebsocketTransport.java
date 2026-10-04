@@ -33,16 +33,20 @@ package org.ngengine.platform.jvm;
 import static org.ngengine.platform.NGEUtils.dbg;
 
 import java.io.IOException;
+import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -55,6 +59,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
 
     private static final Logger logger = Logger.getLogger(JVMWebsocketTransport.class.getName());
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    private static final Duration CLOSE_TIMEOUT = Duration.ofSeconds(2);
     private static final int BUFFER_INITIAL_SIZE = 8192;
     private static final int BINARY_BUFFER_GROWTH_STEP = 16 * 1024;
 
@@ -68,18 +73,16 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     private final HttpClient httpClient;
     private final Executor executor;
 
-    private Object queueMonitor = new Object();
+    // Lifecycle, receive buffers and the send queue share a stable monitor.
+    private final Object lifecycleMonitor = new Object();
+    private ConnectionAttempt currentAttempt;
+    private final List<CompletableFuture<?>> queuedTasks = new ArrayList<>();
     private CompletableFuture<?> futureQueue = CompletableFuture.completedFuture(null);
 
     public JVMWebsocketTransport(JVMAsyncPlatform platform, Executor executor) {
         this.platform = platform;
-        this.executor = executor;
-        HttpClient.Builder b = HttpClient
-            .newBuilder()
-            .connectTimeout(CONNECT_TIMEOUT)
-            .followRedirects(HttpClient.Redirect.NEVER)
-            .executor(executor);
-        this.httpClient = b.build();
+        this.executor = Objects.requireNonNull(executor, "executor");
+        this.httpClient = platform.getWebsocketHttpClient();
     }
 
     @Override
@@ -113,102 +116,282 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
 
     public <T> AsyncTask<T> enqueue(BiConsumer<Consumer<T>, Consumer<Throwable>> task) {
         return platform.wrapPromise((res, rej) -> {
-            synchronized (queueMonitor) {
-                futureQueue =
-                    futureQueue.thenComposeAsync(
-                        r -> {
-                            CompletableFuture<T> future = new CompletableFuture<>();
+            CompletableFuture<T> result = new CompletableFuture<>();
+            result.whenComplete((value, error) -> {
+                synchronized (lifecycleMonitor) {
+                    queuedTasks.remove(result);
+                }
+                if (error == null) {
+                    res.accept(value);
+                } else {
+                    rej.accept(unwrap(error));
+                }
+            });
+            synchronized (lifecycleMonitor) {
+                queuedTasks.add(result);
+                try {
+                    // A failed send must not poison all following sends.
+                    CompletableFuture<?> previous = futureQueue;
+                    futureQueue = result;
+                    previous.handle((value, error) -> null).thenRunAsync(() -> {
+                        if (!result.isDone()) {
                             try {
-                                task.accept(
-                                    r0 -> {
-                                        future.complete(r0);
-                                        res.accept(r0);
-                                    },
-                                    e -> {
-                                        future.completeExceptionally(e);
-                                        rej.accept(e);
-                                    }
-                                );
-                            } catch (Exception e) {
-                                future.completeExceptionally(e);
+                                task.accept(result::complete, result::completeExceptionally);
+                            } catch (Throwable error) {
+                                result.completeExceptionally(error);
                             }
-                            return future;
-                        },
-                        executor
-                    );
+                        }
+                    }, executor).whenComplete((value, error) -> {
+                        if (error != null) {
+                            result.completeExceptionally(unwrap(error));
+                        }
+                    });
+                } catch (Throwable error) {
+                    result.completeExceptionally(error);
+                }
             }
         });
+    }
+
+    private static Throwable unwrap(Throwable error) {
+        return error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
+    }
+
+    // Called under lifecycleMonitor after detaching the old socket. Snapshot
+    // tasks so completion callbacks cannot modify the queue being retired.
+    private List<CompletableFuture<?>> resetBuffersAndQueue() {
+        messageBuffer.setLength(0);
+        binaryBuffer.clear();
+        List<CompletableFuture<?>> previousTasks = new ArrayList<>(queuedTasks);
+        queuedTasks.clear();
+        futureQueue = CompletableFuture.completedFuture(null);
+        return previousTasks;
+    }
+
+    private void rejectQueuedTasks(List<CompletableFuture<?>> tasks, Throwable error) {
+        for (CompletableFuture<?> task : tasks) {
+            task.completeExceptionally(error);
+        }
+    }
+
+    private void abort(WebSocket socket) {
+        if (socket != null) {
+            try {
+                socket.abort();
+            } catch (Throwable error) {
+                logger.log(Level.WARNING, "Failed to abort WebSocket", error);
+            }
+        }
+    }
+
+    private void abortStale(WebSocket socket) {
+        synchronized (lifecycleMonitor) {
+            if (socket != openWebSocket) {
+                abort(socket);
+            }
+        }
+    }
+
+    private void cleanup(WebSocket socket, String reason, boolean graceful) {
+        if (socket == null) {
+            return;
+        }
+        if (!graceful) {
+            abort(socket);
+            return;
+        }
+        try {
+            // Never wait behind the transport's send queue, including a failed
+            // or stalled send. Sending a close frame alone does not close input.
+            socket.sendClose(WebSocket.NORMAL_CLOSURE, reason != null ? reason : "Closed by client")
+                .orTimeout(CLOSE_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+                .whenComplete((value, error) -> abort(socket));
+        } catch (Throwable error) {
+            abort(socket);
+        }
+    }
+
+    // All callers hold lifecycleMonitor. Publish retirement before cancelling
+    // futures or notifying task continuations, which can reenter this transport.
+    private void retire(ConnectionAttempt attempt, Throwable error, String reason, boolean graceful) {
+        if (attempt == null || attempt.retired) {
+            return;
+        }
+        attempt.retired = true;
+        CompletableFuture<WebSocket> pending = attempt.pending;
+        WebSocket socket = attempt.socket;
+        attempt.pending = null;
+        attempt.socket = null;
+        if (openWebSocket == socket) {
+            openWebSocket = null;
+        }
+        List<CompletableFuture<?>> previousTasks = currentAttempt == attempt ? resetBuffersAndQueue() : List.of();
+        // Start physical cleanup before task continuations can run user code.
+        if (pending != null) {
+            pending.cancel(true);
+        }
+        cleanup(socket, reason, graceful);
+        rejectQueuedTasks(previousTasks, error);
+        attempt.result.completeExceptionally(error);
     }
 
     @Override
     public AsyncTask<Void> connect(String url) {
         logger.finest("Connecting to WebSocket: " + url);
-        return this.platform.wrapPromise((res, rej) -> {
-                try {
-                    httpClient
-                        .newWebSocketBuilder()
-                        .connectTimeout(CONNECT_TIMEOUT)
-                        .buildAsync(JVMNetworkSecurity.safeWebSocketUri(url), this)
-                        .handle((r, e) -> {
-                            if (e != null) {
-                                Throwable cause = (e instanceof CompletionException && e.getCause() != null) ? e.getCause() : e;
-                                rej.accept(cause);
-                            } else {
-                                logger.finest("WebSocket connected: " + url);
-                                res.accept(null);
-                            }
-                            return null;
-                        });
-                } catch (Throwable t) {
-                    logger.log(Level.WARNING, "WebSocket connect failed", t);
-                    rej.accept(t);
+        ConnectionAttempt attempt = new ConnectionAttempt();
+        synchronized (lifecycleMonitor) {
+            ConnectionAttempt previous = currentAttempt;
+            IOException replaced = new IOException("WebSocket connection replaced");
+            currentAttempt = attempt;
+            openWebSocket = null;
+            List<CompletableFuture<?>> previousTasks = resetBuffersAndQueue();
+            retire(previous, replaced, null, false);
+            rejectQueuedTasks(previousTasks, replaced);
+        }
+        AsyncTask<Void> task = platform.wrapPromise((res, rej) -> {
+            attempt.result.whenComplete((value, error) -> {
+                if (error == null) {
+                    res.accept(null);
+                } else {
+                    rej.accept(unwrap(error));
                 }
             });
+        });
+        try {
+            URI uri = JVMNetworkSecurity.safeWebSocketUri(url);
+            synchronized (lifecycleMonitor) {
+                if (currentAttempt != attempt || attempt.retired) {
+                    return task;
+                }
+            }
+            CompletableFuture<WebSocket> pending = httpClient.newWebSocketBuilder()
+                .connectTimeout(CONNECT_TIMEOUT).buildAsync(uri, attempt);
+            boolean stale;
+            synchronized (lifecycleMonitor) {
+                stale = currentAttempt != attempt || attempt.retired;
+                if (!stale) {
+                    attempt.pending = pending;
+                }
+            }
+            pending.whenComplete((socket, error) -> completeConnect(attempt, socket, error));
+            if (stale) {
+                pending.cancel(true);
+            }
+        } catch (Throwable error) {
+            synchronized (lifecycleMonitor) {
+                retire(attempt, error, null, false);
+            }
+        }
+        return task;
+    }
+
+    private void completeConnect(ConnectionAttempt attempt, WebSocket socket, Throwable error) {
+        synchronized (lifecycleMonitor) {
+            if (currentAttempt != attempt || attempt.retired) {
+                abortStale(socket);
+                return;
+            }
+            attempt.pending = null;
+            if (error != null) {
+                retire(attempt, unwrap(error), null, false);
+                abortStale(socket);
+            } else if (socket != null && (attempt.socket == null || attempt.socket == socket)) {
+                // buildAsync completion and the listener's onOpen can arrive
+                // in either order. Retain the socket so close can abort it even
+                // before onOpen has published the connected state.
+                attempt.socket = socket;
+                attempt.result.complete(null);
+            } else {
+                retire(attempt, new IOException("Unexpected WebSocket connect result"), null, false);
+                abortStale(socket);
+            }
+        }
     }
 
     @Override
     public AsyncTask<Void> close(String reason) {
         logger.finest("Closing WebSocket: " + reason);
+        synchronized (lifecycleMonitor) {
+            ConnectionAttempt attempt = currentAttempt;
+            if (attempt != null && !attempt.retired) {
+                retire(attempt, new IOException("WebSocket closed by client"), reason, true);
+                for (WebsocketTransportListener listener : listeners) {
+                    if (currentAttempt != attempt) {
+                        break;
+                    }
+                    try {
+                        listener.onConnectionClosedByClient(reason);
+                    } catch (Exception error) {
+                        logger.warning("Error in close listener: " + error);
+                    }
+                }
+            }
+        }
+        return platform.wrapPromise((res, rej) -> res.accept(null));
+    }
 
-        WebSocket ws = this.openWebSocket;
-        this.openWebSocket = null;
+    private final class ConnectionAttempt implements WebSocket.Listener {
+        private final CompletableFuture<Void> result = new CompletableFuture<>();
+        private CompletableFuture<WebSocket> pending;
+        private WebSocket socket;
+        private boolean opened;
+        private boolean retired;
 
-        for (WebsocketTransportListener listener : listeners) {
-            try {
-                listener.onConnectionClosedByClient(reason);
-            } catch (Exception e) {
-                logger.warning("Error in close listener: " + e);
+        @Override
+        public void onOpen(WebSocket webSocket) {
+            open(this, webSocket);
+        }
+
+        @Override
+        public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
+            return JVMWebsocketTransport.this.onText(webSocket, data, last);
+        }
+
+        @Override
+        public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
+            return JVMWebsocketTransport.this.onBinary(webSocket, data, last);
+        }
+
+        @Override
+        public CompletionStage<?> onPing(WebSocket webSocket, ByteBuffer message) {
+            synchronized (lifecycleMonitor) {
+                if (currentAttempt != this || retired || openWebSocket != webSocket) {
+                    abortStale(webSocket);
+                    return CompletableFuture.completedFuture(null);
+                }
+                return WebSocket.Listener.super.onPing(webSocket, message);
             }
         }
 
-        if (ws != null) {
-            enqueue((res, rej) -> {
-                try {
-                    final String r = reason != null ? reason : "Closed by client";
-                    ws
-                        .sendClose(WebSocket.NORMAL_CLOSURE, r)
-                        .handle((result, error) -> {
-                            if (error != null) {
-                                rej.accept(error);
-                            } else {
-                                res.accept(null);
-                            }
-                            return null;
-                        });
-                } catch (Exception e) {
-                    rej.accept(e);
+        @Override
+        public CompletionStage<?> onPong(WebSocket webSocket, ByteBuffer message) {
+            synchronized (lifecycleMonitor) {
+                if (currentAttempt != this || retired || openWebSocket != webSocket) {
+                    abortStale(webSocket);
+                    return CompletableFuture.completedFuture(null);
                 }
-            });
+                return WebSocket.Listener.super.onPong(webSocket, message);
+            }
         }
 
-        return platform.wrapPromise((res, rej) -> {
-            res.accept(null);
-        });
+        @Override
+        public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
+            return closed(this, webSocket, statusCode, reason);
+        }
+
+        @Override
+        public void onError(WebSocket webSocket, Throwable error) {
+            failed(this, webSocket, error);
+        }
     }
 
     @Override
     public CompletionStage<?> onText(WebSocket webSocket, CharSequence data, boolean last) {
-        synchronized (messageBuffer) {
+        synchronized (lifecycleMonitor) {
+            if (webSocket != openWebSocket || webSocket == null) {
+                abortStale(webSocket);
+                return CompletableFuture.completedFuture(null);
+            }
             messageBuffer.append(data);
             int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
             if (messageBuffer.length() > effectiveMaxMessageSize) {
@@ -222,6 +405,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 String message = messageBuffer.toString();
                 messageBuffer.setLength(0);
                 for (WebsocketTransportListener listener : listeners) {
+                    if (openWebSocket != webSocket) {
+                        break;
+                    }
                     try {
                         listener.onConnectionMessage(message);
                     } catch (Exception e) {
@@ -229,14 +415,20 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     }
                 }
             }
+            if (openWebSocket == webSocket) {
+                webSocket.request(1);
+            }
+            return null;
         }
-        webSocket.request(1);
-        return WebSocket.Listener.super.onText(webSocket, data, last);
     }
 
     @Override
     public CompletionStage<?> onBinary(WebSocket webSocket, ByteBuffer data, boolean last) {
-        synchronized (binaryBuffer) {
+        synchronized (lifecycleMonitor) {
+            if (webSocket != openWebSocket || webSocket == null) {
+                abortStale(webSocket);
+                return CompletableFuture.completedFuture(null);
+            }
             ensureBinaryCapacity(binaryBuffer.position() + data.remaining());
             binaryBuffer.put(data);
 
@@ -246,6 +438,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 message.flip();
                 binaryBuffer.clear();
                 for (WebsocketTransportListener listener : listeners) {
+                    if (openWebSocket != webSocket) {
+                        break;
+                    }
                     try {
                         listener.onConnectionBinaryMessage(message.asReadOnlyBuffer());
                     } catch (Exception e) {
@@ -253,9 +448,11 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     }
                 }
             }
+            if (openWebSocket == webSocket) {
+                webSocket.request(1);
+            }
+            return null;
         }
-        webSocket.request(1);
-        return WebSocket.Listener.super.onBinary(webSocket, data, last);
     }
 
     private void ensureBinaryCapacity(int requiredCapacity) {
@@ -280,66 +477,119 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
 
     @Override
     public void onOpen(WebSocket webSocket) {
-        logger.finest("WebSocket opened");
-        assert this.openWebSocket == null : "WebSocket already open";
-        this.openWebSocket = webSocket;
-        for (WebsocketTransportListener listener : listeners) {
-            try {
-                listener.onConnectionOpen();
-            } catch (Exception e) {
-                logger.warning("Error in open listener: " + e);
+        // Only the listener bound to a buildAsync attempt may attach a socket.
+        // This legacy Listener entry point cannot identify a pending attempt.
+        abortStale(webSocket);
+    }
+
+    private void open(ConnectionAttempt attempt, WebSocket webSocket) {
+        synchronized (lifecycleMonitor) {
+            if (attempt == null || currentAttempt != attempt || attempt.retired) {
+                abortStale(webSocket);
+                return;
+            }
+            if (attempt.socket != null && attempt.socket != webSocket) {
+                abortStale(webSocket);
+                return;
+            }
+            if (attempt.opened) {
+                return;
+            }
+            logger.finest("WebSocket opened");
+            attempt.socket = webSocket;
+            attempt.opened = true;
+            openWebSocket = webSocket;
+            for (WebsocketTransportListener listener : listeners) {
+                if (currentAttempt != attempt || attempt.retired) {
+                    break;
+                }
+                try {
+                    listener.onConnectionOpen();
+                } catch (Exception error) {
+                    logger.warning("Error in open listener: " + error);
+                }
+            }
+            if (currentAttempt == attempt && !attempt.retired) {
+                webSocket.request(1);
             }
         }
-        webSocket.request(1);
     }
 
     @Override
     public CompletionStage<?> onClose(WebSocket webSocket, int statusCode, String reason) {
-        logger.finest("WebSocket closed: " + statusCode + " " + reason);
-        if (openWebSocket != null) {
-            this.openWebSocket = null;
+        synchronized (lifecycleMonitor) {
+            return closed(currentAttempt, webSocket, statusCode, reason);
+        }
+    }
+
+    private CompletionStage<?> closed(ConnectionAttempt attempt, WebSocket webSocket, int statusCode, String reason) {
+        synchronized (lifecycleMonitor) {
+            if (attempt == null || currentAttempt != attempt || attempt.retired ||
+                webSocket == null || attempt.socket != webSocket) {
+                abortStale(webSocket);
+                return CompletableFuture.completedFuture(null);
+            }
+            logger.finest("WebSocket closed: " + statusCode + " " + reason);
+            retire(attempt, new IOException("WebSocket closed by server: " + reason), null, false);
             for (WebsocketTransportListener listener : listeners) {
+                if (currentAttempt != attempt) {
+                    break;
+                }
                 try {
                     listener.onConnectionClosedByServer(reason);
-                } catch (Exception e) {
-                    logger.warning("Error in close listener: " + e);
+                } catch (Exception error) {
+                    logger.warning("Error in close listener: " + error);
                 }
             }
+            return CompletableFuture.completedFuture(null);
         }
-        return WebSocket.Listener.super.onClose(webSocket, statusCode, reason);
     }
 
     @Override
     public void onError(WebSocket webSocket, Throwable error) {
-        logger.warning("WebSocket error: " + error);
-        for (WebsocketTransportListener listener : listeners) {
-            try {
-                listener.onConnectionError(error);
-            } catch (Exception e) {
-                logger.warning("Error in error listener: " + e);
+        synchronized (lifecycleMonitor) {
+            if (webSocket != null && openWebSocket == webSocket) {
+                failed(currentAttempt, webSocket, error);
+            } else {
+                abortStale(webSocket);
             }
         }
+    }
 
-        if (webSocket != null && !webSocket.isOutputClosed()) {
-            try {
-                webSocket.sendClose(WebSocket.NORMAL_CLOSURE, "Connection error: " + error.getMessage());
-            } catch (Exception e) {
-                logger.warning("Failed to send close frame on error: " + e);
+    private void failed(ConnectionAttempt attempt, WebSocket webSocket, Throwable error) {
+        synchronized (lifecycleMonitor) {
+            if (attempt == null || currentAttempt != attempt || attempt.retired ||
+                (attempt.socket != null && attempt.socket != webSocket)) {
+                abortStale(webSocket);
+                return;
             }
-        }
-
-        if (this.openWebSocket != null) {
-            this.openWebSocket = null;
+            logger.warning("WebSocket error: " + error);
+            boolean wasOpen = attempt.opened;
+            retire(attempt, error, null, false);
+            abortStale(webSocket);
             for (WebsocketTransportListener listener : listeners) {
+                if (currentAttempt != attempt) {
+                    break;
+                }
                 try {
-                    listener.onConnectionClosedByServer("lost connection");
-                } catch (Exception e) {
-                    logger.warning("Error in close listener: " + e);
+                    listener.onConnectionError(error);
+                } catch (Exception listenerError) {
+                    logger.warning("Error in error listener: " + listenerError);
+                }
+            }
+            if (wasOpen) {
+                for (WebsocketTransportListener listener : listeners) {
+                    if (currentAttempt != attempt) {
+                        break;
+                    }
+                    try {
+                        listener.onConnectionClosedByServer("lost connection");
+                    } catch (Exception listenerError) {
+                        logger.warning("Error in close listener: " + listenerError);
+                    }
                 }
             }
         }
-
-        WebSocket.Listener.super.onError(webSocket, error);
     }
 
     @Override
@@ -358,6 +608,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     final int totalBytes = source.remaining();
                     if (totalBytes <= effectiveMaxMessageSize) {
                         enqueue((rs0, rj0) -> {
+                            if (ws != openWebSocket) {
+                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                            }
                             assert dbg(() -> {
                                 logger.finest("Sending full binary message: " + totalBytes);
                             });
@@ -373,9 +626,12 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                     }
                                     return null;
                                 });
-                        });
+                        }).catchException(rej);
                     } else {
                         enqueue((rs0, rj0) -> {
+                            if (ws != openWebSocket) {
+                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                            }
                             CompletableFuture<WebSocket> future = CompletableFuture.completedFuture(null);
                             while (source.hasRemaining()) {
                                 int chunkSize = Math.min(source.remaining(), effectiveMaxMessageSize);
@@ -386,6 +642,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                 future =
                                     future.thenComposeAsync(
                                         r -> {
+                                            if (ws != openWebSocket) {
+                                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                                            }
                                             return ws.sendBinary(chunk, isLast);
                                         },
                                         executor
@@ -401,7 +660,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                 }
                                 return null;
                             });
-                        });
+                        }).catchException(rej);
                     }
                 } catch (Exception e) {
                     rej.accept(e);
@@ -426,10 +685,11 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                     final int effectiveMaxMessageSize = getEffectiveMaxMessageSize();
                     int messageLength = message.length();
                     // Send entirely or in chunks if needed
-                    // note: we don't need to wait for the message to be sent
-                    // as long as it is enqueued we can assume it is sent
                     if (messageLength <= effectiveMaxMessageSize) {
                         enqueue((rs0, rj0) -> {
+                            if (ws != openWebSocket) {
+                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                            }
                             assert dbg(() -> {
                                 logger.finest("Sending full message: " + message.length());
                             });
@@ -445,9 +705,12 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                     }
                                     return null;
                                 });
-                        });
+                        }).catchException(rej);
                     } else {
                         enqueue((rs0, rj0) -> {
+                            if (ws != openWebSocket) {
+                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                            }
                             int position = 0;
                             CompletableFuture<WebSocket> future = CompletableFuture.completedFuture(null);
                             while (position < messageLength) {
@@ -463,6 +726,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                 future =
                                     future.thenComposeAsync(
                                         r -> {
+                                            if (ws != openWebSocket) {
+                                                throw new IllegalStateException("WebSocket connection replaced or closed");
+                                            }
                                             return ws.sendText(chunk, isLast);
                                         },
                                         executor
@@ -479,7 +745,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                                 }
                                 return null;
                             });
-                        });
+                        }).catchException(rej);
                     }
                 } catch (Exception e) {
                     rej.accept(e);

@@ -92,6 +92,7 @@ public class JVMWebsocketTransportUnitTest {
             }
         );
         RecordingWebSocket socket = new RecordingWebSocket();
+        setField(transport, "openWebSocket", socket);
 
         for (int i = 0; i < STRESS_MESSAGES; i++) {
             transport.onText(socket, "rx:" + i, true);

@@ -954,10 +954,32 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     protected ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
+    // One client per platform, independent of individual transport executors.
+    // HTTP fetch clients retain their existing configuration and ownership.
+    private HttpClient websocketHttpClient;
+
+    synchronized HttpClient getWebsocketHttpClient() {
+        if (websocketHttpClient == null) {
+            websocketHttpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(2))
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .executor(executor)
+                .build();
+        }
+        return websocketHttpClient;
+    }
+
+    private synchronized void shutdownWebsocketHttpClient() {
+        if (websocketHttpClient != null) {
+            websocketHttpClient.shutdownNow();
+        }
+    }
+
     {
         Thread shutdownHook = new Thread(
             () -> {
                 logger.fine("Shutting down executor service...");
+                shutdownWebsocketHttpClient();
                 executor.shutdownNow();
             },
             "nge-jvm-async-shutdown-hook"
