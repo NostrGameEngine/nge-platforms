@@ -300,7 +300,10 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
                 // in either order. Retain the socket so close can abort it even
                 // before onOpen has published the connected state.
                 attempt.socket = socket;
-                attempt.result.complete(null);
+                attempt.handshakeCompleted = true;
+                if (attempt.opened) {
+                    attempt.result.complete(null);
+                }
             } else {
                 retire(attempt, new IOException("Unexpected WebSocket connect result"), null, false);
                 abortStale(socket);
@@ -335,6 +338,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         private CompletableFuture<WebSocket> pending;
         private WebSocket socket;
         private boolean opened;
+        private boolean handshakeCompleted;
         private boolean retired;
 
         @Override
@@ -511,6 +515,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
             }
             if (currentAttempt == attempt && !attempt.retired) {
                 webSocket.request(1);
+                if (attempt.handshakeCompleted) {
+                    attempt.result.complete(null);
+                }
             }
         }
     }

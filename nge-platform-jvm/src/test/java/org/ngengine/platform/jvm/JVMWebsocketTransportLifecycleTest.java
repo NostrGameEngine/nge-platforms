@@ -299,9 +299,10 @@ public class JVMWebsocketTransportLifecycleTest {
         Attempt first = fixture.client.attempts.get(0);
         RecordingSocket socket = new RecordingSocket();
         first.future.complete(socket);
-        assertSucceeded(connect);
+        assertFalse("A successful connect must expose an opened, send-ready socket", connect.isDone());
         assertFalse(fixture.transport.isConnected());
         fixture.transport.close("completed before open").await();
+        assertFailed(connect);
         assertTrue(socket.aborted.isDone());
         first.listener.onOpen(socket);
         assertFalse(fixture.transport.isConnected());
@@ -311,12 +312,15 @@ public class JVMWebsocketTransportLifecycleTest {
         Attempt second = fixture.client.attempts.get(1);
         RecordingSocket current = new RecordingSocket();
         second.future.complete(current);
-        assertSucceeded(replacement);
+        assertFalse(replacement.isDone());
         second.listener.onOpen(current);
+        assertSucceeded(replacement);
         second.listener.onOpen(current); // duplicate open must not notify twice
         assertTrue(fixture.transport.isConnected());
         assertEquals(1, fixture.events.opens);
         assertFalse(current.aborted.isDone());
+        fixture.transport.send("ready").await();
+        assertEquals(List.of("T:ready:true"), current.sent);
         fixture.transport.close("cleanup").await();
     }
 
