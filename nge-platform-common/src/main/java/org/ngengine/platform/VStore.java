@@ -35,6 +35,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,10 +45,22 @@ public class VStore {
 
     private static final Logger logger = Logger.getLogger(VStore.class.getName());
 
+    /** Maximum complete value accepted by conditional creation; existing write APIs are unchanged. */
+    public static final int MAX_CREATE_IF_ABSENT_BYTES = 64 * 1024;
+
     public interface VStoreBackend {
         AsyncTask<InputStream> read(String path);
 
         AsyncTask<OutputStream> write(String path);
+
+        /**
+         * Atomically publishes a complete value only if no target entry exists. The input remains
+         * owned by the caller until the returned private task settles; implementations must not
+         * retain it afterwards. Unsupported backends must fail, never emulate exists-then-write.
+         */
+        default AsyncTask<Boolean> createIfAbsent(String path, byte[] completeValue) {
+            return AsyncTask.failed(new UnsupportedOperationException("Conditional store creation unsupported"));
+        }
 
         AsyncTask<Boolean> exists(String path);
 
@@ -87,6 +102,61 @@ public class VStore {
                     })
                     .catchException(rej);
             });
+    }
+
+    /**
+     * Creates a complete value without replacing any existing target entry. True means this call
+     * published the value; false means an entry already exists. IO failures remain failures, and a
+     * failed call may have published a complete value before a subsequent durability/cleanup error.
+     *
+     * The value is copied before queueing and limited to {@link #MAX_CREATE_IF_ABSENT_BYTES} bytes.
+     * Only the private copy is erased after backend completion. Cancelling the returned view does
+     * not cancel the private publication, which may still commit. This is ordinary desktop storage,
+     * not a vault against privileged processes or host access-control administration.
+     */
+    public AsyncTask<Boolean> createIfAbsent(String path, byte[] completeValue) {
+        Objects.requireNonNull(path, "Store path required");
+        Objects.requireNonNull(completeValue, "Complete store value required");
+        if (completeValue.length > MAX_CREATE_IF_ABSENT_BYTES) {
+            throw new IllegalArgumentException("Conditional store value exceeds limit");
+        }
+        byte[] snapshot = Arrays.copyOf(completeValue, completeValue.length);
+        AtomicBoolean started = new AtomicBoolean();
+        AtomicBoolean settled = new AtomicBoolean();
+        try {
+            AsyncTask<Boolean> privateTask = NGEPlatform.get().getVStoreQueue().enqueue((resolve, reject) -> {
+                started.set(true);
+                AsyncTask<Boolean> publication;
+                try {
+                    publication = Objects.requireNonNull(backend.createIfAbsent(path, snapshot));
+                } catch (Throwable failure) {
+                    Arrays.fill(snapshot, (byte) 0);
+                    settled.set(true);
+                    reject.accept(failure);
+                    return;
+                }
+                publication.then(created -> {
+                    Objects.requireNonNull(created, "Conditional store result required");
+                    if (settled.compareAndSet(false, true)) {
+                        Arrays.fill(snapshot, (byte) 0);
+                        resolve.accept(created);
+                    }
+                    return null;
+                }).catchException(failure -> {
+                    if (settled.compareAndSet(false, true)) {
+                        Arrays.fill(snapshot, (byte) 0);
+                        reject.accept(failure);
+                    }
+                });
+            });
+            privateTask.catchException(failure -> {
+                if (!started.get() && settled.compareAndSet(false, true)) Arrays.fill(snapshot, (byte) 0);
+            });
+            return privateTask.then(created -> created);
+        } catch (RuntimeException | Error failure) {
+            if (!started.get()) Arrays.fill(snapshot, (byte) 0);
+            throw failure;
+        }
     }
 
     public AsyncTask<Boolean> exists(String path) {

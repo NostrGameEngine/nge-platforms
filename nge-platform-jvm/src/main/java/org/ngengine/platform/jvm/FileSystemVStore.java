@@ -35,22 +35,44 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.NoSuchFileException;
+import java.nio.file.LinkOption;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFileAttributeView;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import java.util.Arrays;
+import java.util.Objects;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
+import org.ngengine.platform.VStore;
 import org.ngengine.platform.VStore.VStoreBackend;
 
 public class FileSystemVStore implements VStoreBackend {
 
     private final AsyncExecutor executor;
     private final Path basePath;
+    private final LinkPublisher linkPublisher;
+    private final DirectoryForce directoryForce;
+
+    @FunctionalInterface interface LinkPublisher { void publish(Path target, Path completeTemporary) throws IOException; }
+    @FunctionalInterface interface DirectoryForce { void force(Path parent) throws IOException; }
 
     public FileSystemVStore(Path basePath) {
-        this.basePath = basePath;
+        this(basePath, Files::createLink, FileSystemVStore::forceDirectoryWhereSupported);
+    }
+
+    FileSystemVStore(Path basePath, LinkPublisher linkPublisher, DirectoryForce directoryForce) {
+        this.basePath = Objects.requireNonNull(basePath);
+        this.linkPublisher = Objects.requireNonNull(linkPublisher);
+        this.directoryForce = Objects.requireNonNull(directoryForce);
         NGEPlatform platform = NGEPlatform.get();
         this.executor = platform.newAsyncExecutor(VStoreBackend.class);
     }
@@ -89,6 +111,81 @@ public class FileSystemVStore implements VStoreBackend {
                 },
                 executor
             );
+    }
+
+    /**
+     * Publishes a fully synced temporary file with an atomic hard-link create, never a replacing
+     * move. Independent processes therefore elect one complete winner. POSIX-capable file stores
+     * use 0600 temporary files and force parent-directory entries; other providers retain their
+     * normal desktop creation ACL and filesystem-dependent directory crash durability. Unsupported
+     * hard links or IO/cleanup/force failures are errors. A visible target is never removed on error.
+     * Cancellation of the returned view does not withdraw the private commit.
+     */
+    @Override
+    public AsyncTask<Boolean> createIfAbsent(String path, byte[] completeValue) {
+        Objects.requireNonNull(path, "Store path required");
+        Objects.requireNonNull(completeValue, "Complete store value required");
+        if (completeValue.length > VStore.MAX_CREATE_IF_ABSENT_BYTES) {
+            throw new IllegalArgumentException("Conditional store value exceeds limit");
+        }
+        byte[] snapshot = Arrays.copyOf(completeValue, completeValue.length);
+        try {
+            AsyncTask<Boolean> privateTask = NGEPlatform.get().promisify((resolve, reject) -> {
+                try {
+                    boolean created = publishIfAbsent(path, snapshot);
+                    Arrays.fill(snapshot, (byte) 0);
+                    resolve.accept(created);
+                } catch (Throwable failure) {
+                    Arrays.fill(snapshot, (byte) 0);
+                    reject.accept(failure);
+                }
+            }, executor);
+            // Also cover submission rejection, where the worker body never takes ownership.
+            privateTask.catchException(failure -> Arrays.fill(snapshot, (byte) 0));
+            if (privateTask.isFailed()) Arrays.fill(snapshot, (byte) 0);
+            return privateTask.then(created -> created);
+        } catch (RuntimeException | Error failure) {
+            Arrays.fill(snapshot, (byte) 0);
+            throw failure;
+        }
+    }
+
+    private boolean publishIfAbsent(String path, byte[] snapshot) throws IOException {
+        Path target = Util.safePath(basePath, path, true);
+        try {
+            Files.readAttributes(target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS);
+            return false;
+        } catch (NoSuchFileException absent) { /* only actual absence is eligible for creation */ }
+        Path parent = target.getParent();
+        directoryForce.force(parent);
+        Path temporary = Files.getFileStore(parent).supportsFileAttributeView(PosixFileAttributeView.class)
+                ? Files.createTempFile(parent, ".vstore-create-", ".tmp",
+                        PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")))
+                : Files.createTempFile(parent, ".vstore-create-", ".tmp");
+        try {
+            try (FileOutputStream output = new FileOutputStream(temporary.toFile())) {
+                output.write(snapshot);
+                output.getFD().sync();
+            }
+            try {
+                linkPublisher.publish(target, temporary);
+                return true;
+            } catch (FileAlreadyExistsException competing) {
+                return false;
+            }
+        } finally {
+            // Delete only this operation's unique temporary name; never repair or delete the target.
+            Files.delete(temporary);
+            directoryForce.force(parent);
+        }
+    }
+
+    private static void forceDirectoryWhereSupported(Path parent) throws IOException {
+        if (Files.getFileStore(parent).supportsFileAttributeView(PosixFileAttributeView.class)) {
+            try (FileChannel directory = FileChannel.open(parent, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS)) {
+                directory.force(true);
+            }
+        }
     }
 
     @Override
