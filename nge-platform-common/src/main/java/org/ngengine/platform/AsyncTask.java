@@ -48,6 +48,16 @@ public interface AsyncTask<T> {
     AsyncTask<T> catchException(Consumer<Throwable> func2);
 
     /**
+     * Observes the original task's terminal result without executor submission or creating a
+     * cancellable child. Exactly one consumer is called, including for cancellation, possibly
+     * inline during registration or on the completing thread. Consumers must be short and must
+     * not throw; their failures do not alter this task. Unsupported implementations fail explicitly.
+     */
+    default void observeCompletion(Consumer<T> success, Consumer<Throwable> failure) {
+        throw new UnsupportedOperationException("Direct task completion observation unsupported");
+    }
+
+    /**
      * Blocks the current thread and awaits all the provided AsyncTask instances to complete and returns a list of their results.
      * If any of the AsyncTask instances fails, an exception is thrown.
      *

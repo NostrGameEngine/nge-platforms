@@ -135,24 +135,31 @@ public class VStore {
                     reject.accept(failure);
                     return;
                 }
-                publication.then(created -> {
-                    Objects.requireNonNull(created, "Conditional store result required");
-                    if (settled.compareAndSet(false, true)) {
-                        Arrays.fill(snapshot, (byte) 0);
-                        resolve.accept(created);
-                    }
-                    return null;
-                }).catchException(failure -> {
-                    if (settled.compareAndSet(false, true)) {
-                        Arrays.fill(snapshot, (byte) 0);
-                        reject.accept(failure);
-                    }
-                });
+                try {
+                    publication.observeCompletion(created -> {
+                        if (settled.compareAndSet(false, true)) {
+                            Arrays.fill(snapshot, (byte) 0);
+                            if (created == null) reject.accept(new NullPointerException("Conditional store result required"));
+                            else resolve.accept(created);
+                        }
+                    }, failure -> {
+                        if (settled.compareAndSet(false, true)) {
+                            Arrays.fill(snapshot, (byte) 0);
+                            reject.accept(failure);
+                        }
+                    });
+                } catch (Throwable unsupportedObservation) {
+                    // An unsupported observer is an error, never an executor-affine approximation.
+                    // Do not erase memory still owned by a backend whose completion is unobservable.
+                    if (publication.isDone() && settled.compareAndSet(false, true)) Arrays.fill(snapshot, (byte) 0);
+                    reject.accept(unsupportedObservation);
+                }
             });
-            privateTask.catchException(failure -> {
+            privateTask.observeCompletion(ignored -> {}, failure -> {
                 if (!started.get() && settled.compareAndSet(false, true)) Arrays.fill(snapshot, (byte) 0);
             });
-            return privateTask.then(created -> created);
+            // A separate no-affinity promise keeps caller cancellation away from the private queue.
+            return NGEPlatform.get().wrapPromise((resolve, reject) -> privateTask.observeCompletion(resolve, reject));
         } catch (RuntimeException | Error failure) {
             if (!started.get()) Arrays.fill(snapshot, (byte) 0);
             throw failure;

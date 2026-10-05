@@ -937,6 +937,17 @@ public class JVMAsyncPlatform extends NGEPlatform {
             }
 
             @Override
+            public void observeCompletion(Consumer<T> success, Consumer<Throwable> failure) {
+                Objects.requireNonNull(success, "Success observer required");
+                Objects.requireNonNull(failure, "Failure observer required");
+                // Direct observation must survive rejection/shutdown of this task's executor.
+                fut.whenComplete((result, exception) -> {
+                    if (exception == null) success.accept(result);
+                    else failure.accept(normalize(exception));
+                });
+            }
+
+            @Override
             public void cancel() {
                 if (cancelled) {
                     return;

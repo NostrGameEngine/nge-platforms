@@ -46,6 +46,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.junit.Rule;
 import org.junit.Test;
@@ -235,6 +237,75 @@ public class FileSystemVStoreCreateTest {
         assertFalse(Files.exists(base.resolve("identity.bin"))); assertNoTemporary(base);
     }
 
+    @Test(timeout = 10000)
+    public void rejectedJvmSubmissionSettlesPublicTaskErasesSnapshotsAndAdvancesQueue() throws Exception {
+        Path base = temporary.newFolder("rejected-executor").toPath();
+        JVMAsyncPlatform platform = new JVMAsyncPlatform();
+        AtomicReference<byte[]> privateSnapshot = new AtomicReference<>();
+        ControlledBackend following = new ControlledBackend();
+        byte[] caller = value(32, 111);
+        try {
+            platform.executor.shutdown();
+            FileSystemVStore provider = new FileSystemVStore(base, Files::createLink,
+                    FileSystemVStoreCreateTest::forceDirectory, platform, privateSnapshot::set);
+            CapturingBackend backend = new CapturingBackend(provider);
+            AsyncTask<Boolean> rejected = new VStore(backend).createIfAbsent("identity.bin", caller);
+            assertThrows(RejectedExecutionException.class, rejected::await);
+            assertTrue(rejected.isFailed());
+            assertArrayEquals(new byte[32], backend.received);
+            assertArrayEquals(new byte[32], privateSnapshot.get());
+            assertArrayEquals(value(32, 111), caller);
+            assertFalse(Files.exists(base.resolve("identity.bin"))); assertNoTemporary(base);
+            AsyncTask<Boolean> next = new VStore(following).createIfAbsent("following.bin", value(1, 112));
+            assertTrue(following.entered.await(2, TimeUnit.SECONDS)); following.commit(); assertTrue(next.await());
+            // Direct observers also normalize wrapped errors and run after their executor rejects.
+            IOException failure = new IOException("Synthetic normalized direct failure");
+            AtomicReference<Throwable> observed = new AtomicReference<>();
+            platform.wrapPromise((resolve, reject) -> reject.accept(new java.util.concurrent.CompletionException(failure)))
+                    .observeCompletion(ignored -> fail("Failure must not reach success observer"), observed::set);
+            assertSame(failure, observed.get());
+        } finally {
+            following.finishIfPending(); platform.executor.shutdownNow();
+            assertTrue(platform.executor.awaitTermination(2, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test(timeout = 10000)
+    public void shutdownAfterPublicationStillForwardsCompletionAndErasesOnlySettledSnapshots() throws Exception {
+        Path base = temporary.newFolder("late-executor-shutdown").toPath();
+        JVMAsyncPlatform platform = new JVMAsyncPlatform();
+        CountDownLatch published = new CountDownLatch(1), release = new CountDownLatch(1);
+        AtomicReference<byte[]> privateSnapshot = new AtomicReference<>();
+        ControlledBackend following = new ControlledBackend();
+        byte[] caller = value(32, 121);
+        try {
+            FileSystemVStore provider = new FileSystemVStore(base, (target, complete) -> {
+                Files.createLink(target, complete);
+                assertArrayEquals(value(32, 121), Files.readAllBytes(target));
+                published.countDown();
+                try { if (!release.await(5, TimeUnit.SECONDS)) throw new IOException("Fixture completion release expired"); }
+                catch (InterruptedException interrupted) { Thread.currentThread().interrupt(); throw new IOException(interrupted); }
+            }, FileSystemVStoreCreateTest::forceDirectory, platform, privateSnapshot::set);
+            CapturingBackend backend = new CapturingBackend(provider);
+            AsyncTask<Boolean> result = new VStore(backend).createIfAbsent("identity.bin", caller);
+            assertTrue(published.await(2, TimeUnit.SECONDS));
+            AsyncTask<Boolean> next = new VStore(following).createIfAbsent("following.bin", value(1, 122));
+            assertEquals(1L, following.entered.getCount()); assertFalse(result.isDone());
+            assertArrayEquals(caller, backend.received); assertArrayEquals(caller, privateSnapshot.get());
+            // The worker is live but no new observer dispatch can be submitted to its executor.
+            platform.executor.shutdown(); release.countDown();
+            assertTrue(result.await()); assertTrue(result.isSuccess());
+            assertTrue(following.entered.await(2, TimeUnit.SECONDS)); following.commit(); assertTrue(next.await());
+            assertArrayEquals(new byte[32], backend.received);
+            assertArrayEquals(new byte[32], privateSnapshot.get());
+            assertArrayEquals(value(32, 121), caller);
+            assertArrayEquals(caller, Files.readAllBytes(base.resolve("identity.bin"))); assertNoTemporary(base);
+        } finally {
+            release.countDown(); following.finishIfPending(); platform.executor.shutdownNow();
+            assertTrue(platform.executor.awaitTermination(2, TimeUnit.SECONDS));
+        }
+    }
+
     private static byte[] value(int size, int marker) { byte[] bytes = new byte[size]; Arrays.fill(bytes, (byte) marker); return bytes; }
     private static void assertNoTemporary(Path base) throws IOException {
         try (DirectoryStream<Path> entries = Files.newDirectoryStream(base, ".vstore-create-*.tmp")) { assertFalse(entries.iterator().hasNext()); }
@@ -251,6 +322,15 @@ public class FileSystemVStoreCreateTest {
         @Override public AsyncTask<Boolean> exists(String path) { return AsyncTask.failed(new UnsupportedOperationException()); }
         @Override public AsyncTask<Void> delete(String path) { return AsyncTask.failed(new UnsupportedOperationException()); }
         @Override public AsyncTask<List<String>> listAll() { return AsyncTask.failed(new UnsupportedOperationException()); }
+    }
+    private static final class CapturingBackend extends UnsupportedBackend {
+        private final FileSystemVStore delegate;
+        volatile byte[] received;
+        CapturingBackend(FileSystemVStore delegate) { this.delegate = delegate; }
+        @Override public AsyncTask<Boolean> createIfAbsent(String path, byte[] complete) {
+            received = complete;
+            return delegate.createIfAbsent(path, complete);
+        }
     }
     private static final class ControlledBackend extends UnsupportedBackend {
         final CountDownLatch entered = new CountDownLatch(1);

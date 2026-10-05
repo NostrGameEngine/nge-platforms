@@ -49,6 +49,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.Consumer;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -61,6 +62,8 @@ public class FileSystemVStore implements VStoreBackend {
     private final Path basePath;
     private final LinkPublisher linkPublisher;
     private final DirectoryForce directoryForce;
+    private final NGEPlatform publicationPlatform;
+    private final Consumer<byte[]> snapshotObserver;
 
     @FunctionalInterface interface LinkPublisher { void publish(Path target, Path completeTemporary) throws IOException; }
     @FunctionalInterface interface DirectoryForce { void force(Path parent) throws IOException; }
@@ -70,11 +73,18 @@ public class FileSystemVStore implements VStoreBackend {
     }
 
     FileSystemVStore(Path basePath, LinkPublisher linkPublisher, DirectoryForce directoryForce) {
+        this(basePath, linkPublisher, directoryForce, NGEPlatform.get(), ignored -> {});
+    }
+
+    // Disposable actual-JVM executor and borrowed-buffer observation for lifecycle fixtures.
+    FileSystemVStore(Path basePath, LinkPublisher linkPublisher, DirectoryForce directoryForce,
+                    NGEPlatform publicationPlatform, Consumer<byte[]> snapshotObserver) {
         this.basePath = Objects.requireNonNull(basePath);
         this.linkPublisher = Objects.requireNonNull(linkPublisher);
         this.directoryForce = Objects.requireNonNull(directoryForce);
-        NGEPlatform platform = NGEPlatform.get();
-        this.executor = platform.newAsyncExecutor(VStoreBackend.class);
+        this.publicationPlatform = Objects.requireNonNull(publicationPlatform);
+        this.snapshotObserver = Objects.requireNonNull(snapshotObserver);
+        this.executor = publicationPlatform.newAsyncExecutor(VStoreBackend.class);
     }
 
     @Override
@@ -130,20 +140,20 @@ public class FileSystemVStore implements VStoreBackend {
         }
         byte[] snapshot = Arrays.copyOf(completeValue, completeValue.length);
         try {
-            AsyncTask<Boolean> privateTask = NGEPlatform.get().promisify((resolve, reject) -> {
-                try {
-                    boolean created = publishIfAbsent(path, snapshot);
-                    Arrays.fill(snapshot, (byte) 0);
-                    resolve.accept(created);
-                } catch (Throwable failure) {
-                    Arrays.fill(snapshot, (byte) 0);
-                    reject.accept(failure);
-                }
+            snapshotObserver.accept(snapshot);
+            AsyncTask<Boolean> privateTask = publicationPlatform.promisify((resolve, reject) -> {
+                try { resolve.accept(publishIfAbsent(path, snapshot)); }
+                catch (Throwable failure) { reject.accept(failure); }
             }, executor);
-            // Also cover submission rejection, where the worker body never takes ownership.
-            privateTask.catchException(failure -> Arrays.fill(snapshot, (byte) 0));
-            if (privateTask.isFailed()) Arrays.fill(snapshot, (byte) 0);
-            return privateTask.then(created -> created);
+            // Observe the private task directly, including submission rejection or late shutdown.
+            // The caller gets a detached no-affinity promise, never an executor-affine then view.
+            return publicationPlatform.wrapPromise((resolve, reject) -> privateTask.observeCompletion(created -> {
+                Arrays.fill(snapshot, (byte) 0);
+                resolve.accept(created);
+            }, failure -> {
+                Arrays.fill(snapshot, (byte) 0);
+                reject.accept(failure);
+            }));
         } catch (RuntimeException | Error failure) {
             Arrays.fill(snapshot, (byte) 0);
             throw failure;
