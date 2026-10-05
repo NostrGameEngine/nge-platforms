@@ -32,7 +32,6 @@ package org.ngengine.platform.jvm;
 
 import static org.junit.Assert.assertEquals;
 
-import java.lang.reflect.Field;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -47,12 +46,10 @@ public class JVMWebsocketTransportUnitTest {
 
     @Test
     public void sendPreservesOrderUnderStressInBothDirections() throws Exception {
-        JVMWebsocketTransport transportA = new JVMWebsocketTransport(new JVMAsyncPlatform(), Runnable::run);
-        JVMWebsocketTransport transportB = new JVMWebsocketTransport(new JVMAsyncPlatform(), Runnable::run);
         RecordingWebSocket socketA = new RecordingWebSocket();
         RecordingWebSocket socketB = new RecordingWebSocket();
-        setField(transportA, "openWebSocket", socketA);
-        setField(transportB, "openWebSocket", socketB);
+        JVMWebsocketTransport transportA = JVMWebsocketTransportLifecycleTest.connectedTransport(socketA);
+        JVMWebsocketTransport transportB = JVMWebsocketTransportLifecycleTest.connectedTransport(socketB);
 
         for (int i = 0; i < STRESS_MESSAGES; i++) {
             transportA.send("a2b:" + i).await();
@@ -69,7 +66,8 @@ public class JVMWebsocketTransportUnitTest {
 
     @Test
     public void inboundTextCallbacksPreserveOrderUnderStress() throws Exception {
-        JVMWebsocketTransport transport = new JVMWebsocketTransport(new JVMAsyncPlatform(), Runnable::run);
+        RecordingWebSocket socket = new RecordingWebSocket();
+        JVMWebsocketTransport transport = JVMWebsocketTransportLifecycleTest.connectedTransport(socket);
         List<String> received = new ArrayList<>();
         transport.addListener(
             new WebsocketTransportListener() {
@@ -91,8 +89,6 @@ public class JVMWebsocketTransportUnitTest {
                 public void onConnectionError(Throwable e) {}
             }
         );
-        RecordingWebSocket socket = new RecordingWebSocket();
-        setField(transport, "openWebSocket", socket);
 
         for (int i = 0; i < STRESS_MESSAGES; i++) {
             transport.onText(socket, "rx:" + i, true);
@@ -102,12 +98,6 @@ public class JVMWebsocketTransportUnitTest {
         for (int i = 0; i < STRESS_MESSAGES; i++) {
             assertEquals("rx:" + i, received.get(i));
         }
-    }
-
-    private static void setField(Object target, String name, Object value) throws Exception {
-        Field f = target.getClass().getDeclaredField(name);
-        f.setAccessible(true);
-        f.set(target, value);
     }
 
     private static final class RecordingWebSocket implements WebSocket {

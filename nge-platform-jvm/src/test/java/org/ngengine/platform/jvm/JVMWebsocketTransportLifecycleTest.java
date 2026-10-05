@@ -825,16 +825,16 @@ public class JVMWebsocketTransportLifecycleTest {
     }
 
     @Test(timeout = 10000)
-    public void pingSendPongCallbackDoesNotHoldLifecycleMonitor() throws Exception {
+    public void pingRequestCallbackDoesNotHoldLifecycleMonitor() throws Exception {
         Fixture fixture = new Fixture();
         RecordingSocket socket = fixture.connect();
         CrossedLock crossed = new CrossedLock(fixture.transport);
-        socket.pongCallback = crossed::callback;
+        socket.requestCallback = crossed::callback;
         runCrossedLock(crossed,
             () -> fixture.client.attempts.get(0).listener.onPing(socket, ByteBuffer.allocate(0)),
             () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
         assertEquals(2L, socket.demand);
-        socket.pongCallback = null;
+        socket.requestCallback = null;
         fixture.transport.close("cleanup").await();
     }
 
@@ -969,6 +969,18 @@ public class JVMWebsocketTransportLifecycleTest {
             assertFalse("callback worker must stop", callbackOwner.isAlive());
             assertFalse("control worker must stop", channelOwner.isAlive());
         }
+    }
+
+    // Share a controlled, no-I/O public connect/open path with the stress
+    // fixtures instead of inventing connected state with reflection.
+    static JVMWebsocketTransport connectedTransport(WebSocket socket) {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        attempt.listener.onOpen(socket);
+        attempt.future.complete(socket);
+        assertSucceeded(connecting);
+        return fixture.transport;
     }
 
     private static HttpClient clientOf(JVMWebsocketTransport transport) throws Exception {
