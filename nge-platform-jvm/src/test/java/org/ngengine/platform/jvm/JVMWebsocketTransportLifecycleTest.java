@@ -55,9 +55,13 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLParameters;
@@ -69,9 +73,8 @@ import org.ngengine.platform.transport.WebsocketTransportListener;
 /** Controlled handshakes and sockets: no HTTP or WebSocket connection is made. */
 public class JVMWebsocketTransportLifecycleTest {
 
-    // The existing JVM test task enables loopback URI validation. A numeric
-    // address avoids DNS and the controlled client never opens a connection.
-    // The controlled builder performs no network I/O; keep the real URI guard active.
+    // A numeric public address avoids DNS. The controlled builder performs no
+    // network I/O; keep the real URI guard active.
     private static final String URL = "ws://8.8.8.8:80/lifecycle";
 
     @Test(timeout = 10000)
@@ -496,6 +499,478 @@ public class JVMWebsocketTransportLifecycleTest {
         }
     }
 
+    @Test(timeout = 10000)
+    public void binaryListenerDoesNotInvertChannelAndLifecycleLocks() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionBinaryMessage(ByteBuffer message) { crossed.callback(); }
+        });
+        runCrossedLock(crossed,
+            () -> fixture.client.attempts.get(0).listener.onBinary(socket, ByteBuffer.wrap(new byte[] { 1 }), true),
+            () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertArrayEquals(new byte[] { 1 }, fixture.events.binaries.get(0));
+        assertEquals(List.of("B:[2]:true"), socket.sent);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void textListenerDoesNotInvertChannelAndLifecycleLocks() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionMessage(String message) { crossed.callback(); }
+        });
+        runCrossedLock(crossed,
+            () -> fixture.client.attempts.get(0).listener.onText(socket, "received", true),
+            () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertEquals(List.of("received"), fixture.events.texts);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void blockedOpenListenerAllowsSendButDefersConnectSuccess() throws Exception {
+        Fixture fixture = new Fixture();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionOpen() { crossed.callback(); }
+        });
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket socket = new RecordingSocket();
+        attempt.future.complete(socket);
+        runCrossedLock(crossed, () -> attempt.listener.onOpen(socket), () -> {
+            assertFalse("open callbacks and initial demand precede connect success", connecting.isDone());
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertSucceeded(connecting);
+        assertEquals(1L, socket.demand);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void blockedBinaryListenerCannotDeliverTailOrDemandToReplacement() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket old = fixture.connect();
+        Attempt oldAttempt = fixture.client.attempts.get(0);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        AtomicInteger tail = new AtomicInteger();
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionBinaryMessage(ByteBuffer message) { crossed.callback(); }
+        });
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionBinaryMessage(ByteBuffer message) { tail.incrementAndGet(); }
+        });
+        AtomicReference<RecordingSocket> replacement = new AtomicReference<>();
+        runCrossedLock(crossed,
+            () -> oldAttempt.listener.onBinary(old, ByteBuffer.wrap(new byte[] { 1 }), true),
+            () -> {
+                oldAttempt.listener.onText(old, "queued old message", true);
+                oldAttempt.listener.onBinary(old, ByteBuffer.wrap(new byte[] { 9 }), false);
+                replacement.set(fixture.connect());
+                oldAttempt.listener.onClose(old, 1006, "stale close");
+                oldAttempt.listener.onError(old, new IOException("stale error"));
+                oldAttempt.listener.onText(old, "stale text", true);
+                oldAttempt.listener.onBinary(old, ByteBuffer.wrap(new byte[] { 8 }), true);
+                assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+            });
+        assertEquals(0, tail.get());
+        assertEquals(1L, old.demand);
+        assertTrue(old.aborted.isDone());
+        assertFalse(replacement.get().aborted.isDone());
+        assertEquals(List.of(), fixture.events.texts);
+        assertEquals(0, fixture.events.errors);
+        assertEquals(0, fixture.events.serverCloses);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void blockedClientCloseListenerAllowsReplacementAndSend() throws Exception {
+        assertTerminalListenerAllowsReplacement("client close");
+    }
+
+    @Test(timeout = 10000)
+    public void blockedServerCloseListenerAllowsReplacementAndSend() throws Exception {
+        assertTerminalListenerAllowsReplacement("server close");
+    }
+
+    @Test(timeout = 10000)
+    public void blockedErrorListenerSuppressesOldCloseAfterReplacement() throws Exception {
+        assertTerminalListenerAllowsReplacement("error");
+    }
+
+    private static void assertTerminalListenerAllowsReplacement(String kind) throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket old = fixture.connect();
+        Attempt attempt = fixture.client.attempts.get(0);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        Events blocking = new Events() {
+            @Override
+            public void onConnectionClosedByClient(String reason) {
+                if (kind.equals("client close")) { crossed.callback(); }
+            }
+
+            @Override
+            public void onConnectionClosedByServer(String reason) {
+                if (kind.equals("server close")) { crossed.callback(); }
+            }
+
+            @Override
+            public void onConnectionError(Throwable error) {
+                if (kind.equals("error")) { crossed.callback(); }
+            }
+        };
+        fixture.transport.addListener(blocking);
+        AtomicReference<RecordingSocket> replacement = new AtomicReference<>();
+        runCrossedLock(crossed, () -> {
+            if (kind.equals("client close")) {
+                fixture.transport.close("client");
+            } else if (kind.equals("server close")) {
+                attempt.listener.onClose(old, 1000, "server");
+            } else {
+                attempt.listener.onError(old, new IOException("lost"));
+            }
+        }, () -> {
+            assertTrue("physical cleanup precedes notification", old.aborted.isDone());
+            replacement.set(fixture.connect());
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertTrue(fixture.transport.isConnected());
+        assertFalse(replacement.get().aborted.isDone());
+        if (kind.equals("error")) {
+            assertEquals(1, fixture.events.errors);
+            assertEquals(0, fixture.events.serverCloses);
+        }
+        fixture.transport.removeListener(blocking);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void connectCompletionContinuationDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket socket = new RecordingSocket();
+        attempt.listener.onOpen(socket);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        AsyncTask<Void> continuation = connecting.then(value -> {
+            crossed.callback();
+            return null;
+        });
+        runCrossedLock(crossed, () -> attempt.future.complete(socket),
+            () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertSucceeded(continuation);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void retirementSendContinuationAllowsReplacementAndSend() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket old = fixture.connect();
+        old.nextSend = new CompletableFuture<>();
+        AsyncTask<Void> sending = fixture.transport.send("stalled");
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        sending.catchException(error -> crossed.callback());
+        runCrossedLock(crossed, () -> fixture.transport.close("retire"), () -> {
+            assertTrue(old.aborted.isDone());
+            fixture.connect();
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertFailed(sending);
+        assertTrue(fixture.transport.isConnected());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void retirementConnectContinuationAllowsReplacementAndSend() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        connecting.catchException(error -> crossed.callback());
+        runCrossedLock(crossed, () -> fixture.transport.close("retire pending"), () -> {
+            fixture.connect();
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertFailed(connecting);
+        assertTrue(fixture.transport.isConnected());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void inlineEnqueueTaskDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        AtomicReference<AsyncTask<Void>> queued = new AtomicReference<>();
+        runCrossedLock(crossed, () -> fixture.transport.<Void>enqueue((resolve, reject) -> {
+            crossed.callback();
+            resolve.accept(null);
+        }), () -> {
+            queued.set(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+            assertFalse("the next send waits for the active task", queued.get().isDone());
+        });
+        assertSucceeded(queued.get());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void sendCompletionContinuationDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        CompletableFuture<WebSocket> pending = new CompletableFuture<>();
+        socket.nextSend = pending;
+        AsyncTask<Void> sending = fixture.transport.send("pending");
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        AsyncTask<Void> continuation = sending.then(value -> {
+            crossed.callback();
+            return null;
+        });
+        AtomicReference<AsyncTask<Void>> queued = new AtomicReference<>();
+        runCrossedLock(crossed, () -> pending.complete(socket),
+            () -> queued.set(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertSucceeded(continuation);
+        assertSucceeded(queued.get());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void initialRequestCallbackAllowsReplacementWithoutConnectRevival() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket old = new RecordingSocket();
+        attempt.future.complete(old);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        old.requestCallback = crossed::callback;
+        AtomicReference<RecordingSocket> replacement = new AtomicReference<>();
+        runCrossedLock(crossed, () -> attempt.listener.onOpen(old), () -> {
+            replacement.set(fixture.connect());
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertFailed(connecting);
+        assertTrue(old.aborted.isDone());
+        assertFalse(replacement.get().aborted.isDone());
+        assertTrue(fixture.transport.isConnected());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void blockedReceiveCallbackPreservesAdmittedTextBinaryOrder() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        Attempt attempt = fixture.client.attempts.get(0);
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        List<String> order = new ArrayList<>();
+        fixture.transport.addListener(new Events() {
+            @Override
+            public void onConnectionMessage(String message) {
+                order.add("T:" + message);
+                if (message.equals("first")) { crossed.callback(); }
+            }
+
+            @Override
+            public void onConnectionBinaryMessage(ByteBuffer message) {
+                order.add("B:" + message.get());
+            }
+        });
+        runCrossedLock(crossed, () -> attempt.listener.onText(socket, "first", true), () -> {
+            attempt.listener.onBinary(socket, ByteBuffer.wrap(new byte[] { 1 }), false);
+            attempt.listener.onBinary(socket, ByteBuffer.wrap(new byte[] { 2 }), true);
+            attempt.listener.onText(socket, "ta", false);
+            attempt.listener.onText(socket, "il", true);
+            assertEquals(List.of("T:first"), order);
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 3 })));
+        });
+        assertEquals(List.of("T:first", "B:1", "T:tail"), order);
+        assertArrayEquals(new byte[] { 1, 2 }, fixture.events.binaries.get(0));
+        assertEquals(6L, socket.demand);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void abortCompletionContinuationDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket old = fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        CompletableFuture<Void> continuation = old.aborted.thenRun(crossed::callback);
+        runCrossedLock(crossed, () -> fixture.transport.close("retire socket"), () -> {
+            fixture.connect();
+            assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 })));
+        });
+        assertTrue(continuation.isDone());
+        assertFalse(continuation.isCompletedExceptionally());
+        assertTrue(fixture.transport.isConnected());
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void pongRequestCallbackDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        socket.requestCallback = crossed::callback;
+        runCrossedLock(crossed,
+            () -> fixture.client.attempts.get(0).listener.onPong(socket, ByteBuffer.allocate(0)),
+            () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertEquals(2L, socket.demand);
+        socket.requestCallback = null;
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void pingSendPongCallbackDoesNotHoldLifecycleMonitor() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = fixture.connect();
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        socket.pongCallback = crossed::callback;
+        runCrossedLock(crossed,
+            () -> fixture.client.attempts.get(0).listener.onPing(socket, ByteBuffer.allocate(0)),
+            () -> assertSucceeded(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertEquals(2L, socket.demand);
+        socket.pongCallback = null;
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void queuedExecutorRejectionContinuationDoesNotHoldLifecycleMonitor() throws Exception {
+        AtomicInteger scheduled = new AtomicInteger();
+        Fixture fixture = new Fixture(command -> {
+            if (scheduled.incrementAndGet() == 1) {
+                command.run();
+            } else {
+                throw new RejectedExecutionException("controlled rejection");
+            }
+        });
+        RecordingSocket socket = fixture.connect();
+        CompletableFuture<WebSocket> pending = new CompletableFuture<>();
+        socket.nextSend = pending;
+        AsyncTask<Void> sending = fixture.transport.send("pending");
+        AsyncTask<Void> queued = fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 1 }));
+        CrossedLock crossed = new CrossedLock(fixture.transport);
+        queued.catchException(error -> crossed.callback());
+        runCrossedLock(crossed, () -> pending.complete(socket),
+            () -> assertFailed(fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }))));
+        assertSucceeded(sending);
+        assertFailed(queued);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void retiredScheduledSendCannotRunOrRemoveReplacementQueue() throws Exception {
+        List<Runnable> scheduled = new ArrayList<>();
+        Fixture fixture = new Fixture(scheduled::add);
+        RecordingSocket old = fixture.connect();
+        AsyncTask<Void> retiredSend = fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 1 }));
+        RecordingSocket current = fixture.connect();
+        AsyncTask<Void> currentSend = fixture.transport.sendBinary(ByteBuffer.wrap(new byte[] { 2 }));
+        assertFailed(retiredSend);
+        assertFalse(currentSend.isDone());
+        assertEquals(2, scheduled.size());
+        scheduled.get(0).run();
+        assertFalse(currentSend.isDone());
+        assertEquals(List.of(), old.sent);
+        scheduled.get(1).run();
+        assertSucceeded(currentSend);
+        assertEquals(List.of("B:[2]:true"), current.sent);
+        assertFalse(current.aborted.isDone());
+        fixture.transport.close("cleanup").await();
+    }
+
+    private interface CheckedAction {
+        void run() throws Exception;
+    }
+
+    private static final class CrossedLock {
+        // Interruptible channel ownership models the TURN lock edge and lets
+        // failure cleanup release a regressed transport's intrinsic monitor.
+        private final ReentrantLock channel = new ReentrantLock();
+        private final CountDownLatch channelHeld = new CountDownLatch(1);
+        private final CountDownLatch callbackEntered = new CountDownLatch(1);
+        private final CountDownLatch callbackFinished = new CountDownLatch(1);
+        private final CountDownLatch controlFinished = new CountDownLatch(1);
+        private final AtomicReference<Throwable> callbackFailure = new AtomicReference<>();
+        private final AtomicReference<Throwable> controlFailure = new AtomicReference<>();
+        private final Object lifecycleMonitor;
+
+        private CrossedLock(JVMWebsocketTransport transport) throws Exception {
+            Field field = JVMWebsocketTransport.class.getDeclaredField("lifecycleMonitor");
+            field.setAccessible(true);
+            lifecycleMonitor = field.get(transport);
+        }
+
+        private void callback() {
+            callbackEntered.countDown();
+            try {
+                assertFalse("external callback holds lifecycle monitor", Thread.holdsLock(lifecycleMonitor));
+                channel.lockInterruptibly();
+                try {
+                    assertTrue("callback acquires channel after control send", controlFinished.getCount() == 0L);
+                } finally {
+                    channel.unlock();
+                }
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                AssertionError failure = new AssertionError("callback interrupted during bounded failure cleanup", error);
+                callbackFailure.compareAndSet(null, failure);
+                throw failure;
+            } catch (Throwable error) {
+                callbackFailure.compareAndSet(null, error);
+                throw error;
+            }
+        }
+    }
+
+    private static void runCrossedLock(CrossedLock crossed, CheckedAction emit, CheckedAction control) throws Exception {
+        Thread channelOwner = new Thread(() -> {
+            crossed.channel.lock();
+            try {
+                crossed.channelHeld.countDown();
+                assertTrue("external callback starts", crossed.callbackEntered.await(2, TimeUnit.SECONDS));
+                control.run();
+            } catch (Throwable error) {
+                crossed.controlFailure.set(error);
+            } finally {
+                crossed.controlFinished.countDown();
+                crossed.channel.unlock();
+            }
+        }, "lifecycle-channel-owner");
+        Thread callbackOwner = new Thread(() -> {
+            try {
+                assertTrue("channel is held before callback", crossed.channelHeld.await(2, TimeUnit.SECONDS));
+                emit.run();
+            } catch (Throwable error) {
+                crossed.callbackFailure.set(error);
+            } finally {
+                crossed.callbackFinished.countDown();
+            }
+        }, "lifecycle-callback-owner");
+        channelOwner.setDaemon(true);
+        callbackOwner.setDaemon(true);
+        try {
+            channelOwner.start();
+            callbackOwner.start();
+            assertTrue("channel-held control path must finish while callback waits", crossed.controlFinished.await(2, TimeUnit.SECONDS));
+            assertTrue("callback must finish after channel release", crossed.callbackFinished.await(2, TimeUnit.SECONDS));
+            assertEquals("control failure", null, crossed.controlFailure.get());
+            assertEquals("callback failure", null, crossed.callbackFailure.get());
+        } finally {
+            // No unbounded join, await or leaked lock on assertion failure.
+            callbackOwner.interrupt();
+            channelOwner.interrupt();
+            callbackOwner.join(2000L);
+            channelOwner.join(2000L);
+            assertFalse("callback worker must stop", callbackOwner.isAlive());
+            assertFalse("control worker must stop", channelOwner.isAlive());
+        }
+    }
+
     private static HttpClient clientOf(JVMWebsocketTransport transport) throws Exception {
         Field field = JVMWebsocketTransport.class.getDeclaredField("httpClient");
         field.setAccessible(true);
@@ -728,6 +1203,8 @@ public class JVMWebsocketTransportLifecycleTest {
         private int closeCalls;
         private long demand;
         private boolean outputClosed;
+        private Runnable requestCallback;
+        private Runnable pongCallback;
 
         private CompletableFuture<WebSocket> sendResult() {
             CompletableFuture<WebSocket> result = nextSend;
@@ -755,7 +1232,10 @@ public class JVMWebsocketTransportLifecycleTest {
         public CompletableFuture<WebSocket> sendPing(ByteBuffer data) { return CompletableFuture.completedFuture(this); }
 
         @Override
-        public CompletableFuture<WebSocket> sendPong(ByteBuffer data) { return CompletableFuture.completedFuture(this); }
+        public CompletableFuture<WebSocket> sendPong(ByteBuffer data) {
+            if (pongCallback != null) { pongCallback.run(); }
+            return CompletableFuture.completedFuture(this);
+        }
 
         @Override
         public CompletableFuture<WebSocket> sendClose(int status, String reason) {
@@ -766,7 +1246,10 @@ public class JVMWebsocketTransportLifecycleTest {
         }
 
         @Override
-        public void request(long count) { demand += count; }
+        public void request(long count) {
+            demand += count;
+            if (requestCallback != null) { requestCallback.run(); }
+        }
 
         @Override
         public String getSubprotocol() { return ""; }
