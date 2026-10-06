@@ -84,6 +84,7 @@ public final class JVMReachAllMain {
         exerciseAsyncAndTasks(platform);
         exerciseStorage(platform);
         exerciseTransports(platform);
+        exerciseWebsocketHttpClient(platform);
         exerciseHttpRequests(platform);
         exerciseClipboardAndBrowser(platform);
         exerciseUtilityClasses(platform);
@@ -645,6 +646,27 @@ public final class JVMReachAllMain {
                     b.close();
                 } catch (Throwable ignored) {}
 
+                return null;
+            }
+        );
+    }
+
+    private static void exerciseWebsocketHttpClient(JVMAsyncPlatform platform) {
+        safeRun(
+            "websocket-httpclient",
+            () -> {
+                try {
+                    // Ensure the platform creates its shared HttpClient used by websocket transport
+                    java.net.http.HttpClient client = platform.getWebsocketHttpClient();
+                    if (client != null) {
+                        // Reflectively call the shutdown helper to cover shutdown path
+                        try {
+                            java.lang.reflect.Method m = JVMAsyncPlatform.class.getDeclaredMethod("shutdownWebsocketHttpClient");
+                            m.setAccessible(true);
+                            m.invoke(platform);
+                        } catch (Throwable ignored) {}
+                    }
+                } catch (Throwable ignored) {}
                 return null;
             }
         );

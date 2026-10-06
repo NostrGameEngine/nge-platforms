@@ -9,6 +9,29 @@
             "type": "org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV"
         },
         {
+            "type": "org.ngengine.platform.jvm.JVMAsyncPlatform",
+            "methods": [
+                {
+                    "name": "shutdownWebsocketHttpClient",
+                    "parameterTypes": []
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
+            "fields": [
+                { "name": "messageBuffer" },
+                { "name": "binaryBuffer" },
+                { "name": "openWebSocket" }
+            ],
+            "methods": [
+                {
+                    "name": "ensureBinaryCapacity",
+                    "parameterTypes": [ "int" ]
+                }
+            ]
+        },
+        {
             "fields": [
                 {
                     "name": "channels"

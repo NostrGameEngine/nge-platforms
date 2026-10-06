@@ -103,7 +103,8 @@ def forcedReachabilityReflectionTypes = [
         'org.ngengine.platform.jvm.JVMWebsocketTransport',
         'org.ngengine.platform.jvm.JVMRTCTransport',
         'org.ngengine.platform.jvm.JVMNGEAllocatorGuard',
-        'org.ngengine.platform.jvm.JVMNetworkSecurity'
+        'org.ngengine.platform.jvm.JVMNetworkSecurity',
+        'org.ngengine.platform.jvm.JVMAsyncPlatform'
 ]
 def forcedReachabilityReflectionEntries = [
         [
@@ -113,6 +114,25 @@ def forcedReachabilityReflectionEntries = [
         [
                 allPublicConstructors: true,
                 type: 'org.bouncycastle.jcajce.provider.drbg.DRBG$NonceAndIV'
+        ],
+        // Force reflective access to the JVMAsyncPlatform private shutdown helper used by the harness
+        [
+                type: 'org.ngengine.platform.jvm.JVMAsyncPlatform',
+                methods: [
+                        [ name: 'shutdownWebsocketHttpClient', parameterTypes: [] ]
+                ]
+        ],
+        // Force reflective fields and method used by JVMReachAllMain on JVMWebsocketTransport
+        [
+                type: 'org.ngengine.platform.jvm.JVMWebsocketTransport',
+                fields: [
+                        [ name: 'messageBuffer' ],
+                        [ name: 'binaryBuffer' ],
+                        [ name: 'openWebSocket' ]
+                ],
+                methods: [
+                        [ name: 'ensureBinaryCapacity', parameterTypes: [ 'int' ] ]
+                ]
         ]
 ]
 
