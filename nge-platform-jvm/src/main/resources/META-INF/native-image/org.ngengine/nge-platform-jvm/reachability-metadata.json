@@ -2803,6 +2803,9 @@
             ]
         },
         {
+            "type": "java.lang.Class"
+        },
+        {
             "type": "java.lang.ClassLoader",
             "fields": [
                 {
@@ -2885,6 +2888,35 @@
             "type": "java.lang.reflect.RecordComponent"
         },
         {
+            "type": "java.nio.file.Files",
+            "methods": [
+                {
+                    "name": "createTempDirectory",
+                    "parameterTypes": [
+                        "java.lang.String",
+                        "java.nio.file.attribute.FileAttribute[]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.nio.file.Path",
+            "methods": [
+                {
+                    "name": "toFile",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "java.nio.file.attribute.FileAttribute"
+        },
+        {
+            "type": "java.nio.file.attribute.FileAttribute[]"
+        },
+        {
             "type": "java.security.AlgorithmParametersSpi"
         },
         {
@@ -2919,6 +2951,9 @@
             "serializable": true
         },
         {
+            "type": "java.util.Arrays$ArrayList"
+        },
+        {
             "type": "java.util.Collections$EmptyList",
             "serializable": true
         },
@@ -2930,7 +2965,16 @@
             "serializable": true
         },
         {
+            "type": "java.util.ImmutableCollections$List12"
+        },
+        {
             "type": "java.util.ImmutableCollections$ListN"
+        },
+        {
+            "type": "java.util.ImmutableCollections$Map1"
+        },
+        {
+            "type": "java.util.LinkedHashMap"
         },
         {
             "type": "java.util.LinkedHashSet",
@@ -4586,7 +4630,97 @@
                     ]
                 },
                 {
+                    "name": "redirectedLoopbackUrlsAreAllowedInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.JVMAsyncPlatformRedirectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "redirectedLoopbackUrlsAreRejected",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.NGEPlatform",
+            "fields": [
+                {
+                    "name": "platform"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.NGEUtilsSafetyTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "inheritedStringLimitRespectsCustomPolicyHook",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeByteArraySupportsDirectByteBufferWithoutArray",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeCollectionOfStringArraySanitizesMixedList",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeDoublePreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatPreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatRejectsFiniteDoubleOverflowToInfinity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeLongBigIntegerOutOfRangeThrows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeStringArrayHandlesNullEntries",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "stringMemoryLimitsPreserveBoundariesWithoutOverflow",
                     "parameterTypes": [
                         
                     ]
@@ -5018,7 +5152,107 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.FileSystemVStore$DirectoryForce"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.FileSystemVStore$LinkPublisher"
+        },
+        {
             "type": "org.ngengine.platform.jvm.FileSystemVStore$SafeFileOutputStream"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.FileSystemVStoreCreateTest",
+            "fields": [
+                {
+                    "name": "temporary"
+                }
+            ],
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "backendFailureErasesPrivateSnapshotAndPreservesCallerAndError",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "cancelledCallerViewDoesNotEraseOrAbortPrivatePublication",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "defaultBackendRefusesUnsupportedAndBoundsAreCheckedBeforeDispatch",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "directJvmProviderSnapshotsCallerBeforeAsynchronousWrite",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "existingValueDirectoryAndSymlinkAreNeverReplaced",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "forceFailureAfterPublicationPreservesCompleteWinnerAndCleansTemporary",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "forceFailureBeforePublicationCreatesNoTargetOrTemporary",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "independentProvidersElectOneCompleteWinnerAndReuseItAcrossReopen",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "publicQueueSnapshotsBeforeDispatchAndErasesOnlyAfterCompletion",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "publicationIoErrorIsNotExistenceAndOnlyOwnTemporaryIsCleaned",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectedJvmSubmissionSettlesPublicTaskErasesSnapshotsAndAdvancesQueue",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shutdownAfterPublicationStillForwardsCompletionAndErasesOnlySettledSnapshots",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "unsupportedHardLinkNeverFallsBackToReplacingMove",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.JVMAsyncPlatform",
@@ -5192,6 +5426,41 @@
         },
         {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurity"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "allowsLoopbackWebSocketUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "allowsRedirectsToLoopbackUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "detectsPrivateAndLocalAddresses",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "stillRejectsRedirectsToPrivateUrls",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
@@ -5440,12 +5709,339 @@
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
             "fields": [
                 {
+                    "name": "httpClient"
+                },
+                {
+                    "name": "lifecycleMonitor"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport",
+            "fields": [
+                {
                     "name": "openWebSocket"
                 }
             ]
         },
         {
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransport"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport$ConnectionAttempt"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransport$ListenerEvent"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransportCloseHandshakeTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "closeInUpgradeResponseReceivesReciprocalCloseBeforeTcpEof",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "serverCloseReceivesReciprocalCloseBeforeTcpEof",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMWebsocketTransportLifecycleTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "abortCompletionContinuationDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "asynchronousBuildFailureSettlesTask",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "binaryListenerDoesNotInvertChannelAndLifecycleLocks",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedBinaryListenerCannotDeliverTailOrDemandToReplacement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedClientCloseListenerAllowsReplacementAndSend",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedErrorListenerSuppressesOldCloseAfterReplacement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedOpenListenerAllowsSendButDefersConnectSuccess",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedReceiveCallbackPreservesAdmittedTextBinaryOrder",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "blockedServerCloseListenerAllowsReplacementAndSend",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "clientReuseIsPerPlatformAndKeepsSecurityConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "closeBeforeOpenCancelsAttemptAndAbortsLateOpen",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "closeBypassesStalledQueueSettlesSendsAndIsIdempotent",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "closeDuringBuildCancelsFutureReturnedAfterClose",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "closeFromOpenListenerRetiresBeforeConnectCompletion",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "completionBeforeOpenIsRetainedAndClosePreventsRevival",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "connectCompletionContinuationDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "currentErrorAndServerCloseAbortAndPermitReconnect",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "earlyServerCloseTimeoutAbortsSocketAndCancelsPendingBuild",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "errorBeforeOpenRejectsConnectAndCancelsPendingBuild",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "failedRetriesAcrossTransportsReuseOnePlatformClient",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "gracefulCleanupReleasesOwnershipAndCancelsBuildWhenAbortThrows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "gracefulCloseIsBoundedWhenCloseFutureNeverCompletes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "initialRequestCallbackAllowsReplacementWithoutConnectRevival",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "inlineEnqueueTaskDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "legacyStaleErrorCannotRetirePendingReplacement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "mixedTextBinaryFragmentsPreserveOrderBoundsAndCallerBuffers",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "oldCloseErrorAndMessagesCannotClearOrContaminateReplacement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "overlappingConnectRetiresPendingAttemptAndKeepsReplacement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "pingRequestCallbackDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "pongRequestCallbackDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "queuedExecutorRejectionContinuationDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "reconnectFromErrorListenerSurvivesOldCallbacks",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "reentrantReconnectDuringRetirementIsNotOverwritten",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectedSendExecutorSettlesPublicSendTask",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "replacementAndErrorStillAbortAcquiredPendingSocketsImmediately",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "replacementDoesNotPreemptOwnedGracefulClose",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "retiredScheduledSendCannotRunOrRemoveReplacementQueue",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "retirementConnectContinuationAllowsReplacementAndSend",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "retirementSendContinuationAllowsReplacementAndSend",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "sendCompletionContinuationDoesNotHoldLifecycleMonitor",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "serverCloseBeforeBuildCompletionOwnsSocketUntilCloseSendFinishes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "serverCloseDuringBuildPreservesFutureReturnedAfterRetirement",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "synchronousConnectAndSendFailuresSettleAndQueueRecovers",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "textListenerDoesNotInvertChannelAndLifecycleLocks",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "uncancellableLateCompletionIsAbortedWithoutRevival",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "unrelatedLateBuildSocketIsAbortedWhileOwnedCloseContinues",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.JVMWebsocketTransportUnitTest",
@@ -5464,6 +6060,52 @@
                 },
                 {
                     "name": "sendPreservesOrderUnderStressInBothDirections",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JsonSerializationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "appendableSerializationPreservesConfiguredGsonSemantics",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.NGEUtilsHexTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "buffersStartAtZeroAndHaveIndependentStorage",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsMalformedInputInsteadOfAliasingValidBytes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "roundTripsEveryByteAndBothLetterCases",
                     "parameterTypes": [
                         
                     ]
@@ -5532,6 +6174,59 @@
             "type": "org.ngengine.platform.jvm.Point$JacobianPoint"
         },
         {
+            "type": "org.ngengine.platform.jvm.PreparedSchnorrSignerTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "changedKeyCannotReleaseSignatureForPreparedIdentity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "concurrentSignaturesVerifyAndKeepAuxiliaryRandomness",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "destroyedKeySupplierIsConsultedOnEverySignature",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "equivalentUnsignedKeyEncodingsPreserveStatelessCompatibility",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "randomPreparedSignaturesMatchStatelessForBothPublicPointParities",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsInvalidSetupKeysAndMessages",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "unsignedIntegerSlicesPreserveBoundaryValues",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.PrivateKeyEntropyTest",
             "methods": [
                 {
@@ -5592,6 +6287,47 @@
                     "parameterTypes": [
                         
                     ]
+                },
+                {
+                    "name": "rawAllocatorSupportsJmePointerOperations",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.SaferAllocBehaviorTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "callocReturnsZeroInitializedDirectBufferWithExpectedCapacity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "copiedPayloadSurvivesAllocatorChurnWhenReferenceIsRetained",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "jvmNgeAllocatorRetainedCopySurvivesChurn",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "liveAllocationsDoNotAliasAddressesOrContents",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
@@ -5602,6 +6338,82 @@
                     "name": "genPubKey",
                     "parameterTypes": [
                         "byte[]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.SchnorrVectorTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "fixedBaseMultiplicationMatchesReferenceAtBoundariesAndRandomScalars",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "publicDoubleMultiplicationMatchesIndependentScalarOperations",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "verifiesOfficialBip340VectorsAndDeterministicSignatures",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.TestJVMNGEAllocatorGuard",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "concurrentRequestsShareOneGcInterval",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setUp",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldAdaptBudgetUpThenDown",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestGcOnBurstEvenWithAdaptiveBudget",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestMaintenanceGcAfterSilence",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "tearDown",
+                    "parameterTypes": [
+                        
                     ]
                 }
             ]
@@ -5674,12 +6486,76 @@
             "type": "org.ngengine.platform.jvm.TestLibDatachannelInitialization"
         },
         {
+            "type": "org.ngengine.platform.jvm.TypedJsonObjectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "typedJsonPreservesValidObjectReadsAndImmutableRows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "typedJsonRejectsNonObjectRootsIncludingGsonMapArraySyntax",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.Util",
             "methods": [
                 {
                     "name": "getSystemCachePath",
                     "parameterTypes": [
                         "java.lang.String"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.VStoreCompletionCompatibilityTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "detachedViewObservationFailureAlsoAbandonsQueuedCreation",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "mixedObservationSupportAbandonsQueuedCreation",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "racingDispatchAndObservationFailureNeverPublishesErasedBytes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "startedPublicationKeepsSnapshotUntilBackendSettlesAfterObservationFailure",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "unsupportedObservationRejectsBeforeQueueingAndPreservesPendingWork",
+                    "parameterTypes": [
+                        
                     ]
                 }
             ]
@@ -6148,6 +7024,18 @@
             ]
         },
         {
+            "type": "sun.text.resources.FormatData"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en_US"
+        },
+        {
+            "type": "sun.text.resources.JavaTimeSupplementary"
+        },
+        {
             "type": "sun.text.resources.cldr.FormatData"
         },
         {
@@ -6158,6 +7046,15 @@
         },
         {
             "type": "sun.util.resources.cldr.CalendarData"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en_US"
         },
         {
             "type": "tel.schich.libdatachannel.CandidatePair",
@@ -6455,6 +7352,9 @@
             "glob": "META-INF/native-image/org.ngengine/nge-platform-jvm/native-image.properties"
         },
         {
+            "glob": "META-INF/services/com.sun.net.httpserver.spi.HttpServerProvider"
+        },
+        {
             "glob": "META-INF/services/java.net.spi.InetAddressResolverProvider"
         },
         {
@@ -6468,6 +7368,9 @@
         },
         {
             "glob": "META-INF/services/org.slf4j.spi.SLF4JServiceProvider"
+        },
+        {
+            "glob": "bip340-test-vectors.csv"
         },
         {
             "glob": "natives/linux/x86_64/libsaferalloc.so"

@@ -204,6 +204,7 @@ tasks.register('generateNativeImageMetadataFromTests', Test) {
         vendor = JvmVendorSpec.GRAAL_VM
     }
     useJUnit()
+    systemProperty 'nge-platforms.allowLoopbackInURIs', 'true'
     outputs.dir(nativeImageMetadataTestsDir)
     outputs.upToDateWhen { false }
     timeout = Duration.ofMinutes(10)
