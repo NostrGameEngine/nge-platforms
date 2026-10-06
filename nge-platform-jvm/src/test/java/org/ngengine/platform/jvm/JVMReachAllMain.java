@@ -331,7 +331,26 @@ public final class JVMReachAllMain {
                     if (os != null) {
                         os.write("hello-d".getBytes(StandardCharsets.UTF_8));
                         os.close();
+                        // exercise idempotent close
+                        try { os.close(); } catch (Throwable ignored) {}
                     }
+                } catch (Throwable ignored) {}
+
+                // Exercise publishIfAbsent competing-link path by injecting a linkPublisher that simulates a competing create
+                try {
+                    java.nio.file.Path tmp2 = Files.createTempDirectory("nge-reachall-compete");
+                    FileSystemVStore competing = new FileSystemVStore(tmp2, (target, completeTemporary) -> {
+                        throw new java.nio.file.FileAlreadyExistsException(target.toString());
+                    }, parent -> {
+                        if (java.nio.file.Files.getFileStore(parent).supportsFileAttributeView(java.nio.file.attribute.PosixFileAttributeView.class)) {
+                            try (java.nio.channels.FileChannel directory = java.nio.channels.FileChannel.open(parent, java.nio.file.StandardOpenOption.READ, java.nio.file.LinkOption.NOFOLLOW_LINKS)) {
+                                directory.force(true);
+                            }
+                        }
+                    });
+                    try {
+                        await(competing.createIfAbsent("e.txt", "value".getBytes(StandardCharsets.UTF_8)));
+                    } catch (Throwable ignored) {}
                 } catch (Throwable ignored) {}
 
                 try {
@@ -430,6 +449,14 @@ public final class JVMReachAllMain {
                             jws.onOpen(mock);
                             jws.onText(mock, "reach-all-hello", true);
                             jws.onBinary(mock, java.nio.ByteBuffer.wrap(new byte[] { 1, 2, 3 }), true);
+
+                            // Also exercise ping/pong hooks
+                            try {
+                                jws.onPing(mock, java.nio.ByteBuffer.wrap(new byte[] { 9 }));
+                            } catch (Throwable ignored) {}
+                            try {
+                                jws.onPong(mock, java.nio.ByteBuffer.wrap(new byte[] { 8 }));
+                            } catch (Throwable ignored) {}
 
                             // Send small message
                             await(ws.send("hello"));
