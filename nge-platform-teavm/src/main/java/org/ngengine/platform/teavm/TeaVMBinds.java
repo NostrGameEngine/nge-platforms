@@ -91,6 +91,11 @@ public class TeaVMBinds implements JSObject {
         JSConsumer<JSString> reject
     );
 
+    /** Schedule a ready executor worker without nested zero-delay timers. */
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native void runSoon(VoidCallback callback);
+
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     @JSByRef(optional = true)
@@ -128,6 +133,14 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String sha256String(String data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String sha256JSON(JSObject data);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native int sha256Buffer(
         @JSBuffer(JSBufferType.UINT8) ByteBuffer data,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer output
@@ -156,6 +169,10 @@ public class TeaVMBinds implements JSObject {
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native String signHex(String data, @JSBuffer(JSBufferType.UINT8) ByteBuffer privKeyBytes);
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public static native boolean verify(
         @JSByRef(optional = true) byte[] data,
         @JSByRef(optional = true) byte[] pub,
@@ -169,6 +186,10 @@ public class TeaVMBinds implements JSObject {
         @JSBuffer(JSBufferType.UINT8) ByteBuffer pub,
         @JSBuffer(JSBufferType.UINT8) ByteBuffer sig
     );
+
+    @JSTopLevel
+    @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public static native boolean verifyHex(String data, @JSBuffer(JSBufferType.UINT8) ByteBuffer pub, String sig);
 
     @JSTopLevel
     @JSModule("./org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

@@ -120,4 +120,57 @@ public class TeaVMPromiseAwaitTest {
             assertSame(cause, e.getCause());
         }
     }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void executorReusesWorkersAndAllowsSuspendedJobsToProgress() throws Exception {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        org.ngengine.platform.NGEPlatform.set(platform);
+        org.ngengine.platform.AsyncExecutor executor = platform.newAsyncExecutor();
+        try {
+            Thread worker = executor.run(Thread::currentThread).await();
+            assertSame(worker, executor.run(Thread::currentThread).await());
+            Consumer<Integer>[] resolve = new Consumer[1];
+            AsyncTask<Integer> gate = platform.wrapPromise((res, rej) -> resolve[0] = res);
+            AsyncTask<Integer> waiting = executor.run(() -> gate.await());
+            AsyncTask<Integer> release = executor.run(() -> {
+                resolve[0].accept(7);
+                return 9;
+            });
+            assertEquals(Integer.valueOf(7), waiting.await());
+            assertEquals(Integer.valueOf(9), release.await());
+
+            AsyncTask<Integer> chained = executor
+                .run(() -> 10)
+                .then(value -> {
+                    return value + executor.runLater(() -> 2, 1, java.util.concurrent.TimeUnit.MILLISECONDS).await();
+                });
+            assertEquals(Integer.valueOf(12), chained.await());
+            assertEquals(Integer.valueOf(13), executor.run(() -> 10).compose(value -> executor.run(() -> value + 3)).await());
+
+            IllegalStateException cause = new IllegalStateException("worker failure");
+            try {
+                executor
+                    .run(() -> {
+                        throw cause;
+                    })
+                    .await();
+                fail("Expected task failure");
+            } catch (ExecutionException failure) {
+                assertSame(cause, failure.getCause());
+            }
+            assertEquals(Integer.valueOf(42), executor.run(() -> 42).await());
+            AsyncTask<Integer> accepted = executor.run(() -> 99);
+            executor.close();
+            assertEquals(Integer.valueOf(99), accepted.await());
+            try {
+                executor.run(() -> 0).await();
+                fail("Expected shutdown rejection");
+            } catch (ExecutionException failure) {
+                assertTrue(failure.getCause() instanceof IllegalStateException);
+            }
+        } finally {
+            executor.close();
+        }
+    }
 }

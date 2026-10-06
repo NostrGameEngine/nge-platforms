@@ -38,6 +38,8 @@ import static org.junit.Assert.assertTrue;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.ngengine.platform.SafeFlag;
@@ -58,6 +60,555 @@ import org.teavm.junit.TeaVMTestRunner;
 @JsModuleTest
 @SkipJVM
 public class TeaVMBackendParityTest {
+
+    private static TeaVMPlatform installedPlatform;
+    private static org.ngengine.platform.MemoryLimits testLimits;
+
+    private static TeaVMPlatform installedPlatform() {
+        if (installedPlatform == null) {
+            installedPlatform =
+                new TeaVMPlatform() {
+                    @Override
+                    public org.ngengine.platform.MemoryLimits getMemoryLimits() {
+                        return testLimits != null ? testLimits : super.getMemoryLimits();
+                    }
+                };
+            org.ngengine.platform.NGEPlatform.set(installedPlatform);
+        }
+        return installedPlatform;
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void collectionEncodingPreservesOrderTypesAndFreshCopies() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<Object> values = new java.util.ArrayList<>(
+            Arrays.asList(
+                null,
+                true,
+                false,
+                1,
+                -1L,
+                1.25,
+                "🦊" + (char) 0xD800,
+                Arrays.asList("nested", null),
+                Map.of("value", "quoted\""),
+                new Object[] { "array", true }
+            )
+        );
+        String expected =
+            "[null,true,false,1,-1,1.25,\"🦊\\ud800\",[\"nested\",null],{\"value\":\"quoted\\\"\"},[\"array\",true]]";
+        for (java.util.Collection<?> collection : Arrays.asList(
+            values,
+            new java.util.LinkedList<>(values),
+            java.util.Collections.unmodifiableList(values),
+            new java.util.LinkedHashSet<>(values),
+            new java.util.AbstractCollection<Object>() {
+                @Override
+                public java.util.Iterator<Object> iterator() {
+                    return values.iterator();
+                }
+
+                @Override
+                public int size() {
+                    return values.size();
+                }
+            }
+        )) assertEquals(expected, platform.toJSON(collection));
+        org.teavm.jso.JSObject nativeCopy = TeaVMJsConverter.toJSObject(values);
+        values.set(6, "changed");
+        ((java.util.List<String>) values.get(7)).set(0, "changed nested");
+        assertEquals(expected, TeaVMBinds.toJSON(nativeCopy));
+        assertFalse(expected.equals(platform.toJSON(values)));
+        assertEquals("[]", platform.toJSON(java.util.Collections.emptyList()));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedStringGetterPreservesFallbackValuesAndCustomLimits() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"text\":\"a\\u0000\\ud800\\udfff🦊\",\"empty\":\"\",\"null\":null,\"number\":42,\"flag\":true}"
+        );
+        assertEquals("a\u0000\ud800\udfff🦊", object.getString("text"));
+        assertEquals("", object.getString("empty"));
+        assertEquals("", object.getString("null"));
+        assertEquals("", object.getString("missing"));
+        assertEquals("42", object.getString("number"));
+        assertEquals("true", object.getString("flag"));
+        int[] checks = { 0 };
+        testLimits =
+            new org.ngengine.platform.MemoryLimits() {
+                @Override
+                protected boolean checkLimit(long size, long limit) {
+                    checks[0]++;
+                    return size != 14 && super.checkLimit(size, limit);
+                }
+            };
+        try {
+            assertEquals("", object.getString("empty"));
+            assertEquals("42", object.getString("number"));
+            assertEquals(2, checks[0]);
+            platform.parseJsonObject("{\"text\":\"allowed\"}").getString("text");
+            throw new AssertionError("Custom string policy was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertEquals(3, checks[0]);
+        } finally {
+            testLimits = null;
+        }
+        try {
+            platform.parseJsonObject("{\"text\":\"" + "x".repeat(1024 * 1024 + 1) + "\"}").getString("text");
+            throw new AssertionError("String size limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void stringHashAndJsonPreserveBinaryAndConverterSemantics() {
+        TeaVMPlatform platform = installedPlatform();
+        assertTrue(platform.supportsMinimalJSONEscaping());
+        assertEquals(
+            "[\"<>&" + (char) 0x2028 + (char) 0x2029 + "\\ud800\\u0001\"]",
+            platform.toJSON(Arrays.asList("<>&" + (char) 0x2028 + (char) 0x2029 + (char) 0xD800 + (char) 1))
+        );
+        String[] inputs = { "", "abc", "Unicode 🦊 café 漢字" + (char) 0x2028 + (char) 0x2029, "large".repeat(14000) };
+        for (String input : inputs) {
+            assertEquals(hex(platform.sha256(utf8(input))), platform.sha256(input));
+        }
+        // JVM UTF-8 uses '?' for each unpaired surrogate. TeaVM's prior
+        // charset path threw at a terminal high surrogate instead of hashing.
+        assertEquals(
+            "c5f52145eb20c4459c27628bca8310c10b5e266c54257572770742a2e4693d6f",
+            platform.sha256("unpaired" + (char) 0xD800)
+        );
+        assertEquals(
+            "c5f52145eb20c4459c27628bca8310c10b5e266c54257572770742a2e4693d6f",
+            platform.sha256("unpaired" + (char) 0xDC00)
+        );
+        assertEquals(
+            "cdb51ffa914a7391d6a327c86f01e26981fcc205b4b78c308cbd68fe3d315f78",
+            platform.sha256("unpaired" + (char) 0xD800 + (char) 0xD800)
+        );
+        Map<String, Object> tree = new LinkedHashMap<>();
+        tree.put("null", null);
+        tree.put("text", inputs[2]);
+        tree.put("nested", Arrays.asList(Arrays.asList("quoted\"", "slash\\", "\n\r\t\b\f", null), true, 1.25));
+        assertEquals(TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(tree)), platform.toJSON(tree));
+        assertEquals(
+            TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(Arrays.asList(tree, null))),
+            platform.toJSON(Arrays.asList(tree, null))
+        );
+        for (String input : new String[] { inputs[2], inputs[3], "unpaired" + (char) 0xD800 }) {
+            java.util.List<Object> payload = Arrays.asList(0, 1700000000L, input, tree);
+            assertEquals(hex(platform.sha256(utf8(platform.toJSON(payload)))), platform.sha256JSON(payload));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void jsonTreeConversionPreservesTypesAndIndependentCollections() {
+        TeaVMPlatform platform = new TeaVMPlatform();
+        String json =
+            "{\"text\":\"Unicode 🦊 café 漢字\",\"nested\":[null,true,false,1,-2147483648,2147483648,1.25,{\"x\":[]}]}";
+        Map<String, Object> tree = platform.fromJSON(json, Map.class);
+        assertEquals("Unicode 🦊 café 漢字", tree.get("text"));
+        java.util.List<Object> nested = (java.util.List<Object>) tree.get("nested");
+        assertEquals(null, nested.get(0));
+        assertEquals(Boolean.TRUE, nested.get(1));
+        assertEquals(Boolean.FALSE, nested.get(2));
+        assertTrue(nested.get(3) instanceof Integer);
+        assertEquals(Integer.valueOf(Integer.MIN_VALUE), nested.get(4));
+        assertTrue(nested.get(5) instanceof Long);
+        assertEquals(Long.valueOf(2147483648L), nested.get(5));
+        assertEquals(Double.valueOf(1.25), nested.get(6));
+        assertTrue(((java.util.List<?>) ((Map<?, ?>) nested.get(7)).get("x")).isEmpty());
+        nested.set(1, "changed");
+        org.teavm.jso.JSObject original = (org.teavm.jso.JSObject) TeaVMBinds.fromJSON(json);
+        Map<String, Object> publicCopy = TeaVMJsConverter.toJavaMap(original);
+        ((java.util.List<Object>) publicCopy.get("nested")).set(1, "changed");
+        assertEquals(json, TeaVMBinds.toJSON(original));
+        Map<String, Object> fresh = platform.fromJSON(json, Map.class);
+        assertEquals(Boolean.TRUE, ((java.util.List<?>) fresh.get("nested")).get(1));
+        assertTrue(platform.fromJSON("[]", java.util.List.class).isEmpty());
+        assertTrue(platform.fromJSON("{}", Map.class).isEmpty());
+        java.util.List<String> strings = platform.fromJSON("[\"alpha\",\"🦊\",\"\\ud800\"]", java.util.List.class);
+        assertEquals(Arrays.asList("alpha", "🦊", String.valueOf((char) 0xD800)), strings);
+        strings.set(0, "changed");
+        assertEquals("alpha", ((java.util.List<?>) platform.fromJSON("[\"alpha\",\"🦊\"]", java.util.List.class)).get(0));
+        assertEquals(Arrays.asList("a", null, "b"), platform.fromJSON("[\"a\",null,\"b\"]", java.util.List.class));
+        assertEquals("[1,2,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new int[] { 1, 2, 3 })));
+        assertEquals("[\"a\",true,3]", TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(new Object[] { "a", true, 3 })));
+        String[] source = { "a", null, "🦊", String.valueOf((char) 0xD800) };
+        org.teavm.jso.JSObject copied = TeaVMJsConverter.toJSObject(source);
+        source[0] = "changed";
+        assertEquals("[\"a\",null,\"🦊\",\"\\ud800\"]", TeaVMBinds.toJSON(copied));
+        assertEquals(
+            "[[\"a\",null,\"🦊\",\"\\ud800\"],[]]",
+            platform.toJSON(Arrays.asList(Arrays.asList("a", null, "🦊", String.valueOf((char) 0xD800)), Arrays.asList()))
+        );
+        org.ngengine.platform.MemoryLimits limits = platform.getMemoryLimits();
+        assertTrue(limits.checkForString(1024 * 1024));
+        assertFalse(limits.checkForString(1024 * 1024 + 1));
+        assertFalse(limits.checkForString(-1));
+        assertFalse(limits.checkForString(Integer.MAX_VALUE));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void stringRowsRemainOwnedAndValidatedAfterBulkConversion() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<java.util.List<String>> rows = platform.fromJSON(
+            "[[\"t\",\"first\"],[\"p\",\"🦊\",\"\\ud800\"]]",
+            java.util.List.class
+        );
+        String[] copy = org.ngengine.platform.NGEUtils.safeStringArray(rows.get(0));
+        rows.get(0).set(1, "changed");
+        assertArrayEquals(new String[] { "t", "first" }, copy);
+        copy[0] = "changed independently";
+        assertEquals("t", rows.get(0).get(0));
+        assertArrayEquals(
+            new String[] { "a", "", "42" },
+            org.ngengine.platform.NGEUtils.safeStringArray(new java.util.ArrayList<Object>(Arrays.asList("a", null, 42)))
+        );
+        assertArrayEquals(
+            new String[] { "a", "", "42" },
+            org.ngengine.platform.NGEUtils.safeStringArray(new java.util.LinkedList<Object>(Arrays.asList("a", null, 42)))
+        );
+        try {
+            org.ngengine.platform.NGEUtils.safeStringArray(Arrays.asList("x".repeat(1024 * 1024 + 1)));
+            throw new AssertionError("String limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowsPreserveLimitsOwnershipAndFallbackValues() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"text\":\"🦊\",\"kind\":1,\"created_at\":1700000000,\"tags\":[[],[\"t\",null,\"\\ud800\"]]}"
+        );
+        assertEquals("🦊", object.getString("text"));
+        assertEquals(1, object.getInt("kind"));
+        assertEquals(java.time.Instant.ofEpochSecond(1700000000L), object.getSecondsInstant("created_at"));
+        java.util.List<java.util.List<String>> rows = object.getStringRows("tags");
+        assertEquals(Arrays.asList(Arrays.asList("t", "", String.valueOf((char) 0xD800))), rows);
+        try {
+            rows.get(0).set(1, "changed");
+            throw new AssertionError("Mutable JSON tag row escaped");
+        } catch (UnsupportedOperationException expected) {
+            assertEquals("", rows.get(0).get(1));
+        }
+        try {
+            rows.add(Arrays.asList("new"));
+            throw new AssertionError("Mutable JSON matrix escaped");
+        } catch (UnsupportedOperationException expected) {
+            assertEquals(1, rows.size());
+        }
+        assertEquals(
+            Arrays.asList(Arrays.asList("t", "", "42", "true")),
+            platform.parseJsonObject("{\"tags\":[[\"t\",null,42,true]]}").getStringRows("tags")
+        );
+        assertTrue(platform.parseJsonObject("{}").getStringRows("tags").isEmpty());
+        int[] checks = { 0 };
+        testLimits =
+            new org.ngengine.platform.MemoryLimits() {
+                @Override
+                protected boolean checkLimit(long size, long limit) {
+                    checks[0]++;
+                    return size != 14 && super.checkLimit(size, limit);
+                }
+            };
+        try {
+            platform.parseJsonObject("{\"tags\":[[\"t\",\"allowed\"]]}").getStringRows("tags");
+            throw new AssertionError("Custom string policy was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertEquals(2, checks[0]);
+        } finally {
+            testLimits = null;
+        }
+
+        try {
+            platform.parseJsonObject("{\"tags\":[[\"" + "x".repeat(1024 * 1024 + 1) + "\"]]}").getStringRows("tags");
+            throw new AssertionError("Native JSON string limit was bypassed");
+        } catch (IllegalArgumentException expected) {
+            assertTrue(expected.getMessage().contains("string"));
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowBoundsRemainStableAcrossRepeatedReads() {
+        TeaVMPlatform platform = installedPlatform();
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(
+            "{\"tags\":[[],[\"t\",null,\"🦊\",\"\\ud800\"],[],[\"empty\"]]}"
+        );
+        java.util.List<java.util.List<String>> first = object.getStringRows("tags");
+        java.util.List<java.util.List<String>> second = object.getStringRows("tags");
+        assertEquals(first, second);
+        for (int repeat = 0; repeat < 3; repeat++) {
+            assertEquals(2, first.size());
+            assertEquals(4, first.get(0).size());
+            assertEquals(1, first.get(1).size());
+            assertEquals("", first.get(0).get(1));
+            assertEquals("🦊", first.get(0).get(2));
+            assertEquals(String.valueOf((char) 0xD800), first.get(0).get(3));
+            for (int index : new int[] { -1, 2, Integer.MAX_VALUE }) {
+                try {
+                    first.get(index);
+                    throw new AssertionError("Accepted invalid row index " + index);
+                } catch (IndexOutOfBoundsException expected) {
+                    assertEquals(new IndexOutOfBoundsException(index).getMessage(), expected.getMessage());
+                }
+            }
+            for (int index : new int[] { -1, 4, Integer.MAX_VALUE }) {
+                try {
+                    first.get(0).get(index);
+                    throw new AssertionError("Accepted invalid cell index " + index);
+                } catch (IndexOutOfBoundsException expected) {
+                    assertEquals(new IndexOutOfBoundsException(index).getMessage(), expected.getMessage());
+                }
+            }
+        }
+        assertEquals(first, platform.fromJSON(platform.toJSON(first), java.util.List.class));
+        assertTrue(platform.parseJsonObject("{\"tags\":[[],[]]}").getStringRows("tags").isEmpty());
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonRowsPreserveWideAndLongValuesAcrossRepeatedReads() {
+        TeaVMPlatform platform = installedPlatform();
+        java.util.List<java.util.List<String>> expected = new java.util.ArrayList<>();
+        for (int width : new int[] { 64, 65 }) {
+            java.util.List<String> row = new java.util.ArrayList<>();
+            for (int i = 0; i < width; i++) row.add("x".repeat(i));
+            expected.add(row);
+        }
+        String astral = "🦊".repeat(2048);
+        expected.add(Arrays.asList(astral, String.valueOf((char) 0xD800)));
+        expected.add(Arrays.asList("t", astral + String.valueOf((char) 0xD800)));
+        org.ngengine.platform.JsonObject object = platform.parseJsonObject(platform.toJSON(Map.of("tags", expected)));
+        java.util.List<java.util.List<String>> actual = object.getStringRows("tags");
+        for (int repeat = 0; repeat < 5; repeat++) {
+            assertEquals(expected, actual);
+            assertEquals(expected, platform.fromJSON(platform.toJSON(actual), java.util.List.class));
+        }
+        assertEquals(expected, object.getStringRows("tags"));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void repeatedTypedRowsPreserveListViewsAndMutationFailures() {
+        java.util.List<java.util.List<String>> rows = installedPlatform()
+            .parseJsonObject("{\"tags\":[[\"t\",\"\",\"🦊\",\"\\ud800\"],[\"p\",\"value\"]]}")
+            .getStringRows("tags");
+        java.util.List<String> expected = Arrays.asList("t", "", "🦊", String.valueOf((char) 0xD800));
+        java.util.List<String> row = rows.get(0);
+        for (int repeat = 0; repeat < 20; repeat++) {
+            for (int index : new int[] { 3, 0, 2, 2, 1 }) assertEquals(expected.get(index), row.get(index));
+            assertEquals(expected, row);
+            assertEquals(expected.hashCode(), row.hashCode());
+            assertArrayEquals(expected.toArray(new String[0]), row.toArray(new String[0]));
+            assertEquals(expected.subList(1, 4), row.subList(1, 4));
+            java.util.ListIterator<String> iterator = row.listIterator(row.size());
+            for (int index = row.size() - 1; index >= 0; index--) assertEquals(expected.get(index), iterator.previous());
+        }
+        try {
+            row.subList(1, 3).clear();
+            throw new AssertionError("Mutable cached row sublist escaped");
+        } catch (UnsupportedOperationException expectedFailure) {
+            assertEquals(expected, row);
+        }
+        try {
+            rows.get(1).listIterator().add("changed");
+            throw new AssertionError("Mutable cached row iterator escaped");
+        } catch (UnsupportedOperationException expectedFailure) {
+            assertEquals(Arrays.asList("p", "value"), rows.get(1));
+        }
+    }
+
+    @JSBody(
+        params = "enabled",
+        script = "if (enabled) { Object.prototype.kind = 42; Object.prototype.content = 'inherited'; " +
+        "Object.prototype.tags = [['t', 'inherited']]; } else { " +
+        "delete Object.prototype.kind; delete Object.prototype.content; delete Object.prototype.tags; }"
+    )
+    private static native void inheritedFields(boolean enabled);
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonNumbersMatchGenericConversionAtBoundaries() {
+        TeaVMPlatform platform = installedPlatform();
+        for (String literal : new String[] {
+            "0",
+            "-0",
+            "1",
+            "-1",
+            "1.9",
+            "-1.9",
+            "2147483647",
+            "2147483648",
+            "-2147483648",
+            "-2147483649",
+            "9007199254740991",
+            "9007199254740992",
+            "9007199254740993",
+            "9223372036854775807",
+            "-9223372036854775808",
+            "1e400",
+            "-1e400",
+            "\"1700000000\"",
+            "\"1970-01-01T00:00:01Z\"",
+            "true",
+            "\"invalid\"",
+        }) {
+            String json = "{\"value\":" + literal + "}";
+            org.ngengine.platform.JsonObject typed = platform.parseJsonObject(json);
+            Object generic = platform.fromJSON(json, Map.class).get("value");
+            Integer expectedInt = null;
+            Throwable intFailure = null;
+            try {
+                expectedInt = org.ngengine.platform.NGEUtils.safeInt(generic);
+            } catch (Throwable failure) {
+                intFailure = failure;
+            }
+            if (intFailure == null) {
+                assertEquals(literal, expectedInt.intValue(), typed.getInt("value"));
+            } else {
+                try {
+                    typed.getInt("value");
+                    throw new AssertionError("Accepted invalid int " + literal);
+                } catch (Exception failure) {
+                    assertEquals(literal, intFailure.getClass(), failure.getClass());
+                    assertEquals(literal, intFailure.getMessage(), failure.getMessage());
+                }
+            }
+            java.time.Instant expectedInstant = null;
+            Throwable instantFailure = null;
+            try {
+                expectedInstant = org.ngengine.platform.NGEUtils.safeSecondsInstant(generic);
+            } catch (Throwable failure) {
+                instantFailure = failure;
+            }
+            if (instantFailure == null) {
+                assertEquals(literal, expectedInstant, typed.getSecondsInstant("value"));
+            } else {
+                try {
+                    typed.getSecondsInstant("value");
+                    throw new AssertionError("Accepted invalid timestamp " + literal);
+                } catch (Exception failure) {
+                    assertEquals(literal, instantFailure.getClass(), failure.getClass());
+                    assertEquals(literal, instantFailure.getMessage(), failure.getMessage());
+                }
+            }
+        }
+        assertEquals(0, platform.parseJsonObject("{\"value\":null}").getInt("value"));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void typedJsonReadsOnlyOwnedObjectProperties() {
+        TeaVMPlatform platform = installedPlatform();
+        inheritedFields(true);
+        try {
+            org.ngengine.platform.JsonObject object = platform.parseJsonObject("{}");
+            assertEquals(0, object.getInt("kind"));
+            assertEquals("", object.getString("content"));
+            assertTrue(object.getStringRows("tags").isEmpty());
+        } finally {
+            inheritedFields(false);
+        }
+        for (String json : new String[] { "null", "[]", "[[\"x\",\"y\"]]", "42", "\"text\"", "true", "false", " \n [] \t" }) {
+            boolean rejected = false;
+            try {
+                platform.parseJsonObject(json);
+            } catch (IllegalArgumentException expected) {
+                assertEquals("JSON root must be an object", expected.getMessage());
+                rejected = true;
+            }
+            assertTrue("Non-object JSON root accepted: " + json, rejected);
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void nativeSchnorrHexPreservesVerificationAndKeyViews() {
+        TeaVMPlatform platform = installedPlatform();
+        byte[] secret = new byte[32];
+        secret[31] = 3;
+        ByteBuffer storage = direct(platform, new byte[36]);
+        storage.position(2);
+        storage.put(secret);
+        storage.position(2);
+        storage.limit(34);
+        ByteBuffer key = storage.asReadOnlyBuffer();
+        String digest = "01ab".repeat(16);
+        String signature = platform.schnorrSign(digest, key);
+        assertEquals(128, signature.length());
+        ByteBuffer pub = platform.genPubKey(key);
+        assertTrue(platform.schnorrVerify(digest, signature, pub));
+        assertTrue(
+            platform.schnorrVerify(digest.toUpperCase(java.util.Locale.ROOT), signature.toUpperCase(java.util.Locale.ROOT), pub)
+        );
+        assertTrue(platform.schnorrVerify(digest, signature, platform.genPubKey(secret)));
+        assertTrue(platform.schnorrVerify(digest, platform.schnorrSign(digest, secret), pub));
+        assertFalse(platform.schnorrVerify("00".repeat(32), signature, pub));
+        assertFalse(platform.schnorrVerify(digest, "00".repeat(64), pub));
+        assertArrayEquals(secret, bytes(key));
+        assertEquals(2, key.position());
+        assertEquals(34, key.limit());
+        for (String malformed : new String[] { "0", "GF", "FG", "ＦＦ", "١٢" }) {
+            try {
+                org.ngengine.platform.NGEUtils.hexToByteArray(malformed);
+                throw new AssertionError("common decoder accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+            try {
+                platform.schnorrSign(malformed, key);
+                throw new AssertionError("native signer accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+            try {
+                platform.schnorrVerify(digest, malformed, pub);
+                throw new AssertionError("native verifier accepted malformed hex");
+            } catch (IllegalArgumentException expected) {}
+        }
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void asyncSchnorrTasksSupportAwaitingCallbacksAndPropagateFailures() throws Exception {
+        TeaVMPlatform platform = installedPlatform();
+        byte[] secret = new byte[32];
+        secret[31] = 3;
+        ByteBuffer key = direct(platform, secret).asReadOnlyBuffer();
+        ByteBuffer pub = platform.genPubKey(key);
+        byte[] pubBytes = platform.genPubKey(secret);
+        String digest = "01ab".repeat(16);
+        Thread caller = Thread.currentThread();
+        org.ngengine.platform.AsyncTask<String> signing = platform.schnorrSignAsync(digest, key);
+        String signature = signing
+            .then(value -> {
+                assertFalse(caller == Thread.currentThread());
+                assertTrue(platform.schnorrVerifyAsync(digest, value, pub).await());
+                return value;
+            })
+            .await();
+        assertTrue(signing.isSuccess());
+        assertEquals(signature, signing.then(value -> value).await());
+        assertTrue(platform.schnorrVerifyAsync(digest, signature, pubBytes).await());
+        assertTrue(platform.schnorrVerify(digest, platform.schnorrSignAsync(digest, secret).await(), pub));
+        assertFalse(platform.schnorrVerifyAsync("00".repeat(32), signature, pub).await());
+        org.ngengine.platform.AsyncTask<String> failed = platform.schnorrSignAsync(digest, new byte[32]);
+        try {
+            failed.await();
+            throw new AssertionError("invalid secret signed");
+        } catch (java.util.concurrent.ExecutionException expected) {
+            assertTrue(failed.isFailed());
+            assertTrue(expected.getCause() != null);
+        }
+    }
 
     @Test
     public void allocatorUsesHandlesOnJsAndLinearAddressesOnWasmGc() {

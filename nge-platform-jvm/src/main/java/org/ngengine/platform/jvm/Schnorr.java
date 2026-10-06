@@ -31,9 +31,12 @@
 package org.ngengine.platform.jvm;
 
 import java.math.BigInteger;
+import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.security.interfaces.ECPrivateKey;
 import java.security.spec.ECGenParameterSpec;
@@ -46,11 +49,24 @@ import org.ngengine.platform.FailedToSignException;
 class Schnorr {
 
     private static final BigInteger ONE = BigInteger.ONE;
-    private static final String TAG_AUX = "BIP0340/aux";
-    private static final String TAG_NONCE = "BIP0340/nonce";
-    private static final String TAG_CHALLENGE = "BIP0340/challenge";
+    // These are public, immutable domain-separation hashes, not signing state.
+    private static final byte[] TAG_AUX = hashTag("BIP0340/aux");
+    private static final byte[] TAG_NONCE = hashTag("BIP0340/nonce");
+    private static final byte[] TAG_CHALLENGE = hashTag("BIP0340/challenge");
+
+    private static byte[] hashTag(String tag) {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(tag.getBytes(StandardCharsets.UTF_8));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
+    }
 
     public static byte[] sign(byte[] msg, byte[] secKey, byte[] auxRand) throws FailedToSignException {
+        return sign(msg, secKey, auxRand, null);
+    }
+
+    static byte[] sign(byte[] msg, byte[] secKey, byte[] auxRand, Point publicPoint) throws FailedToSignException {
         if (msg == null || msg.length != 32) {
             throw new IllegalArgumentException("The message must be a 32-byte array.");
         }
@@ -67,7 +83,7 @@ class Schnorr {
         }
 
         // Compute public key point
-        Point P = Point.mul(Point.getG(), secKey0);
+        Point P = publicPoint != null ? publicPoint : Point.mul(Point.getG(), secKey0);
 
         // Negate secret key if the public key's Y coordinate is not even
         if (!P.hasEvenY()) {
@@ -153,7 +169,11 @@ class Schnorr {
         System.arraycopy(sBytes, 0, sig, 32, sBytes.length);
 
         // Verify signature before returning
-        if (!verify(msg, pubKeyBytes, sig)) {
+        // The point was derived from a checked private key, either now or when
+        // preparing the signer. Reuse its even-Y form rather than lifting the
+        // same public key again; all signature checks still run. A changed key
+        // supplied to a prepared signer fails this check and releases no signature.
+        if (!verify(msg, pubKeyBytes, sig, P.withEvenY())) {
             throw new FailedToSignException("The signature does not pass verification.");
         }
 
@@ -174,6 +194,10 @@ class Schnorr {
         Point P = Point.liftX(pubkey);
         if (P == null) return false;
 
+        return verify(msg, pubkey, sig, P);
+    }
+
+    private static boolean verify(byte[] msg, byte[] pubkey, byte[] sig, Point P) {
         BigInteger r = Util.bigIntFromBytes(sig, 0, 32);
         BigInteger s = Util.bigIntFromBytes(sig, 32, 32);
         if (r.compareTo(Point.getp()) >= 0 || s.compareTo(Point.getn()) >= 0) return false;
@@ -186,16 +210,20 @@ class Schnorr {
         BigInteger e = Util.bigIntFromBytes(Point.taggedHash(TAG_CHALLENGE, challengeBuffer)).mod(Point.getn());
 
         Point R = Point.schnorrVerify(s, P, e);
-        return R != null && R.hasEvenY() && R.getX().compareTo(r) == 0;
+        return R != null && !R.isInfinite() && R.hasEvenY() && R.getX().compareTo(r) == 0;
     }
 
     public static byte[] genPubKey(byte[] secKey) {
+        Point point = preparePublicPoint(secKey);
+        return point == null ? null : Point.bytesFromPoint(point);
+    }
+
+    static Point preparePublicPoint(byte[] secKey) {
         BigInteger x = Util.bigIntFromBytes(secKey);
         if (!(BigInteger.ONE.compareTo(x) <= 0 && x.compareTo(Point.getn().subtract(BigInteger.ONE)) <= 0)) {
             return null;
         }
-        Point ret = Point.mul(Point.G, x);
-        return Point.bytesFromPoint(ret);
+        return Point.mul(Point.G, x);
     }
 
     static byte[] generatePrivateKey(SecureRandom random) throws InvalidAlgorithmParameterException {

@@ -33,6 +33,7 @@ package org.ngengine.platform.teavm;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
@@ -63,7 +64,15 @@ public class TeaVMJsConverter {
             return null;
         }
 
-        if (obj instanceof Map) {
+        // JSON trees contain mostly strings and numbers. Avoid reflection and
+        // collection checks for every primitive leaf, especially across Wasm.
+        if (obj instanceof String) {
+            return JSString.valueOf((String) obj);
+        } else if (obj instanceof Number) {
+            return JSNumber.valueOf(((Number) obj).doubleValue());
+        } else if (obj instanceof Boolean) {
+            return JSBoolean.valueOf((Boolean) obj);
+        } else if (obj instanceof Map) {
             return mapToJSObject((Map<?, ?>) obj);
         } else if (obj instanceof Collection) {
             return collectionToJSArray((Collection<?>) obj);
@@ -72,12 +81,6 @@ public class TeaVMJsConverter {
         } else if (obj.getClass().isArray()) {
             // Handle primitive arrays
             return primitiveArrayToJSArray(obj);
-        } else if (obj instanceof String) {
-            return JSString.valueOf((String) obj);
-        } else if (obj instanceof Number) {
-            return JSNumber.valueOf(((Number) obj).doubleValue());
-        } else if (obj instanceof Boolean) {
-            return JSBoolean.valueOf((Boolean) obj);
         } else if (obj instanceof Date) {
             // Convert Date to a JS date (as milliseconds since epoch)
             return JSNumber.valueOf(((Date) obj).getTime());
@@ -121,56 +124,56 @@ public class TeaVMJsConverter {
             int[] intArray = (int[]) array;
             JSArray result = JSArray.create(intArray.length);
             for (int i = 0; i < intArray.length; i++) {
-                result.set(i, JSNumber.valueOf(intArray[i]));
+                setElement(result, i, (double) intArray[i]);
             }
             return result;
         } else if (componentType == byte.class) {
             byte[] byteArray = (byte[]) array;
             JSArray result = JSArray.create(byteArray.length);
             for (int i = 0; i < byteArray.length; i++) {
-                result.set(i, JSNumber.valueOf(byteArray[i]));
+                setElement(result, i, (double) byteArray[i]);
             }
             return result;
         } else if (componentType == short.class) {
             short[] shortArray = (short[]) array;
             JSArray result = JSArray.create(shortArray.length);
             for (int i = 0; i < shortArray.length; i++) {
-                result.set(i, JSNumber.valueOf(shortArray[i]));
+                setElement(result, i, (double) shortArray[i]);
             }
             return result;
         } else if (componentType == long.class) {
             long[] longArray = (long[]) array;
             JSArray result = JSArray.create(longArray.length);
             for (int i = 0; i < longArray.length; i++) {
-                result.set(i, JSNumber.valueOf(longArray[i]));
+                setElement(result, i, (double) longArray[i]);
             }
             return result;
         } else if (componentType == float.class) {
             float[] floatArray = (float[]) array;
             JSArray result = JSArray.create(floatArray.length);
             for (int i = 0; i < floatArray.length; i++) {
-                result.set(i, JSNumber.valueOf(floatArray[i]));
+                setElement(result, i, (double) floatArray[i]);
             }
             return result;
         } else if (componentType == double.class) {
             double[] doubleArray = (double[]) array;
             JSArray result = JSArray.create(doubleArray.length);
             for (int i = 0; i < doubleArray.length; i++) {
-                result.set(i, JSNumber.valueOf(doubleArray[i]));
+                setElement(result, i, (double) doubleArray[i]);
             }
             return result;
         } else if (componentType == boolean.class) {
             boolean[] boolArray = (boolean[]) array;
             JSArray result = JSArray.create(boolArray.length);
             for (int i = 0; i < boolArray.length; i++) {
-                result.set(i, JSBoolean.valueOf(boolArray[i]));
+                setElement(result, i, boolArray[i]);
             }
             return result;
         } else if (componentType == char.class) {
             char[] charArray = (char[]) array;
             JSArray result = JSArray.create(charArray.length);
             for (int i = 0; i < charArray.length; i++) {
-                result.set(i, JSString.valueOf(String.valueOf(charArray[i])));
+                setElement(result, i, String.valueOf(charArray[i]));
             }
             return result;
         }
@@ -184,6 +187,13 @@ public class TeaVMJsConverter {
      */
     @SuppressWarnings("unchecked")
     public static <T> T toJavaObject(JSObject jsObj, Class<T> targetClass) {
+        return toJavaObject(jsObj, targetClass, false);
+    }
+
+    // Only JSON.parse trees owned by the platform can use repeated typed reads.
+    // Public interop objects may have getters or proxies with observable effects.
+    @SuppressWarnings("unchecked")
+    static <T> T toJavaObject(JSObject jsObj, Class<T> targetClass, boolean ownedJson) {
         if (jsObj == null) {
             return null;
         }
@@ -262,11 +272,11 @@ public class TeaVMJsConverter {
         }
         // Handle collections
         else if (List.class.isAssignableFrom(targetClass)) {
-            return (T) toJavaList(jsObj);
+            return (T) toJavaList(jsObj, ownedJson);
         } else if (Set.class.isAssignableFrom(targetClass)) {
-            return (T) toJavaSet(jsObj);
+            return (T) new HashSet<>(toJavaList(jsObj, ownedJson));
         } else if (Map.class.isAssignableFrom(targetClass)) {
-            return (T) toJavaMap(jsObj);
+            return (T) toJavaMap(jsObj, ownedJson);
         }
         // If target class is array
         else if (targetClass.isArray()) {
@@ -295,18 +305,17 @@ public class TeaVMJsConverter {
 
             // Use direct property setting instead of JSObjects.setProperty
             if (value == null) {
-                setProperty(result, key, null);
+                setProperty(result, key, (JSObject) null);
+            } else if (value instanceof String) {
+                setProperty(result, key, (String) value);
+            } else if (value instanceof Number) {
+                setProperty(result, key, ((Number) value).doubleValue());
+            } else if (value instanceof Boolean) {
+                setProperty(result, key, (Boolean) value);
             } else if (value instanceof Map || value instanceof Collection || value instanceof Object[]) {
                 setProperty(result, key, toJSObject(value));
-            } else if (value instanceof String) {
-                setProperty(result, key, JSString.valueOf((String) value));
-            } else if (value instanceof Number) {
-                setProperty(result, key, JSNumber.valueOf(((Number) value).doubleValue()));
-            } else if (value instanceof Boolean) {
-                setProperty(result, key, JSBoolean.valueOf((Boolean) value));
             } else {
-                System.out.println(value.getClass());
-                setProperty(result, key, JSString.valueOf(String.valueOf(value)));
+                setProperty(result, key, String.valueOf(value));
             }
         }
 
@@ -317,22 +326,27 @@ public class TeaVMJsConverter {
      * Converts a Java Collection to a JavaScript array.
      */
     private static JSArray collectionToJSArray(Collection<?> collection) {
+        if (!org.teavm.classlib.PlatformDetector.isWebAssemblyGC()) {
+            // Traverse a bulk copy without erased iterator calls for every leaf.
+            // Wasm retains iteration to avoid the extra managed array allocation.
+            return arrayToJSArray(collection.toArray());
+        }
         JSArray array = JSArray.create(collection.size());
         int index = 0;
 
         for (Object item : collection) {
             if (item == null) {
                 array.set(index, null);
+            } else if (item instanceof String) {
+                setElement(array, index, (String) item);
+            } else if (item instanceof Number) {
+                setElement(array, index, ((Number) item).doubleValue());
+            } else if (item instanceof Boolean) {
+                setElement(array, index, (Boolean) item);
             } else if (item instanceof Map || item instanceof Collection || item instanceof Object[]) {
                 array.set(index, toJSObject(item));
-            } else if (item instanceof String) {
-                array.set(index, JSString.valueOf((String) item));
-            } else if (item instanceof Number) {
-                array.set(index, JSNumber.valueOf(((Number) item).doubleValue()));
-            } else if (item instanceof Boolean) {
-                array.set(index, JSBoolean.valueOf((Boolean) item));
             } else {
-                array.set(index, JSString.valueOf(String.valueOf(item)));
+                setElement(array, index, String.valueOf(item));
             }
             index++;
         }
@@ -350,16 +364,16 @@ public class TeaVMJsConverter {
             Object item = array[i];
             if (item == null) {
                 result.set(i, null);
+            } else if (item instanceof String) {
+                setElement(result, i, (String) item);
+            } else if (item instanceof Number) {
+                setElement(result, i, ((Number) item).doubleValue());
+            } else if (item instanceof Boolean) {
+                setElement(result, i, (Boolean) item);
             } else if (item instanceof Map || item instanceof Collection || item instanceof Object[]) {
                 result.set(i, toJSObject(item));
-            } else if (item instanceof String) {
-                result.set(i, JSString.valueOf((String) item));
-            } else if (item instanceof Number) {
-                result.set(i, JSNumber.valueOf(((Number) item).doubleValue()));
-            } else if (item instanceof Boolean) {
-                result.set(i, JSBoolean.valueOf((Boolean) item));
             } else {
-                result.set(i, JSString.valueOf(String.valueOf(item)));
+                setElement(result, i, String.valueOf(item));
             }
         }
 
@@ -373,26 +387,26 @@ public class TeaVMJsConverter {
      * Convert a JavaScript array to a Java List.
      */
     public static List<Object> toJavaList(JSObject jsArray) {
+        return toJavaList(jsArray, false);
+    }
+
+    private static List<Object> toJavaList(JSObject jsArray, boolean ownedJson) {
         if (!isJSArray(jsArray)) {
             throw new IllegalArgumentException("Not a JavaScript array");
         }
 
+        // Owned JSON arrays have no accessors. A typed transfer avoids interop
+        // wrappers for string leaves while keeping the Java copy independent.
+        if (ownedJson) {
+            String[] strings = getStringArray(jsArray);
+            if (strings != null) return new ArrayList<>(Arrays.asList(strings));
+        }
+
         JSArray array = (JSArray) jsArray;
-        List<Object> list = new ArrayList<>();
-
-        for (int i = 0; i < array.getLength(); i++) {
-            JSObject item = (JSObject) array.get(i);
-
-            if (item == null) {
-                list.add(null);
-            } else if (isJSArray(item)) {
-                list.add(toJavaList(item));
-            } else if (isJSObject(item) && !isPrimitive(item)) {
-                list.add(toJavaMap(item));
-            } else {
-                // Handle primitives
-                list.add(convertJSPrimitive(item));
-            }
+        int length = array.getLength();
+        List<Object> list = new ArrayList<>(length);
+        for (int i = 0; i < length; i++) {
+            list.add(ownedJson ? convertElement(array, i) : convertJSValue(getElement(array, i)));
         }
 
         return list;
@@ -410,26 +424,18 @@ public class TeaVMJsConverter {
      * Convert a JavaScript object to a Java Map.
      */
     public static Map<String, Object> toJavaMap(JSObject jsObj) {
+        return toJavaMap(jsObj, false);
+    }
+
+    private static Map<String, Object> toJavaMap(JSObject jsObj, boolean ownedJson) {
         if (jsObj == null) {
             return null;
         }
 
-        Map<String, Object> map = new HashMap<>();
-
         String[] keys = getObjectKeys(jsObj);
+        Map<String, Object> map = new HashMap<>(Math.max(16, keys.length));
         for (String key : keys) {
-            JSObject value = getProperty(jsObj, key);
-
-            if (value == null) {
-                map.put(key, null);
-            } else if (isJSArray(value)) {
-                map.put(key, toJavaList(value));
-            } else if (isJSObject(value) && !isPrimitive(value)) {
-                map.put(key, toJavaMap(value));
-            } else {
-                // Handle primitives
-                map.put(key, convertJSPrimitive(value));
-            }
+            map.put(key, ownedJson ? convertProperty(jsObj, key) : convertJSValue(getProperty(jsObj, key)));
         }
 
         return map;
@@ -460,64 +466,150 @@ public class TeaVMJsConverter {
         return result;
     }
 
-    /**
-     * Convert a JavaScript primitive value to its Java equivalent.
-     */
-    private static Object convertJSPrimitive(JSObject value) {
-        if (value == null) {
-            return null;
+    // Read primitive values through typed interop. Generic JSObject values in
+    // Wasm need WeakRef-backed wrappers, even for a string consumed immediately.
+    // This path is exclusively for owned JSON trees without getters or proxies.
+    static Object convertProperty(JSObject object, String key) {
+        switch (propertyType(object, key)) {
+            case 0:
+                return null;
+            case 1:
+                return getStringProperty(object, key);
+            case 2:
+                return boxNumber(getNumberProperty(object, key));
+            case 3:
+                return getBooleanProperty(object, key);
+            case 4:
+                return toJavaList(getProperty(object, key), true);
+            case 5:
+                return toJavaMap(getProperty(object, key), true);
+            default:
+                return String.valueOf(getProperty(object, key));
         }
-
-        if (isString(value)) {
-            return String.valueOf(value);
-        } else if (isNumber(value)) {
-            double d = getNumberValue(value);
-            // Check if it's an integer
-            if (d == Math.floor(d) && !Double.isInfinite(d)) {
-                if (d >= Integer.MIN_VALUE && d <= Integer.MAX_VALUE) {
-                    return (int) d;
-                } else {
-                    return (long) d;
-                }
-            }
-            return d;
-        } else if (isBoolean(value)) {
-            return getBooleanValue(value);
-        }
-
-        // Default case
-        return String.valueOf(value);
     }
+
+    @JSBody(
+        params = "array",
+        script = "for (let i = 0; i < array.length; i++) { " + "if (typeof array[i] !== 'string') return null; } return array;"
+    )
+    private static native String[] getStringArray(JSObject array);
+
+    private static Object convertElement(JSObject array, int index) {
+        switch (elementType(array, index)) {
+            case 0:
+                return null;
+            case 1:
+                return getStringElement(array, index);
+            case 2:
+                return boxNumber(getNumberElement(array, index));
+            case 3:
+                return getBooleanElement(array, index);
+            case 4:
+                return toJavaList(getElement(array, index), true);
+            case 5:
+                return toJavaMap(getElement(array, index), true);
+            default:
+                return String.valueOf(getElement(array, index));
+        }
+    }
+
+    // Convert the captured value, so public conversion evaluates each accessor once.
+    private static Object convertJSValue(JSObject value) {
+        switch (valueType(value)) {
+            case 0:
+                return null;
+            case 1:
+                return ((JSString) value).stringValue();
+            case 2:
+                return boxNumber(getNumberValue(value));
+            case 3:
+                return getBooleanValue(value);
+            case 4:
+                return toJavaList(value);
+            case 5:
+                return toJavaMap(value);
+            default:
+                return String.valueOf(value);
+        }
+    }
+
+    @JSBody(
+        params = "value",
+        script = "if (value == null) return 0; " +
+        "switch (typeof value) { case 'string': return 1; case 'number': return 2; case 'boolean': return 3; " +
+        "case 'object': return Array.isArray(value) ? 4 : 5; default: return 6; }"
+    )
+    private static native int valueType(JSObject value);
+
+    private static Number boxNumber(double value) {
+        // Preserve the existing Integer/Long/Double conversion policy.
+        if (value == Math.floor(value) && !Double.isInfinite(value)) {
+            if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) return Integer.valueOf((int) value);
+            return Long.valueOf((long) value);
+        }
+        return Double.valueOf(value);
+    }
+
+    @JSBody(
+        params = { "obj", "key" },
+        script = "const value = obj[key]; if (value == null) return 0; " +
+        "switch (typeof value) { case 'string': return 1; case 'number': return 2; case 'boolean': return 3; " +
+        "case 'object': return Array.isArray(value) ? 4 : 5; default: return 6; }"
+    )
+    private static native int propertyType(JSObject obj, String key);
+
+    @JSBody(
+        params = { "obj", "index" },
+        script = "const value = obj[index]; if (value == null) return 0; " +
+        "switch (typeof value) { case 'string': return 1; case 'number': return 2; case 'boolean': return 3; " +
+        "case 'object': return Array.isArray(value) ? 4 : 5; default: return 6; }"
+    )
+    private static native int elementType(JSObject obj, int index);
+
+    @JSBody(params = { "obj", "key" }, script = "return obj[key];")
+    private static native String getStringProperty(JSObject obj, String key);
+
+    @JSBody(params = { "obj", "key" }, script = "return obj[key];")
+    private static native double getNumberProperty(JSObject obj, String key);
+
+    @JSBody(params = { "obj", "key" }, script = "return obj[key];")
+    private static native boolean getBooleanProperty(JSObject obj, String key);
+
+    @JSBody(params = { "obj", "index" }, script = "return obj[index];")
+    private static native String getStringElement(JSObject obj, int index);
+
+    @JSBody(params = { "obj", "index" }, script = "return obj[index];")
+    private static native double getNumberElement(JSObject obj, int index);
+
+    @JSBody(params = { "obj", "index" }, script = "return obj[index];")
+    private static native boolean getBooleanElement(JSObject obj, int index);
+
+    @JSBody(params = { "obj", "index" }, script = "return obj[index];")
+    private static native JSObject getElement(JSObject obj, int index);
+
+    @JSBody(params = { "obj", "key", "value" }, script = "obj[key] = value;")
+    private static native void setProperty(JSObject obj, String key, String value);
+
+    @JSBody(params = { "obj", "key", "value" }, script = "obj[key] = value;")
+    private static native void setProperty(JSObject obj, String key, double value);
+
+    @JSBody(params = { "obj", "key", "value" }, script = "obj[key] = value;")
+    private static native void setProperty(JSObject obj, String key, boolean value);
+
+    @JSBody(params = { "obj", "index", "value" }, script = "obj[index] = value;")
+    private static native void setElement(JSObject obj, int index, String value);
+
+    @JSBody(params = { "obj", "index", "value" }, script = "obj[index] = value;")
+    private static native void setElement(JSObject obj, int index, double value);
+
+    @JSBody(params = { "obj", "index", "value" }, script = "obj[index] = value;")
+    private static native void setElement(JSObject obj, int index, boolean value);
 
     /**
      * Check if a JSObject is a JS Array.
      */
     @JSBody(params = "obj", script = "return Array.isArray(obj);")
     private static native boolean isJSArray(JSObject obj);
-
-    /**
-     * Check if a JSObject is a JS Object (not array, not primitive).
-     */
-    @JSBody(params = "obj", script = "return obj !== null && typeof obj === 'object' && !Array.isArray(obj);")
-    private static native boolean isJSObject(JSObject obj);
-
-    /**
-     * Check if a JSObject is a JS primitive value.
-     */
-    @JSBody(
-        params = "obj",
-        script = "return obj === null || " +
-        "typeof obj === 'string' || " +
-        "typeof obj === 'number' || " +
-        "typeof obj === 'boolean';"
-    )
-    private static native boolean isPrimitive(JSObject obj);
-
-    /**
-     * Check if a JSObject is a string.
-     */
-    @JSBody(params = "obj", script = "return typeof obj === 'string';")
-    private static native boolean isString(JSObject obj);
 
     /**
      * Check if a JSObject is a number.

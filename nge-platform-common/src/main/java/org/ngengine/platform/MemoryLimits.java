@@ -59,6 +59,8 @@ public class MemoryLimits {
     protected final long KEYS_LIMIT = 10L * KIB;
     protected final long STRING_LIMIT = 2L * MIB;
     protected final long RANDOM_LIMIT = 10 * KIB;
+    private final int STRING_CHARACTER_LIMIT = (int) Math.min(Integer.MAX_VALUE, STRING_LIMIT / 2L);
+    private final boolean defaultStringLimit = getClass() == MemoryLimits.class;
 
     public long getTransportLimit() {
         return TRANSPORT_LIMIT;
@@ -128,6 +130,10 @@ public class MemoryLimits {
      * Check limit for human readable strings (eg. keys in key-value pairs, names...)
      */
     public boolean checkForString(int length) {
+        // Keep the same UTF-16 byte limit without promoting every string length
+        // to a long (which the JavaScript backend has to emulate).
+        if (defaultStringLimit) return length >= 0 && length <= STRING_CHARACTER_LIMIT;
+        // Preserve custom policies implemented through the protected hook.
         return checkLimit(length * 2L, STRING_LIMIT);
     }
 }

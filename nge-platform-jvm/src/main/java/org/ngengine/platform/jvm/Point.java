@@ -32,12 +32,18 @@ package org.ngengine.platform.jvm;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
+import org.bouncycastle.asn1.x9.X9ECParameters;
+import org.bouncycastle.crypto.ec.CustomNamedCurves;
+import org.bouncycastle.math.ec.ECAlgorithms;
+import org.bouncycastle.math.ec.ECPoint;
+import org.bouncycastle.math.ec.FixedPointCombMultiplier;
 import org.ngengine.platform.NGEUtils;
 
 final class Point {
 
     private static final BigInteger p = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F", 16);
     private static final BigInteger n = new BigInteger("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16);
+    private static final X9ECParameters SCHNORR_CURVE = CustomNamedCurves.getByName("secp256k1");
     public static final Point G = new Point(
         new BigInteger("79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", 16),
         new BigInteger("483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16),
@@ -47,12 +53,13 @@ final class Point {
     private static final BigInteger BI_TWO = BigInteger.valueOf(2);
     private static final BigInteger BI_THREE = BigInteger.valueOf(3L);
     private static final BigInteger BI_SEVEN = BigInteger.valueOf(7L);
-    private static final BigInteger P_PLUS_ONE_DIV_FOUR = p.add(BigInteger.ONE).divide(BigInteger.valueOf(4L));
     private static final BigInteger P_MINUS_ONE_DIV_TWO = p.subtract(BigInteger.ONE).divide(BI_TWO);
     private static final byte[] ZEROES = new byte[32];
 
     private final BigInteger[] coords;
+    private final ECPoint curvePoint;
     private byte[] cachedBytes;
+    private volatile Point evenPoint;
     private static final Point INFINITY = new Point(null, null, false);
 
     public Point(BigInteger x, BigInteger y) {
@@ -61,11 +68,17 @@ final class Point {
 
     private Point(BigInteger x, BigInteger y, boolean verify) {
         this.coords = new BigInteger[] { x, y };
+        this.curvePoint = null;
 
         // Don't validate infinity point or special pre-computed points
         if (verify) {
             validateOnCurve(x, y);
         }
+    }
+
+    private Point(ECPoint point) {
+        this.coords = null;
+        this.curvePoint = point;
     }
 
     // Validate that the point lies on the curve y² = x³ + 7 (mod p)
@@ -102,16 +115,16 @@ final class Point {
     }
 
     public BigInteger getX() {
-        return coords[0];
+        return curvePoint != null ? curvePoint.getAffineXCoord().toBigInteger() : coords[0];
     }
 
     public BigInteger getY() {
-        return coords[1];
+        return curvePoint != null ? curvePoint.getAffineYCoord().toBigInteger() : coords[1];
     }
 
     // A point is infinite if either coordinate is null.
     public boolean isInfinite() {
-        return getX() == null || getY() == null;
+        return curvePoint != null ? curvePoint.isInfinity() : coords[0] == null || coords[1] == null;
     }
 
     public static boolean isInfinite(Point P) {
@@ -133,6 +146,13 @@ final class Point {
 
     public static Point mul(Point P, BigInteger k) {
         if (P == null || P.isInfinite()) return INFINITY;
+        if (P.equals(G) && k.abs().bitLength() <= n.bitLength()) {
+            // Fixed-base secret scalars use the cache-safe comb lookup, never
+            // the variable-time public verification multiplier. Only public
+            // multiples of G are retained in Bouncy Castle's precomputation.
+            ECPoint result = new FixedPointCombMultiplier().multiply(SCHNORR_CURVE.getG(), k).normalize();
+            return result.isInfinity() ? INFINITY : new Point(result);
+        }
         JacobianPoint J = P.toJacobian();
         return JacobianPoint.wNAFScalarMul(J, k).toAffine();
     }
@@ -141,8 +161,24 @@ final class Point {
         return hasEvenY(this);
     }
 
+    Point withEvenY() {
+        if (hasEvenY()) return this;
+        Point result = evenPoint;
+        if (result == null) {
+            synchronized (this) {
+                result = evenPoint;
+                if (result == null) {
+                    ECPoint point = curvePoint != null ? curvePoint : SCHNORR_CURVE.getCurve().validatePoint(getX(), getY());
+                    result = new Point(point.negate());
+                    evenPoint = result;
+                }
+            }
+        }
+        return result;
+    }
+
     public static boolean hasEvenY(Point P) {
-        return P.getY().mod(BI_TWO).equals(BigInteger.ZERO);
+        return P.curvePoint != null ? !P.curvePoint.getAffineYCoord().testBitZero() : !P.getY().testBit(0);
     }
 
     public static boolean isSquare(BigInteger x) {
@@ -162,6 +198,10 @@ final class Point {
 
     public static byte[] taggedHash(String tag, byte[] msg) {
         byte[] tagHash = NGEUtils.getPlatform().sha256(tag.getBytes(StandardCharsets.UTF_8));
+        return taggedHash(tagHash, msg);
+    }
+
+    static byte[] taggedHash(byte[] tagHash, byte[] msg) {
         int len = (tagHash.length * 2) + msg.length;
         byte[] buf = new byte[len];
         System.arraycopy(tagHash, 0, buf, 0, tagHash.length);
@@ -185,9 +225,15 @@ final class Point {
     public static Point liftX(byte[] b) {
         BigInteger x = Util.bigIntFromBytes(b);
         if (x.compareTo(p) >= 0) return null;
-        BigInteger y_sq = x.modPow(BI_THREE, p).add(BI_SEVEN).mod(p);
-        BigInteger y = y_sq.modPow(P_PLUS_ONE_DIV_FOUR, p);
-        if (!y.modPow(BI_TWO, p).equals(y_sq)) return null; else return new Point(x, (y.testBit(0)) ? p.subtract(y) : y);
+        byte[] encoded = new byte[33];
+        encoded[0] = 2; // Compressed SEC1 encoding selects the even square root.
+        System.arraycopy(Util.bytesFromBigInteger(x), 0, encoded, 1, 32);
+        try {
+            // decodePoint checks the field range and rejects non-curve points.
+            return new Point(SCHNORR_CURVE.getCurve().decodePoint(encoded));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     public static Point infinityPoint() {
@@ -216,10 +262,15 @@ final class Point {
      */
     public static Point schnorrVerify(BigInteger s, Point P, BigInteger e) {
         BigInteger t = n.subtract(e).mod(n);
-        JacobianPoint JG = G.toJacobian();
-        JacobianPoint JP = P.toJacobian();
-        JacobianPoint R = JacobianPoint.doubleScalarWNAF(JG, s, JP, t);
-        return R.toAffine();
+        // Verification uses public scalars. Reuse Bouncy Castle's specialized
+        // secp256k1 field arithmetic instead of generic BigInteger division for
+        // every Jacobian coordinate. Secret scalars use the cache-safe fixed
+        // base multiplier in mul(), not this public-scalar algorithm.
+        ECPoint publicPoint = P.curvePoint != null ? P.curvePoint : SCHNORR_CURVE.getCurve().validatePoint(P.getX(), P.getY());
+        ECPoint result = ECAlgorithms.sumOfTwoMultiplies(SCHNORR_CURVE.getG(), s, publicPoint, t);
+        if (result.isInfinity()) return INFINITY;
+        result = result.normalize();
+        return new Point(result);
     }
 
     /**

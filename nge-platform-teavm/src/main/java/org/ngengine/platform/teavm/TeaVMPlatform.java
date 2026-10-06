@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Cleaner;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -43,12 +42,12 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import org.ngengine.platform.AsyncExecutor;
@@ -64,9 +63,20 @@ import org.ngengine.platform.transport.NGEHttpResponseStream;
 import org.ngengine.platform.transport.RTCTransport;
 import org.ngengine.platform.transport.WebsocketTransport;
 import org.teavm.classlib.PlatformDetector;
+import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 
 public class TeaVMPlatform extends NGEPlatform {
+
+    @Override
+    public boolean supportsMinimalJSONEscaping() {
+        return true;
+    }
+
+    @Override
+    public String sha256JSON(Collection obj) {
+        return TeaVMBinds.sha256JSON(TeaVMJsConverter.toJSObject(obj));
+    }
 
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
@@ -116,19 +126,64 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String toJSON(Collection obj) {
-        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
+        return stringifyJSON(TeaVMJsConverter.toJSObject(obj));
     }
 
     @Override
     public String toJSON(Map obj) {
-        return TeaVMBinds.toJSON(TeaVMJsConverter.toJSObject(obj));
+        return stringifyJSON(TeaVMJsConverter.toJSObject(obj));
+    }
+
+    // The converter already produces a plain JSON tree without JS BigInts.
+    // Serializing it directly avoids cloning the complete tree a second time.
+    @JSBody(params = { "object" }, script = "return JSON.stringify(object);")
+    private static native String stringifyJSON(JSObject object);
+
+    @JSBody(
+        params = "json",
+        script = "const object = JSON.parse(json); " +
+        "if (object === null || typeof object !== 'object' || Array.isArray(object)) " +
+        "return null; " +
+        // Typed reads must have the same own-property semantics as the Map decoder.
+        "return Object.setPrototypeOf(object, null);"
+    )
+    private static native JSObject parseJSONTree(String json);
+
+    @Override
+    public org.ngengine.platform.JsonObject parseJsonObject(String json) {
+        JSObject root = parseJSONTree(json);
+        if (root == null) throw new IllegalArgumentException("JSON root must be an object");
+        return new TeaVMJsonObject(root);
     }
 
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
         JSObject jsObj = (JSObject) TeaVMBinds.fromJSON(json);
-        return TeaVMJsConverter.toJavaObject(jsObj, claz);
+        try {
+            return TeaVMJsConverter.toJavaObject(jsObj, claz, true);
+        } finally {
+            if (
+                PlatformDetector.isWebAssemblyGC() &&
+                (Map.class.isAssignableFrom(claz) || List.class.isAssignableFrom(claz) || Set.class.isAssignableFrom(claz))
+            ) {
+                // These targets contain independent Java copies. Wasm's generic
+                // wrappers may retain the parsed native containers until the
+                // current JavaScript job ends, so release their child references.
+                // Never consume objects supplied to the public converter.
+                releaseParsedTree(jsObj);
+            }
+        }
     }
+
+    @JSBody(
+        params = "root",
+        script = "const pending = [root]; while (pending.length) { " +
+        "const node = pending.pop(); if (node && typeof node === 'object') { " +
+        "const keys = Object.keys(node); for (let i = 0; i < keys.length; i++) { " +
+        "const key = keys[i]; const value = node[key]; " +
+        "if (value && typeof value === 'object') pending.push(value); node[key] = null; } } }"
+    )
+    private static native void releaseParsedTree(JSObject root);
 
     @SuppressWarnings("unchecked")
     static Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
@@ -344,9 +399,8 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String sha256(String data) {
-        byte[] bytes = data.getBytes(StandardCharsets.UTF_8);
-        byte[] hash = TeaVMBinds.sha256(bytes);
-        return NGEUtils.bytesToHex(hash);
+        Objects.requireNonNull(data, "data");
+        return TeaVMBinds.sha256String(data);
     }
 
     @Override
@@ -369,10 +423,14 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public String schnorrSign(String data, ByteBuffer privKey) {
-        ByteBuffer message = directHex(data);
-        ByteBuffer output = allocateOutput(64);
-        finishOutput(output, TeaVMBinds.signBuffer(message, directInput(privKey), output));
-        return NGEUtils.bytesToHex(output);
+        try {
+            return TeaVMBinds.signHex(data, directInput(privKey));
+        } catch (RuntimeException error) {
+            // Preserve Java input-validation errors without decoding valid hex
+            // twice on the normal path. Noble performs the native decoding.
+            NGEUtils.hexToByteArray(data);
+            throw error;
+        }
     }
 
     @Override
@@ -384,7 +442,13 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public boolean schnorrVerify(String data, String sign, ByteBuffer pubKey) {
-        return TeaVMBinds.verifyBuffer(directHex(data), directInput(pubKey), directHex(sign));
+        try {
+            return TeaVMBinds.verifyHex(data, directInput(pubKey), sign);
+        } catch (RuntimeException error) {
+            NGEUtils.hexToByteArray(data);
+            NGEUtils.hexToByteArray(sign);
+            throw error;
+        }
     }
 
     private void verifyRandomness(byte bytes[], int n) throws Exception {
@@ -630,50 +694,6 @@ public class TeaVMPlatform extends NGEPlatform {
         return (AsyncTask<T>) promisify(func, null);
     }
 
-    private AsyncExecutor newJsExecutor() {
-        AtomicBoolean closed = new AtomicBoolean();
-
-        AsyncExecutor aexc = new AsyncExecutor() {
-            @Override
-            public <T> AsyncTask<T> run(Callable<T> r) {
-                if (closed.get()) {
-                    return wrapPromise((res, rej) -> rej.accept(new IllegalStateException("Executor already shutdown")));
-                }
-                return wrapPromise((res, rej) -> {
-                    Thread worker = new Thread(() -> {
-                        try {
-                            res.accept(r.call());
-                        } catch (Throwable e) {
-                            rej.accept(e);
-                        }
-                    });
-                    worker.setName("TeaVM Executor");
-                    worker.start();
-                });
-            }
-
-            @Override
-            public <T> AsyncTask<T> runLater(Callable<T> r, long delay, TimeUnit unit) {
-                long delayMs = unit.toMillis(delay);
-
-                if (delayMs == 0) {
-                    return run(r);
-                }
-
-                return run(() -> {
-                    TeaVMBinds.delayPromise(NGEUtils.safeInt(delayMs)).await();
-                    return r.call();
-                });
-            }
-
-            @Override
-            public void close() {
-                closed.set(true);
-            }
-        };
-        return aexc;
-    }
-
     <T> AsyncTask<T> runAsync(Callable<T> task) {
         return defaultExecutor.run(task);
     }
@@ -690,63 +710,27 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public AsyncTask<String> schnorrSignAsync(String data, byte privKey[]) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrSign(data, privKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrSign(data, privKey));
     }
 
     @Override
     public AsyncTask<String> schnorrSignAsync(String data, ByteBuffer privKey) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrSign(data, privKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrSign(data, privKey));
     }
 
     @Override
     public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, byte pubKey[]) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrVerify(data, sign, pubKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrVerify(data, sign, pubKey));
     }
 
     @Override
     public AsyncTask<Boolean> schnorrVerifyAsync(String data, String sign, ByteBuffer pubKey) {
-        return promisify(
-            (res, rej) -> {
-                try {
-                    res.accept(schnorrVerify(data, sign, pubKey));
-                } catch (Exception e) {
-                    rej.accept(e);
-                }
-            },
-            defaultExecutor
-        );
+        return runAsync(() -> schnorrVerify(data, sign, pubKey));
     }
 
     @Override
     public AsyncExecutor newAsyncExecutor(Object hint) {
-        return newJsExecutor();
+        return new TeaVMAsyncExecutor(this);
     }
 
     @Override
@@ -1009,28 +993,6 @@ public class TeaVMPlatform extends NGEPlatform {
         // makes the JavaScript view cover exactly the caller's remaining bytes,
         // including the zero-length case.
         return direct.slice();
-    }
-
-    private static ByteBuffer directHex(String value) {
-        if (value == null) {
-            throw new NullPointerException("value");
-        }
-        if ((value.length() & 1) != 0) {
-            throw new IllegalArgumentException("Hex value must contain an even number of characters");
-        }
-
-        ByteBuffer output = allocateOutput(value.length() / 2);
-        output.limit(value.length() / 2);
-        for (int i = 0; i < value.length(); i += 2) {
-            int high = Character.digit(value.charAt(i), 16);
-            int low = Character.digit(value.charAt(i + 1), 16);
-            if (high < 0 || low < 0) {
-                throw new IllegalArgumentException("Invalid hexadecimal value");
-            }
-            output.put((byte) ((high << 4) | low));
-        }
-        output.flip();
-        return output;
     }
 
     private static ByteBuffer finishOutput(ByteBuffer output, int length) {

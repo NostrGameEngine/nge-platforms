@@ -5,7 +5,7 @@ import { sha256 as _sha256 } from '@noble/hashes/sha2.js';
 import { extract as _hkdf_extract, expand as _hkdf_expand } from '@noble/hashes/hkdf'
 import { base64 as _base64 } from '@scure/base';
 import { cbc } from '@noble/ciphers/aes';
-import {  randomBytes as _randomBytes } from '@noble/hashes/utils.js';
+import { randomBytes as _randomBytes, bytesToHex as _bytesToHex, hexToBytes as _hexToBytes } from '@noble/hashes/utils.js';
 import { scryptAsync as _scryptAsync } from '@noble/hashes/scrypt'
 import { xchacha20poly1305 as _xchacha20poly1305 } from '@noble/ciphers/chacha'
 
@@ -409,6 +409,21 @@ export const sha256 = (data /*byte[]*/) => { // Uint8Array (byte[])
     return _u(_sha256(_u(data)));
 };
 
+const _utf8Encoder = new TextEncoder();
+const _unpairedSurrogate = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+export const sha256String = (data) => {
+    // Match Java's UTF-8 replacement byte ('?'), including repeated unpaired
+    // surrogates. TextEncoder alone would replace them with U+FFFD instead.
+    return _bytesToHex(_sha256(_utf8Encoder.encode(data.replace(_unpairedSurrogate, '?'))));
+};
+
+export const sha256JSON = (data) => {
+    // JSON.stringify produces well-formed JSON, including escaped unpaired
+    // surrogates. Keep the large serialized text entirely in the host runtime.
+    return _bytesToHex(_sha256(_utf8Encoder.encode(JSON.stringify(data))));
+};
+
 export const sha256Buffer = (data, output) => {
     return _writeBytes(output, _sha256(_u(data)));
 };
@@ -434,12 +449,22 @@ export const signBuffer = (data, privKeyBytes, output) => {
     return _writeBytes(output, _schnorr.sign(_u(data), _u(privKeyBytes)));
 };
 
+export const signHex = (data, privKeyBytes) => {
+    return _bytesToHex(_schnorr.sign(_hexToBytes(data), _u(privKeyBytes)));
+};
+
 export const verify = (data /*byte[]*/, pub /*byte[]*/, sig/*byte[]*/) => { // bool
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
 };
 
 export const verifyBuffer = (data, pub, sig) => {
     return _schnorr.verify(_u(sig), _u(data), _u(pub));
+};
+
+export const verifyHex = (data, pub, sig) => {
+    const message = _hexToBytes(data);
+    const signature = _hexToBytes(sig);
+    return _schnorr.verify(signature, message, _u(pub));
 };
 
 export const secp256k1SharedSecret = (privKey /*byte[]*/, pubKey /*byte[]*/) => { // Uint8Array (byte[])
@@ -1660,6 +1685,31 @@ export const fetchStreamAsync = (method, url, headers, body, timeoutMs, res, rej
     fetchStreamPromise(method, url, headers, body, timeoutMs)
         .then(response => res(response.status, response.headers, response.body))
         .catch(error => rej(String(error)));
+};
+
+// Each callback is a separate macrotask. This yields to I/O without the
+// minimum delay applied to repeated nested setTimeout(..., 0) calls.
+let _workerChannel;
+let _workerSequence = 0;
+const _workerCallbacks = new Map();
+export const runSoon = (callback) => {
+    if (typeof setImmediate === 'function') {
+        setImmediate(callback);
+    } else if (typeof MessageChannel === 'function') {
+        if (!_workerChannel) {
+            _workerChannel = new MessageChannel();
+            _workerChannel.port1.onmessage = (event) => {
+                const next = _workerCallbacks.get(event.data);
+                _workerCallbacks.delete(event.data);
+                if (next) next();
+            };
+        }
+        const id = _workerSequence++;
+        _workerCallbacks.set(id, callback);
+        _workerChannel.port2.postMessage(id);
+    } else {
+        setTimeout(callback, 0);
+    }
 };
 
 export const newPromise = ()=>{

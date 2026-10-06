@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Queue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,6 +48,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature;
@@ -61,6 +63,7 @@ public abstract class NGEPlatform {
     private static volatile VStoreInterceptor storeInterceptor;
     private static volatile NGEPlatform platform;
     private static final Logger logger = Logger.getLogger(NGEPlatform.class.getName());
+    private static final MemoryLimits DEFAULT_MEMORY_LIMITS = new MemoryLimits();
 
     public static synchronized void set(NGEPlatform platform) {
         if (NGEPlatform.platform != null) throw new IllegalStateException("Platform already set");
@@ -129,7 +132,33 @@ public abstract class NGEPlatform {
 
     public abstract String toJSON(Map obj);
 
+    /**
+     * Whether the JSON writer escapes only syntax, control characters and
+     * unpaired UTF-16 surrogates, without extra HTML or script escaping.
+     * Callers must still respect the writer's numeric precision.
+     */
+    public boolean supportsMinimalJSONEscaping() {
+        return false;
+    }
+
+    /** Hashes the UTF-8 JSON representation, allowing native writers to avoid a string round trip. */
+    public String sha256JSON(Collection obj) {
+        return sha256(toJSON(obj));
+    }
+
     public abstract <T> T fromJSON(String json, Class<T> claz);
+
+    /**
+     * Parses an object with typed reads and owned immutable string rows.
+     *
+     * @throws IllegalArgumentException if the JSON root is not an object
+     */
+    @SuppressWarnings("unchecked")
+    public JsonObject parseJsonObject(String json) {
+        Object root = fromJSON(json, Object.class);
+        if (!(root instanceof Map)) throw new IllegalArgumentException("JSON root must be an object");
+        return JsonObject.fromMap((Map<String, Object>) root);
+    }
 
     public abstract byte[] secp256k1SharedSecret(byte[] privKey, byte[] pubKey);
 
@@ -263,6 +292,18 @@ public abstract class NGEPlatform {
     }
 
     public abstract String schnorrSign(String data, byte privKey[]) throws FailedToSignException;
+
+    /**
+     * Creates a signer that may prepare public key state once. The supplier is
+     * consulted for every signature, so key destruction remains effective.
+     * It must supply the same key throughout the signer's lifetime; no private
+     * key snapshot is retained by this factory. Platforms without a prepared
+     * implementation preserve their existing signing path.
+     */
+    public SchnorrSigner createSchnorrSigner(Supplier<ByteBuffer> privateKey) {
+        Objects.requireNonNull(privateKey, "privateKey");
+        return data -> schnorrSignAsync(data, privateKey.get());
+    }
 
     public String schnorrSign(String data, ByteBuffer privKey) throws FailedToSignException {
         return schnorrSign(data, copyRemaining(privKey));
@@ -768,7 +809,10 @@ public abstract class NGEPlatform {
     }
 
     public MemoryLimits getMemoryLimits() {
-        return new MemoryLimits();
+        // The default limits are immutable. String and binary validation can
+        // share them instead of allocating a policy object for every value.
+        // Platforms can still override this method with their own policy.
+        return DEFAULT_MEMORY_LIMITS;
     }
 
     public abstract NGEAllocator getNativeAllocator();

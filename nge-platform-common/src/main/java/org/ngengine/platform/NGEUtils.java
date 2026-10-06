@@ -79,19 +79,22 @@ public class NGEUtils {
     }
 
     public static ByteBuffer hexToBytes(String s) {
-        int len = s.length();
-        ByteBuffer buf = ByteBuffer.allocate(len / 2);
-        for (int i = 0; i < len; i += 2) {
-            buf.put(i / 2, (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16)));
-        }
-        return buf;
+        return ByteBuffer.wrap(hexToByteArray(s));
     }
 
     public static byte[] hexToByteArray(String s) {
         int len = s.length();
+        if ((len & 1) != 0) throw new IllegalArgumentException("Hex input must have an even length");
         byte[] data = new byte[len / 2];
         for (int i = 0; i < len; i += 2) {
-            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
+            char high = s.charAt(i);
+            char low = s.charAt(i + 1);
+            int highDigit = Character.digit(high, 16);
+            int lowDigit = Character.digit(low, 16);
+            if (high > 127 || low > 127 || highDigit < 0 || lowDigit < 0) {
+                throw new IllegalArgumentException("Invalid hex input at index " + i);
+            }
+            data[i / 2] = (byte) ((highDigit << 4) | lowDigit);
         }
         return data;
     }
@@ -382,8 +385,16 @@ public class NGEUtils {
         if (tags == null) {
             return EMPTY_STRING_ARRAY;
         }
+        if (tags instanceof List && tags instanceof java.util.RandomAccess) {
+            List<?> source = (List<?>) tags;
+            String[] result = new String[source.size()];
+            for (int i = 0; i < result.length; i++) {
+                result[i] = safeString(source.get(i));
+            }
+            return result;
+        }
         if (tags instanceof Iterable) {
-            ArrayList<String> list = new ArrayList<>();
+            ArrayList<String> list = new ArrayList<>(tags instanceof Collection ? ((Collection<?>) tags).size() : 10);
             for (Object o : (Iterable<?>) tags) {
                 list.add(safeString(o));
             }
