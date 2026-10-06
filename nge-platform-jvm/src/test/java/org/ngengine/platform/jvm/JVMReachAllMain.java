@@ -136,6 +136,19 @@ public final class JVMReachAllMain {
             }
         );
         safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
+        safeRun(
+            "secp256k1-recover",
+            () -> {
+                try {
+                    byte[] hash = platform.sha256("recover-me".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature sig =
+                        platform.secp256k1SignRecoverable(hash, privateKey);
+                    byte[] recovered = platform.secp256k1RecoverPublicKey(hash, sig.getSignature64(), sig.getRecoveryId(), true);
+                    platform.secp256k1PublicKeyVerify(recovered);
+                } catch (Throwable ignored) {}
+                return null;
+            }
+        );
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
         safeRun(
             "hkdf",
@@ -384,6 +397,18 @@ public final class JVMReachAllMain {
                             java.lang.reflect.Field f = JVMWebsocketTransport.class.getDeclaredField("openWebSocket");
                             f.setAccessible(true);
                             f.set(jws, mock);
+                        } catch (Throwable ignored) {}
+
+                        // Exercise setMaxMessageSize and effective max code paths
+                        try {
+                            jws.setMaxMessageSize(1024);
+                        } catch (Throwable ignored) {}
+                        try {
+                            // force the small-limit path and swallow expected exception
+                            jws.setMaxMessageSize(10);
+                            try {
+                                jws.onText(mock, "this message is intentionally long and should exceed the tiny max size for testing", true);
+                            } catch (Throwable ignored) {}
                         } catch (Throwable ignored) {}
 
                         // Trigger lifecycle callbacks directly

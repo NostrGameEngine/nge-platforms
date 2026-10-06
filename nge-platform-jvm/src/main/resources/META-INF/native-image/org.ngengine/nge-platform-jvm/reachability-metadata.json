@@ -2803,6 +2803,9 @@
             ]
         },
         {
+            "type": "java.lang.Class"
+        },
+        {
             "type": "java.lang.ClassLoader",
             "fields": [
                 {
@@ -2919,6 +2922,9 @@
             "serializable": true
         },
         {
+            "type": "java.util.Arrays$ArrayList"
+        },
+        {
             "type": "java.util.Collections$EmptyList",
             "serializable": true
         },
@@ -2930,7 +2936,16 @@
             "serializable": true
         },
         {
+            "type": "java.util.ImmutableCollections$List12"
+        },
+        {
             "type": "java.util.ImmutableCollections$ListN"
+        },
+        {
+            "type": "java.util.ImmutableCollections$Map1"
+        },
+        {
+            "type": "java.util.LinkedHashMap"
         },
         {
             "type": "java.util.LinkedHashSet",
@@ -4586,7 +4601,89 @@
                     ]
                 },
                 {
+                    "name": "redirectedLoopbackUrlsAreAllowedInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.JVMAsyncPlatformRedirectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "redirectedLoopbackUrlsAreRejected",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.NGEUtilsSafetyTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "inheritedStringLimitRespectsCustomPolicyHook",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeByteArraySupportsDirectByteBufferWithoutArray",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeCollectionOfStringArraySanitizesMixedList",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeDoublePreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatPreservesNaNAndInfinityMappings",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeFloatRejectsFiniteDoubleOverflowToInfinity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeLongBigIntegerOutOfRangeThrows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "safeStringArrayHandlesNullEntries",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "stringMemoryLimitsPreserveBoundariesWithoutOverflow",
                     "parameterTypes": [
                         
                     ]
@@ -5203,6 +5300,41 @@
                     ]
                 },
                 {
+                    "name": "allowsLoopbackWebSocketUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "allowsRedirectsToLoopbackUrlsInTestConfiguration",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "detectsPrivateAndLocalAddresses",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "stillRejectsRedirectsToPrivateUrls",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMNetworkSecurityTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
                     "name": "detectsPrivateAndLocalAddresses",
                     "parameterTypes": [
                         
@@ -5471,6 +5603,52 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JsonSerializationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "appendableSerializationPreservesConfiguredGsonSemantics",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.NGEUtilsHexTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "buffersStartAtZeroAndHaveIndependentStorage",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsMalformedInputInsteadOfAliasingValidBytes",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "roundTripsEveryByteAndBothLetterCases",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.NativeImageEntropyConfigurationTest",
             "methods": [
                 {
@@ -5530,6 +5708,59 @@
         },
         {
             "type": "org.ngengine.platform.jvm.Point$JacobianPoint"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.PreparedSchnorrSignerTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "changedKeyCannotReleaseSignatureForPreparedIdentity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "concurrentSignaturesVerifyAndKeepAuxiliaryRandomness",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "destroyedKeySupplierIsConsultedOnEverySignature",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "equivalentUnsignedKeyEncodingsPreserveStatelessCompatibility",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "randomPreparedSignaturesMatchStatelessForBothPublicPointParities",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsInvalidSetupKeysAndMessages",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "unsignedIntegerSlicesPreserveBoundaryValues",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.PrivateKeyEntropyTest",
@@ -5592,6 +5823,47 @@
                     "parameterTypes": [
                         
                     ]
+                },
+                {
+                    "name": "rawAllocatorSupportsJmePointerOperations",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.SaferAllocBehaviorTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "callocReturnsZeroInitializedDirectBufferWithExpectedCapacity",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "copiedPayloadSurvivesAllocatorChurnWhenReferenceIsRetained",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "jvmNgeAllocatorRetainedCopySurvivesChurn",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "liveAllocationsDoNotAliasAddressesOrContents",
+                    "parameterTypes": [
+                        
+                    ]
                 }
             ]
         },
@@ -5602,6 +5874,82 @@
                     "name": "genPubKey",
                     "parameterTypes": [
                         "byte[]"
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.SchnorrVectorTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "fixedBaseMultiplicationMatchesReferenceAtBoundariesAndRandomScalars",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "publicDoubleMultiplicationMatchesIndependentScalarOperations",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "verifiesOfficialBip340VectorsAndDeterministicSignatures",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.TestJVMNGEAllocatorGuard",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "concurrentRequestsShareOneGcInterval",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "setUp",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldAdaptBudgetUpThenDown",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestGcOnBurstEvenWithAdaptiveBudget",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "shouldRequestMaintenanceGcAfterSilence",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "tearDown",
+                    "parameterTypes": [
+                        
                     ]
                 }
             ]
@@ -5672,6 +6020,29 @@
         },
         {
             "type": "org.ngengine.platform.jvm.TestLibDatachannelInitialization"
+        },
+        {
+            "type": "org.ngengine.platform.jvm.TypedJsonObjectTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "typedJsonPreservesValidObjectReadsAndImmutableRows",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "typedJsonRejectsNonObjectRootsIncludingGsonMapArraySyntax",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
         },
         {
             "type": "org.ngengine.platform.jvm.Util",
@@ -6148,6 +6519,18 @@
             ]
         },
         {
+            "type": "sun.text.resources.FormatData"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en"
+        },
+        {
+            "type": "sun.text.resources.FormatData_en_US"
+        },
+        {
+            "type": "sun.text.resources.JavaTimeSupplementary"
+        },
+        {
             "type": "sun.text.resources.cldr.FormatData"
         },
         {
@@ -6158,6 +6541,15 @@
         },
         {
             "type": "sun.util.resources.cldr.CalendarData"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en"
+        },
+        {
+            "type": "sun.util.resources.cldr.TimeZoneNames_en_US"
         },
         {
             "type": "tel.schich.libdatachannel.CandidatePair",
@@ -6455,6 +6847,9 @@
             "glob": "META-INF/native-image/org.ngengine/nge-platform-jvm/native-image.properties"
         },
         {
+            "glob": "META-INF/services/com.sun.net.httpserver.spi.HttpServerProvider"
+        },
+        {
             "glob": "META-INF/services/java.net.spi.InetAddressResolverProvider"
         },
         {
@@ -6468,6 +6863,9 @@
         },
         {
             "glob": "META-INF/services/org.slf4j.spi.SLF4JServiceProvider"
+        },
+        {
+            "glob": "bip340-test-vectors.csv"
         },
         {
             "glob": "natives/linux/x86_64/libsaferalloc.so"
