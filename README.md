@@ -92,6 +92,17 @@ This repo has some unit and integration tests for each platform, and for platfor
 - Chrome/Chromium installed for Puppeteer (`CHROME_BIN` can be used to override the path)
 
 
+### Formatting
+
+`./gradlew build` and `./gradlew spotlessReport` report formatting differences as
+warnings. Formatter setup/execution errors, lints, compilation errors and test
+failures still fail the build. CI uses the same advisory report without ignoring
+the Gradle exit status.
+
+Run `./gradlew spotlessApply` to fix formatting, or `./gradlew spotlessCheck` for an
+explicit strict check. Run `.github/scripts/test-spotless-advisory.sh` to verify
+that the advisory policy continues to distinguish formatting from real failures.
+
 ### Running tests
 
 Unit tests:

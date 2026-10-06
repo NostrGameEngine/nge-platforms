@@ -1,0 +1,85 @@
+import groovy.io.FileType
+import org.gradle.api.file.ConfigurableFileCollection
+import org.gradle.api.file.DirectoryProperty
+import org.gradle.api.tasks.InputFiles
+import org.gradle.api.tasks.Internal
+import org.gradle.api.tasks.PathSensitive
+import org.gradle.api.tasks.PathSensitivity
+import org.gradle.api.tasks.TaskAction
+
+abstract class SpotlessAdvisoryReport extends DefaultTask {
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getCleanDirectories()
+
+    @InputFiles
+    @PathSensitive(PathSensitivity.RELATIVE)
+    abstract ConfigurableFileCollection getLintDirectories()
+
+    @Internal
+    abstract DirectoryProperty getSourceDirectory()
+
+    @TaskAction
+    void report() {
+        def errors = []
+        lintDirectories.files.each { directory ->
+            if (directory.exists()) {
+                directory.eachFileRecurse(FileType.FILES) { lint ->
+                    errors.add(directory.toPath().relativize(lint.toPath()).toString())
+                }
+            }
+        }
+        if (!errors.empty) {
+            throw new GradleException("Spotless formatter/lint errors in ${path} (not advisory):\n  " +
+                errors.unique().sort().join('\n  ') +
+                '\nRun ./gradlew spotlessCheck for diagnostics; formatting differences may be shown first.')
+        }
+
+        def unformatted = []
+        cleanDirectories.files.each { directory ->
+            if (directory.exists()) {
+                directory.eachFileRecurse(FileType.FILES) { formatted ->
+                    def relative = directory.toPath().relativize(formatted.toPath())
+                    def original = sourceDirectory.file(relative.toString()).get().asFile
+                    // Spotless can leave output that spotlessApply already copied back.
+                    // Reading failures still propagate rather than becoming warnings.
+                    if (!Arrays.equals(original.bytes, formatted.bytes)) {
+                        unformatted.add(relative.toString())
+                    }
+                }
+            }
+        }
+        if (!unformatted.empty) {
+            logger.warn("Spotless formatting differences in ${path} (advisory):\n  " +
+                unformatted.unique().sort().join('\n  ') +
+                '\nRun ./gradlew spotlessApply to format these files.')
+        }
+    }
+}
+
+// Only successfully generated formatting diffs are advisory. Keep formatter
+// provisioning/execution and lint failures fatal, without catching exceptions.
+allprojects { targetProject ->
+    targetProject.plugins.withId('com.diffplug.spotless') { plugin ->
+        targetProject.spotless.enforceCheck = false
+        // Applied script plugins do not inherit the plugins{} compile classpath.
+        // Resolve the public task API from the already-applied Spotless plugin.
+        def taskType = plugin.class.classLoader.loadClass('com.diffplug.gradle.spotless.SpotlessTask')
+        def formatterTasks = targetProject.tasks.withType(taskType)
+        def report = targetProject.tasks.register('spotlessReport', SpotlessAdvisoryReport) {
+            group = 'verification'
+            description = 'Reports formatting differences; fails on formatter or lint errors.'
+            dependsOn(formatterTasks)
+            sourceDirectory.set(targetProject.layout.projectDirectory)
+            cleanDirectories.from(targetProject.providers.provider {
+                formatterTasks.collect { it.cleanDirectory }
+            })
+            lintDirectories.from(targetProject.providers.provider {
+                formatterTasks.collect { it.lintsDirectory }
+            })
+        }
+        targetProject.tasks.matching { it.name == 'check' }.configureEach {
+            dependsOn(report)
+        }
+    }
+}

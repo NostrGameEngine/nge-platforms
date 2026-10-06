@@ -334,7 +334,6 @@ subprojects { proj ->
                 def header      = "/**\n" + wrapped + "\n */"
                 licenseHeader(header, "package ")
             }
-            enforceCheck false
 
         }
          
@@ -450,3 +449,4 @@ tasks.register('refreshCatalog') {
 }
 
 apply from: 'gradle/native-image-runtime-metadata.gradle'
+apply from: 'gradle/spotless-advisory.gradle'

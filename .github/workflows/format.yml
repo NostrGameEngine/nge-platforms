@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - '**'
-    paths-ignore:
-      - '.github/workflows/**'
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -28,10 +26,7 @@ jobs:
       run: chmod +x gradlew
       
     - name: Check formatting with Spotless
-      id: spotless
-      continue-on-error: true
-      run: ./gradlew spotlessCheck
+      run: ./gradlew --no-daemon spotlessReport --console=plain
 
-    - name: Report formatting issues
-      if: steps.spotless.outcome == 'failure'
-      run: echo "::warning::Spotless found formatting issues; this check is advisory."
+    - name: Verify advisory formatting behavior
+      run: .github/scripts/test-spotless-advisory.sh
