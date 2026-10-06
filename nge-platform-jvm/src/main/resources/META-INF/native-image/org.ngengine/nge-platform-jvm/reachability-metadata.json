@@ -7373,7 +7373,19 @@
             "glob": "bip340-test-vectors.csv"
         },
         {
+            "glob": "natives/linux/aarch64/libsaferalloc.so"
+        },
+        {
             "glob": "natives/linux/x86_64/libsaferalloc.so"
+        },
+        {
+            "glob": "natives/macos/aarch64/libsaferalloc.dylib"
+        },
+        {
+            "glob": "natives/macos/x86_64/libsaferalloc.dylib"
+        },
+        {
+            "glob": "natives/windows/x86_64/saferalloc.dll"
         },
         {
             "glob": "org/slf4j/impl/StaticLoggerBinder.class"
