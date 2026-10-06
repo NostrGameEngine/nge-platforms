@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
     id "war"
-    id "org.teavm" version "0.15.0"
+    id "org.ngengine.teavm" version "0.16.0-SNAPSHOT"
     id "com.github.node-gradle.node" version "7.1.0" 
 }
 
@@ -11,9 +11,9 @@ repositories {
 
 dependencies {
     testImplementation libs.junit4
-    testImplementation "org.teavm:teavm-junit:0.15.0"
-    testImplementation "org.teavm:teavm-core:0.15.0"
-    compileOnly "org.teavm:teavm-core:0.15.0"
+    testImplementation "org.ngengine:teavm-junit:0.16.0-SNAPSHOT"
+    testImplementation "org.ngengine:teavm-core:0.16.0-SNAPSHOT"
+    compileOnly "org.ngengine:teavm-core:0.16.0-SNAPSHOT"
  
     api project(':nge-platform-common')
     testImplementation teavm.libs.jsoApis

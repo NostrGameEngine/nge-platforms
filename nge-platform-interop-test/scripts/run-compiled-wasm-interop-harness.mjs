@@ -296,10 +296,10 @@ async function runCompiledWasm(pageUrl, timeout = 90_000) {
       { timeout }
     );
     const testResult = await page.$eval('pre', (element) => (element.textContent || '').trim());
-    if (diagnostics.length) process.stderr.write(`${diagnostics.join('\n')}\n`);
     if (testResult !== 'OK') throw new Error(`Compiled Wasm JUnit failure:\n${testResult}`);
     return testResult;
   } finally {
+    if (diagnostics.length) process.stderr.write(`${diagnostics.join('\n')}\n`);
     await browser.close();
   }
 }
