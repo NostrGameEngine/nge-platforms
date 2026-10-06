@@ -21,6 +21,13 @@ android {
         animationsDisabled true
     }
 
+    packaging {
+        resources {
+            // Preserve dependency license and notice text in the test APK.
+            merges += ['META-INF/LICENSE*', 'META-INF/NOTICE*']
+        }
+    }
+
     publishing {
         singleVariant('release')
     }
