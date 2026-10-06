@@ -60,8 +60,8 @@ public class IndexedDbVStore implements VStoreBackend {
                 TeaVMBinds.vfileReadAsync(
                     name,
                     path,
-                    result -> resolve.accept(new ByteArrayInputStream(result.getData())),
-                    error -> reject.accept(new IOException(error.stringValue()))
+                    result -> completeInThread(() -> resolve.accept(new ByteArrayInputStream(result.getData()))),
+                    error -> completeInThread(() -> reject.accept(new IOException(error.stringValue())))
                 )
             );
     }
@@ -111,7 +111,9 @@ public class IndexedDbVStore implements VStoreBackend {
                                     baos.toByteArray(),
                                     () -> {},
                                     error ->
-                                        logger.log(Level.WARNING, "Error closing file " + path + ": " + error.stringValue())
+                                        completeInThread(() ->
+                                            logger.log(Level.WARNING, "Error closing file " + path + ": " + error.stringValue())
+                                        )
                                 );
                                 dirty = false;
                             }
@@ -139,8 +141,8 @@ public class IndexedDbVStore implements VStoreBackend {
                 TeaVMBinds.vfileExistsAsync(
                     name,
                     path,
-                    result -> resolve.accept(result.booleanValue()),
-                    error -> reject.accept(new IOException(error.stringValue()))
+                    result -> completeInThread(() -> resolve.accept(result.booleanValue())),
+                    error -> completeInThread(() -> reject.accept(new IOException(error.stringValue())))
                 )
             );
     }
@@ -152,8 +154,8 @@ public class IndexedDbVStore implements VStoreBackend {
                 TeaVMBinds.vfileDeleteAsync(
                     name,
                     path,
-                    () -> resolve.accept(null),
-                    error -> reject.accept(new IOException(error.stringValue()))
+                    () -> completeInThread(() -> resolve.accept(null)),
+                    error -> completeInThread(() -> reject.accept(new IOException(error.stringValue())))
                 )
             );
     }
@@ -164,18 +166,27 @@ public class IndexedDbVStore implements VStoreBackend {
             .wrapPromise((resolve, reject) ->
                 TeaVMBinds.vfileListAllAsync(
                     name,
-                    files -> {
-                        ArrayList<String> list = new ArrayList<>();
-                        if (files != null) {
-                            for (int i = 0; i < files.getLength(); i++) {
-                                list.add(files.get(i).stringValue());
+                    files ->
+                        completeInThread(() -> {
+                            ArrayList<String> list = new ArrayList<>();
+                            if (files != null) {
+                                for (int i = 0; i < files.getLength(); i++) {
+                                    list.add(files.get(i).stringValue());
+                                }
                             }
-                        }
-                        resolve.accept(list);
-                    },
-                    error -> reject.accept(new IOException(error.stringValue()))
+                            resolve.accept(list);
+                        }),
+                    error -> completeInThread(() -> reject.accept(new IOException(error.stringValue())))
                 )
             );
+    }
+
+    // Foreign JS callbacks have no active Wasm GC fiber. Promise continuations
+    // can suspend, so enter a managed TeaVM thread before invoking them.
+    private static void completeInThread(Runnable completion) {
+        Thread thread = new Thread(completion);
+        thread.setName("TeaVM VStore completion");
+        thread.start();
     }
 
     private static TeaVMPlatform platform() {

@@ -29,6 +29,9 @@ jobs:
       - name: Refresh catalog
         run: ./gradlew --no-daemon refreshCatalog
 
+      - name: Validate refreshed build configuration
+        run: ./gradlew --no-daemon help
+
       - name: Open pull request
         uses: peter-evans/create-pull-request@v8
         with:
