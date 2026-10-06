@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   refresh-native-image-metadata:
-    if: github.actor != 'github-actions[bot]'
+    if: github.ref == 'refs/heads/master' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

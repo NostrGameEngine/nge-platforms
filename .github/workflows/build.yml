@@ -74,7 +74,7 @@ jobs:
         ./gradlew --no-daemon :nge-platform-teavm:teaVMBackendParity --console=plain
       
     - name: Publish Snapshot
-      if: github.event_name != 'pull_request' && github.event_name != 'release'
+      if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request' && github.event_name != 'release'
       env:
         SONATYPE_USERNAME: ${{ secrets.SONATYPE_USERNAME }}
         SONATYPE_PASSWORD: ${{ secrets.SONATYPE_PASSWORD }}
