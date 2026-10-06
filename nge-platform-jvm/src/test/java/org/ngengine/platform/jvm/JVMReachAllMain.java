@@ -49,6 +49,7 @@ import java.util.Queue;
 import java.util.concurrent.TimeUnit;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
+import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.VStore;
@@ -206,6 +207,46 @@ public final class JVMReachAllMain {
             () -> {
                 JVMNGEAllocatorGuard.beforeAlloc(128);
                 JVMNGEAllocatorGuard.notifyGC();
+                return null;
+            }
+        );
+
+        // Exercise raw/native allocator methods (mallocRaw/callocRaw/reallocRaw/freeRaw and function pointers)
+        safeRun(
+            "allocator-raw",
+            () -> {
+                try {
+                    NGEAllocator na = platform.getNativeAllocator();
+                    // call raw allocation paths
+                    long addr = na.mallocRaw(64L);
+                    if (addr != 0L) {
+                        na.freeRaw(addr);
+                    }
+                    long caddr = na.callocRaw(1L, 32L);
+                    if (caddr != 0L) {
+                        long r = na.reallocRaw(caddr, 64L);
+                        if (r != 0L) {
+                            na.freeRaw(r);
+                        } else {
+                            na.freeRaw(caddr);
+                        }
+                    }
+
+                    long aligned = na.mallocAlignedRaw(16L, 128L);
+                    if (aligned != 0L) {
+                        na.freeAlignedRaw(aligned);
+                    }
+
+                    // Function pointer getters (best-effort touch)
+                    try {
+                        na.mallocFunctionPointer();
+                        na.callocFunctionPointer();
+                        na.reallocFunctionPointer();
+                        na.freeFunctionPointer();
+                        na.alignedAllocFunctionPointer();
+                        na.alignedFreeFunctionPointer();
+                    } catch (Throwable ignored) {}
+                } catch (Throwable ignored) {}
                 return null;
             }
         );
