@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -48,6 +49,8 @@ public class VStore {
     /** Maximum complete value accepted by conditional creation; existing write APIs are unchanged. */
     public static final int MAX_CREATE_IF_ABSENT_BYTES = 64 * 1024;
 
+    private enum CreateDispatch { QUEUED, STARTED, ABANDONED }
+
     public interface VStoreBackend {
         AsyncTask<InputStream> read(String path);
 
@@ -56,7 +59,9 @@ public class VStore {
         /**
          * Atomically publishes a complete value only if no target entry exists. The input remains
          * owned by the caller until the returned private task settles; implementations must not
-         * retain it afterwards. Unsupported backends must fail, never emulate exists-then-write.
+         * retain it afterwards. Create-capable backends must return a task that supports
+         * {@link AsyncTask#observeCompletion} so completion can be forwarded without executor
+         * submission. Unsupported backends must fail, never emulate exists-then-write.
          */
         default AsyncTask<Boolean> createIfAbsent(String path, byte[] completeValue) {
             return AsyncTask.failed(new UnsupportedOperationException("Conditional store creation unsupported"));
@@ -113,6 +118,9 @@ public class VStore {
      * Only the private copy is erased after backend completion. Cancelling the returned view does
      * not cancel the private publication, which may still commit. This is ordinary desktop storage,
      * not a vault against privileged processes or host access-control administration.
+     * Platforms without direct task completion observation are rejected. An observation failure
+     * abandons work that has not started; an already-started publication retains its private copy
+     * until the backend settles.
      */
     public AsyncTask<Boolean> createIfAbsent(String path, byte[] completeValue) {
         Objects.requireNonNull(path, "Store path required");
@@ -120,12 +128,23 @@ public class VStore {
         if (completeValue.length > MAX_CREATE_IF_ABSENT_BYTES) {
             throw new IllegalArgumentException("Conditional store value exceeds limit");
         }
+        // Reject uniformly unsupported platforms early; the actual queued task may differ.
+        AsyncTask.completed(null).observeCompletion(ignored -> {}, ignored -> {});
         byte[] snapshot = Arrays.copyOf(completeValue, completeValue.length);
-        AtomicBoolean started = new AtomicBoolean();
+        AtomicReference<CreateDispatch> dispatch = new AtomicReference<>(CreateDispatch.QUEUED);
         AtomicBoolean settled = new AtomicBoolean();
+        Runnable abandonBeforeStart = () -> {
+            // Claim exclusive ownership before erasing. Dispatch must win the opposite transition.
+            if (dispatch.compareAndSet(CreateDispatch.QUEUED, CreateDispatch.ABANDONED)) {
+                Arrays.fill(snapshot, (byte) 0);
+            }
+        };
         try {
             AsyncTask<Boolean> privateTask = NGEPlatform.get().getVStoreQueue().enqueue((resolve, reject) -> {
-                started.set(true);
+                if (!dispatch.compareAndSet(CreateDispatch.QUEUED, CreateDispatch.STARTED)) {
+                    reject.accept(new IllegalStateException("Conditional store creation abandoned before dispatch"));
+                    return;
+                }
                 AsyncTask<Boolean> publication;
                 try {
                     publication = Objects.requireNonNull(backend.createIfAbsent(path, snapshot));
@@ -155,13 +174,21 @@ public class VStore {
                     reject.accept(unsupportedObservation);
                 }
             });
-            privateTask.observeCompletion(ignored -> {}, failure -> {
-                if (!started.get() && settled.compareAndSet(false, true)) Arrays.fill(snapshot, (byte) 0);
-            });
+            privateTask.observeCompletion(ignored -> {}, failure -> abandonBeforeStart.run());
             // A separate no-affinity promise keeps caller cancellation away from the private queue.
-            return NGEPlatform.get().wrapPromise((resolve, reject) -> privateTask.observeCompletion(resolve, reject));
+            return NGEPlatform.get().wrapPromise((resolve, reject) -> {
+                try {
+                    privateTask.observeCompletion(resolve, failure -> {
+                        abandonBeforeStart.run();
+                        reject.accept(failure);
+                    });
+                } catch (Throwable failure) {
+                    abandonBeforeStart.run();
+                    reject.accept(failure);
+                }
+            });
         } catch (RuntimeException | Error failure) {
-            if (!started.get()) Arrays.fill(snapshot, (byte) 0);
+            abandonBeforeStart.run();
             throw failure;
         }
     }
