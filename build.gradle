@@ -349,6 +349,7 @@ tasks.register('refreshCatalog') {
     def outputFile = layout.projectDirectory.file('gradle/libs.versions.toml')
 
     outputs.file(outputFile)
+    outputs.upToDateWhen { false }
 
     doLast {
         def target = outputFile.asFile
@@ -381,8 +382,11 @@ tasks.register('refreshCatalog') {
         def currentEntries = target.exists() ? readCatalogEntries(target.getText('UTF-8')) : [:]
         def remoteEntries = readCatalogEntries(new URI(catalogUrl.get()).toURL().getText('UTF-8'))
         def keptSections = ['libraries', 'bundles', 'plugins'].collectEntries { section ->
-            def allowedKeys = currentEntries[section]?.keySet() ?: [] as Set
-            [(section): remoteEntries[section].findAll { key, ignored -> allowedKeys.contains(key) }]
+            // The central catalog does not necessarily contain every local alias.
+            def entries = (currentEntries[section] ?: [:]).collectEntries { key, localLine ->
+                [(key): remoteEntries[section][key] ?: localLine]
+            }
+            [(section): entries]
         }
 
         def referencedVersionKeys = new LinkedHashSet<String>()
@@ -412,8 +416,15 @@ tasks.register('refreshCatalog') {
             }
             0
         }
-        def keptVersions = remoteEntries.versions.findAll { key, ignored -> referencedVersionKeys.contains(key) }.collectEntries { key, remoteLine ->
+        def keptVersions = referencedVersionKeys.collectEntries { key ->
+            def remoteLine = remoteEntries.versions[key]
             def currentLine = currentEntries.versions?.get(key)
+            if (remoteLine == null) {
+                if (currentLine == null) {
+                    throw new GradleException("Catalog version reference '${key}' is missing from both local and central catalogs.")
+                }
+                return [(key): currentLine]
+            }
             def currentMatcher = currentLine =~ /^\s*${java.util.regex.Pattern.quote(key)}\s*=\s*["']([^"']+)["']/
             def remoteMatcher = remoteLine =~ /^\s*${java.util.regex.Pattern.quote(key)}\s*=\s*["']([^"']+)["']/
             if (currentMatcher.find() && remoteMatcher.find() && compareVersion(currentMatcher.group(1), remoteMatcher.group(1)) > 0) {

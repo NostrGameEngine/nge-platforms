@@ -40,6 +40,9 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Verify catalog refresh behavior
+      run: bash .github/scripts/test-refresh-catalog.sh
+
     # - name: Refresh Native Image Metadata (Release Preflight)
     #   if: github.event_name == 'release'
     #   id: native_metadata
