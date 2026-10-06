@@ -40,8 +40,11 @@ import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
@@ -77,6 +80,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     // Lifecycle, receive buffers and the send queue share a stable monitor.
     private final Object lifecycleMonitor = new Object();
     private ConnectionAttempt currentAttempt;
+    private final Set<WebSocket> closingSockets = Collections.newSetFromMap(new IdentityHashMap<>());
     private final List<CompletableFuture<?>> queuedTasks = new ArrayList<>();
     private CompletableFuture<?> futureQueue = CompletableFuture.completedFuture(null);
 
@@ -202,14 +206,14 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
     private void abortStale(WebSocket socket) {
         boolean stale;
         synchronized (lifecycleMonitor) {
-            stale = socket != openWebSocket;
+            stale = socket != openWebSocket && !closingSockets.contains(socket);
         }
         if (stale) {
             abort(socket);
         }
     }
 
-    private void cleanup(WebSocket socket, String reason, boolean graceful) {
+    private void cleanup(ConnectionAttempt attempt, WebSocket socket, String reason, boolean graceful) {
         if (socket == null) {
             return;
         }
@@ -222,9 +226,26 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
             // or stalled send. Sending a close frame alone does not close input.
             socket.sendClose(WebSocket.NORMAL_CLOSURE, reason != null ? reason : "Closed by client")
                 .orTimeout(CLOSE_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
-                .whenComplete((value, error) -> abort(socket));
+                .whenComplete((value, error) -> finishGracefulClose(attempt, socket));
         } catch (Throwable error) {
-            abort(socket);
+            finishGracefulClose(attempt, socket);
+        }
+    }
+
+    private void finishGracefulClose(ConnectionAttempt attempt, WebSocket socket) {
+        CompletableFuture<WebSocket> pending;
+        synchronized (lifecycleMonitor) {
+            if (attempt.closingSocket != socket) {
+                return;
+            }
+            attempt.closingSocket = null;
+            closingSockets.remove(socket);
+            pending = attempt.pending;
+            attempt.pending = null;
+        }
+        abort(socket);
+        if (pending != null) {
+            pending.cancel(true);
         }
     }
 
@@ -238,7 +259,15 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         attempt.events.clear();
         CompletableFuture<WebSocket> pending = attempt.pending;
         WebSocket socket = attempt.socket;
-        attempt.pending = null;
+        boolean ownsGracefulClose = graceful && socket != null;
+        if (ownsGracefulClose) {
+            // buildAsync can still be pending after onOpen/onClose. Its
+            // cancellation and stale callbacks must not abort this close send.
+            attempt.closingSocket = socket;
+            closingSockets.add(socket);
+        } else {
+            attempt.pending = null;
+        }
         attempt.socket = null;
         if (openWebSocket == socket) {
             openWebSocket = null;
@@ -246,10 +275,10 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         List<CompletableFuture<?>> previousTasks = currentAttempt == attempt ? resetBuffersAndQueue() : List.of();
         // Start physical cleanup before task continuations can run user code.
         effects.add(() -> {
-            if (pending != null) {
+            if (pending != null && !ownsGracefulClose) {
                 pending.cancel(true);
             }
-            cleanup(socket, reason, graceful);
+            cleanup(attempt, socket, reason, graceful);
             rejectQueuedTasks(previousTasks, error);
         });
         settleConnect(attempt, error, effects);
@@ -308,15 +337,16 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
             }
             CompletableFuture<WebSocket> pending = httpClient.newWebSocketBuilder()
                 .connectTimeout(CONNECT_TIMEOUT).buildAsync(uri, attempt);
-            boolean stale;
+            boolean cancelPending;
             synchronized (lifecycleMonitor) {
-                stale = currentAttempt != attempt || attempt.retired;
-                if (!stale) {
+                boolean stale = currentAttempt != attempt || attempt.retired;
+                cancelPending = stale && attempt.closingSocket == null;
+                if (!cancelPending) {
                     attempt.pending = pending;
                 }
             }
             pending.whenComplete((socket, error) -> completeConnect(attempt, socket, error));
-            if (stale) {
+            if (cancelPending) {
                 pending.cancel(true);
             }
         } catch (Throwable error) {
@@ -383,6 +413,7 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
         private final CompletableFuture<Void> result = new CompletableFuture<>();
         private CompletableFuture<WebSocket> pending;
         private WebSocket socket;
+        private WebSocket closingSocket;
         private boolean opened;
         private boolean openReady;
         private boolean handshakeCompleted;
@@ -687,7 +718,9 @@ public class JVMWebsocketTransport implements WebsocketTransport, WebSocket.List
             if (attempt != null && currentAttempt == attempt && !attempt.retired &&
                 webSocket != null && attempt.socket == webSocket) {
                 logger.finest("WebSocket closed: " + statusCode + " " + reason);
-                retire(attempt, new IOException("WebSocket closed by server: " + reason), null, false, effects);
+                // Send the reciprocal Close before aborting; an immediate abort
+                // prevents the JDK from completing the server's closing handshake.
+                retire(attempt, new IOException("WebSocket closed by server: " + reason), "", true, effects);
                 event = new ListenerEvent(attempt, null, false, listener -> listener.onConnectionClosedByServer(reason), null);
             }
         }

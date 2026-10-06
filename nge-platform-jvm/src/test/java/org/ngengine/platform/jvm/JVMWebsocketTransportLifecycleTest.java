@@ -399,6 +399,154 @@ public class JVMWebsocketTransportLifecycleTest {
     }
 
     @Test(timeout = 10000)
+    public void serverCloseBeforeBuildCompletionOwnsSocketUntilCloseSendFinishes() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket socket = new RecordingSocket();
+        socket.closeFuture = new CompletableFuture<>();
+        attempt.listener.onOpen(socket);
+        attempt.listener.onClose(socket, 1000, "early close");
+        assertFailed(connecting);
+        assertEquals(0, attempt.future.cancelCalls);
+        assertEquals(1, socket.closeCalls);
+        assertFalse(socket.aborted.isDone());
+
+        // Neither build completion nor other late callbacks own physical cleanup.
+        attempt.future.complete(socket);
+        attempt.listener.onOpen(socket);
+        attempt.listener.onClose(socket, 1000, "duplicate");
+        fixture.transport.onError(socket, new IOException("late callback"));
+        assertFalse(socket.aborted.isDone());
+        assertFalse(fixture.transport.isConnected());
+        socket.closeFuture.complete(socket);
+        assertTrue(socket.aborted.isDone());
+        assertEquals(1, fixture.events.serverCloses);
+    }
+
+    @Test(timeout = 10000)
+    public void serverCloseDuringBuildPreservesFutureReturnedAfterRetirement() throws Exception {
+        Fixture fixture = new Fixture();
+        RecordingSocket socket = new RecordingSocket();
+        socket.closeFuture = new CompletableFuture<>();
+        fixture.client.duringBuild = attempt -> {
+            attempt.listener.onOpen(socket);
+            attempt.listener.onClose(socket, 1000, "close before build returns");
+        };
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        assertFailed(connecting);
+        assertEquals(0, attempt.future.cancelCalls);
+        assertFalse(socket.aborted.isDone());
+        socket.closeFuture.complete(socket);
+        assertTrue(socket.aborted.isDone());
+        assertTrue(attempt.future.isCancelled());
+        assertEquals(1, attempt.future.cancelCalls);
+    }
+
+    @Test(timeout = 10000)
+    public void unrelatedLateBuildSocketIsAbortedWhileOwnedCloseContinues() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket owned = new RecordingSocket();
+        owned.closeFuture = new CompletableFuture<>();
+        attempt.listener.onOpen(owned);
+        attempt.listener.onClose(owned, 1000, "early close");
+        assertFailed(connecting);
+        RecordingSocket unrelated = new RecordingSocket();
+        attempt.future.complete(unrelated);
+        assertTrue(unrelated.aborted.isDone());
+        assertFalse(owned.aborted.isDone());
+        owned.closeFuture.complete(owned);
+        assertTrue(owned.aborted.isDone());
+    }
+
+    @Test(timeout = 10000)
+    public void earlyServerCloseTimeoutAbortsSocketAndCancelsPendingBuild() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket socket = new RecordingSocket();
+        socket.closeFuture = new CompletableFuture<>();
+        attempt.listener.onOpen(socket);
+        attempt.listener.onClose(socket, 1000, "stalled close send");
+        assertFailed(connecting);
+        assertFalse(attempt.future.isCancelled());
+        // Future cancellation follows physical abort; wait for both observable effects.
+        CompletableFuture<Void> cancelled = attempt.future.handle((value, error) -> null);
+        cancelled.get(5, TimeUnit.SECONDS);
+        assertTrue(socket.aborted.isDone());
+        assertTrue(attempt.future.isCancelled());
+        assertEquals(1, attempt.future.cancelCalls);
+    }
+
+    @Test(timeout = 10000)
+    public void gracefulCleanupReleasesOwnershipAndCancelsBuildWhenAbortThrows() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.transport.connect(URL);
+        Attempt attempt = fixture.client.attempts.get(0);
+        RecordingSocket socket = new RecordingSocket();
+        socket.closeFuture = new CompletableFuture<>();
+        socket.abortFailure = new IllegalStateException("abort failure");
+        attempt.listener.onOpen(socket);
+        attempt.listener.onClose(socket, 1000, "early close");
+        socket.closeFuture.complete(socket);
+        assertTrue(attempt.future.isCancelled());
+        assertEquals(1, attempt.future.cancelCalls);
+        // Ownership was released even though physical abort threw.
+        socket.abortFailure = null;
+        attempt.listener.onOpen(socket);
+        assertTrue(socket.aborted.isDone());
+    }
+
+    @Test(timeout = 10000)
+    public void replacementDoesNotPreemptOwnedGracefulClose() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> connecting = fixture.transport.connect(URL);
+        Attempt oldAttempt = fixture.client.attempts.get(0);
+        RecordingSocket old = new RecordingSocket();
+        old.closeFuture = new CompletableFuture<>();
+        oldAttempt.listener.onOpen(old);
+        oldAttempt.listener.onClose(old, 1000, "early close");
+        assertFailed(connecting);
+        RecordingSocket current = fixture.connect();
+        oldAttempt.future.complete(old);
+        oldAttempt.listener.onText(old, "stale", true);
+        fixture.transport.onOpen(old);
+        assertFalse(old.aborted.isDone());
+        assertFalse(current.aborted.isDone());
+        old.closeFuture.complete(old);
+        assertTrue(old.aborted.isDone());
+        fixture.transport.send("replacement survives").await();
+        assertEquals(List.of("T:replacement survives:true"), current.sent);
+        fixture.transport.close("cleanup").await();
+    }
+
+    @Test(timeout = 10000)
+    public void replacementAndErrorStillAbortAcquiredPendingSocketsImmediately() throws Exception {
+        Fixture fixture = new Fixture();
+        AsyncTask<Void> first = fixture.transport.connect(URL);
+        Attempt firstAttempt = fixture.client.attempts.get(0);
+        RecordingSocket firstSocket = new RecordingSocket();
+        firstAttempt.listener.onOpen(firstSocket);
+        AsyncTask<Void> second = fixture.transport.connect(URL);
+        assertFailed(first);
+        assertTrue(firstAttempt.future.isCancelled());
+        assertTrue(firstSocket.aborted.isDone());
+        assertEquals(0, firstSocket.closeCalls);
+
+        Attempt secondAttempt = fixture.client.attempts.get(1);
+        RecordingSocket secondSocket = new RecordingSocket();
+        secondAttempt.listener.onOpen(secondSocket);
+        secondAttempt.listener.onError(secondSocket, new IOException("failed before build completes"));
+        assertFailed(second);
+        assertTrue(secondAttempt.future.isCancelled());
+        assertTrue(secondSocket.aborted.isDone());
+        assertEquals(0, secondSocket.closeCalls);
+    }
+
+    @Test(timeout = 10000)
     public void reentrantReconnectDuringRetirementIsNotOverwritten() throws Exception {
         Fixture fixture = new Fixture();
         RecordingSocket old = fixture.connect();
@@ -1212,6 +1360,7 @@ public class JVMWebsocketTransportLifecycleTest {
         private CompletableFuture<WebSocket> closeFuture;
         private RuntimeException sendFailure;
         private RuntimeException closeFailure;
+        private RuntimeException abortFailure;
         private int closeCalls;
         private long demand;
         private boolean outputClosed;
@@ -1273,6 +1422,9 @@ public class JVMWebsocketTransportLifecycleTest {
         public boolean isOutputClosed() { return outputClosed || aborted.isDone(); }
 
         @Override
-        public void abort() { aborted.complete(null); }
+        public void abort() {
+            if (abortFailure != null) { throw abortFailure; }
+            aborted.complete(null);
+        }
     }
 }
