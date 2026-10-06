@@ -304,6 +304,45 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        safeRun(
+            "filesystem-createIfAbsent",
+            () -> {
+                Path tmp = Files.createTempDirectory("nge-reachall-createifabsent");
+                FileSystemVStore backend = new FileSystemVStore(tmp);
+                // createIfAbsent should create the file atomically and return true on first create
+                try {
+                    Boolean created = await(backend.createIfAbsent("c.txt", "initial".getBytes(StandardCharsets.UTF_8)));
+                    // attempt to create again should return false
+                    await(backend.createIfAbsent("c.txt", "other".getBytes(StandardCharsets.UTF_8)));
+                } catch (Throwable ignored) {}
+
+                // ensure we can read what was written
+                try {
+                    java.io.InputStream is = await(backend.read("c.txt"));
+                    if (is != null) {
+                        is.close();
+                    }
+                } catch (Throwable ignored) {}
+
+                // Test SafeFileOutputStream via write -> close path
+                try {
+                    java.io.OutputStream os = await(backend.write("d.txt"));
+                    if (os != null) {
+                        os.write("hello-d".getBytes(StandardCharsets.UTF_8));
+                        os.close();
+                    }
+                } catch (Throwable ignored) {}
+
+                try {
+                    await(backend.listAll());
+                    await(backend.delete("c.txt"));
+                    await(backend.delete("d.txt"));
+                } catch (Throwable ignored) {}
+
+                return null;
+            }
+        );
     }
 
     private static void exerciseTransports(JVMAsyncPlatform platform) {
