@@ -46,6 +46,13 @@ dependencies {
     implementation libs.gson
     implementation libs.bcprov
     testImplementation libs.junit4
+    // Local unit tests run on the host JVM, so they need desktop JNI libraries.
+    // Keep them test-only: Android applications still receive the Android AAR.
+    testRuntimeOnly libs.saferallocNativesLinuxX64
+    testRuntimeOnly libs.saferallocNativesLinuxArm64
+    testRuntimeOnly libs.saferallocNativesWindowsX64
+    testRuntimeOnly libs.saferallocNativesMacosX64
+    testRuntimeOnly libs.saferallocNativesMacosArm64
     androidTestImplementation libs.androidxTestRunner
     androidTestImplementation libs.androidxTestCore
     androidTestImplementation libs.androidxTestExtJunit
