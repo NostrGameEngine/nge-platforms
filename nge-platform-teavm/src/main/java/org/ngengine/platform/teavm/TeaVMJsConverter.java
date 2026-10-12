@@ -54,6 +54,8 @@ import org.teavm.jso.core.JSString;
  * that can be properly JSON serialized in TeaVM.
  */
 public class TeaVMJsConverter {
+    // Count the whole owned tree: a large manifest can consist entirely of small arrays/maps.
+    private static int conversionWork;
 
     /**
      * Converts a Java object (particularly collections and maps) to a JavaScript
@@ -300,6 +302,7 @@ public class TeaVMJsConverter {
         JSObject result = JSObjects.create();
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
+            yieldLargeConversion();
             String key = String.valueOf(entry.getKey());
             Object value = entry.getValue();
 
@@ -335,6 +338,7 @@ public class TeaVMJsConverter {
         int index = 0;
 
         for (Object item : collection) {
+            yieldLargeConversion();
             if (item == null) {
                 array.set(index, null);
             } else if (item instanceof String) {
@@ -361,6 +365,7 @@ public class TeaVMJsConverter {
         JSArray result = JSArray.create(array.length);
 
         for (int i = 0; i < array.length; i++) {
+            yieldLargeConversion();
             Object item = array[i];
             if (item == null) {
                 result.set(i, null);
@@ -406,10 +411,17 @@ public class TeaVMJsConverter {
         int length = array.getLength();
         List<Object> list = new ArrayList<>(length);
         for (int i = 0; i < length; i++) {
+            if (ownedJson) yieldLargeConversion();
             list.add(ownedJson ? convertElement(array, i) : convertJSValue(getElement(array, i)));
         }
 
         return list;
+    }
+
+    private static void yieldLargeConversion() {
+        if ((++conversionWork & 127) == 0 && "TeaVM Executor".equals(Thread.currentThread().getName())) {
+            Thread.yield();
+        }
     }
 
     /**
@@ -435,6 +447,7 @@ public class TeaVMJsConverter {
         String[] keys = getObjectKeys(jsObj);
         Map<String, Object> map = new HashMap<>(Math.max(16, keys.length));
         for (String key : keys) {
+            if (ownedJson) yieldLargeConversion();
             map.put(key, ownedJson ? convertProperty(jsObj, key) : convertJSValue(getProperty(jsObj, key)));
         }
 

@@ -424,6 +424,26 @@ export const sha256JSON = (data) => {
     return _bytesToHex(_sha256(_utf8Encoder.encode(JSON.stringify(data))));
 };
 
+const _sha256Async = async bytes => {
+    if (_s().crypto?.subtle) {
+        return _bytesToHex(new Uint8Array(await _s().crypto.subtle.digest('SHA-256', bytes)));
+    }
+    // In insecure contexts, keep the same digest but yield between bounded chunks.
+    const hash = _sha256.create();
+    try {
+        for (let offset = 0; offset < bytes.length; offset += 65536) {
+            hash.update(bytes.subarray(offset, offset + 65536));
+            if (offset + 65536 < bytes.length) await new Promise(resolve => _s().setTimeout(resolve, 0));
+        }
+        return _bytesToHex(hash.digest());
+    } finally {
+        hash.destroy();
+    }
+};
+
+export const sha256JSONAsync = data => _sha256Async(_utf8Encoder.encode(JSON.stringify(data)));
+export const sha256StringAsync = data => _sha256Async(_utf8Encoder.encode(data.replace(_unpairedSurrogate, '?')));
+
 export const sha256Buffer = (data, output) => {
     return _writeBytes(output, _sha256(_u(data)));
 };

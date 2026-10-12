@@ -669,7 +669,7 @@ public class NGEUtils {
      * }</pre>
      */
     public static boolean dbg(Runnable r) {
-        Supplier<Boolean> s = () -> {
+        assert ((Supplier<Boolean>) () -> {
             try {
                 r.run();
                 return true;
@@ -677,8 +677,7 @@ public class NGEUtils {
                 e.printStackTrace();
                 return false;
             }
-        };
-        assert s.get() : "Debug statement failed";
+        }).get() : "Debug statement failed";
         return true;
     }
 

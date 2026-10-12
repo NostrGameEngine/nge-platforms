@@ -78,6 +78,11 @@ public class TeaVMPlatform extends NGEPlatform {
         return TeaVMBinds.sha256JSON(TeaVMJsConverter.toJSObject(obj));
     }
 
+    @Override
+    public AsyncTask<String> sha256JSONAsync(Collection obj) {
+        return runAsync(() -> TeaVMBinds.sha256JSONAsync(TeaVMJsConverter.toJSObject(obj)).await().stringValue());
+    }
+
     private static final NGEAllocator allocator = new TeaVMNGEAllocator();
     private static final Duration HTTP_TIMEOUT = Duration.ofSeconds(60);
     private static final Cleaner CLEANER = Cleaner.create();
@@ -401,6 +406,12 @@ public class TeaVMPlatform extends NGEPlatform {
     public String sha256(String data) {
         Objects.requireNonNull(data, "data");
         return TeaVMBinds.sha256String(data);
+    }
+
+    @Override
+    public AsyncTask<String> sha256Async(String data) {
+        Objects.requireNonNull(data, "data");
+        return runAsync(() -> TeaVMBinds.sha256StringAsync(data).await().stringValue());
     }
 
     @Override

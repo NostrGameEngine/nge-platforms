@@ -31,7 +31,10 @@
 package org.ngengine.platform.teavm;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
@@ -41,6 +44,7 @@ import org.junit.runner.RunWith;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.ThrowableFunction;
+import org.ngengine.platform.transport.WebsocketTransportListener;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.junit.JsModuleTest;
@@ -54,6 +58,51 @@ import org.teavm.junit.TeaVMTestRunner;
 public class TeaVMWebsocketTransportUnitTest {
 
     private static final int STRESS_MESSAGES = 256;
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void incomingBurstYieldsToUserMessagesBeforeDrainingButPreservesOrder() throws Exception {
+        installIncomingSocket();
+        TeaVMPlatform platform = new TeaVMPlatform();
+        TeaVMWebsocketTransport transport = new TeaVMWebsocketTransport(platform);
+        List<String> seen = new ArrayList<>();
+        AsyncTask<Void> finished = platform.wrapPromise((resolve, reject) -> transport.addListener(
+            new WebsocketTransportListener() {
+                public void onConnectionOpen() {}
+                public void onConnectionMessage(String message) {
+                    if (seen.isEmpty()) queueUserMessage();
+                    seen.add(message);
+                    if (seen.size() == STRESS_MESSAGES) {
+                        transport.setWs(null);
+                        resolve.accept(null);
+                    }
+                }
+                public void onConnectionClosedByServer(String reason) {}
+                public void onConnectionClosedByClient(String reason) {}
+                public void onConnectionError(Throwable error) { reject.accept(error); }
+            }));
+        try {
+            transport.connect("wss://fixture.test").await();
+            enqueueIncoming(STRESS_MESSAGES);
+            finished.await();
+            assertTrue("A UI macrotask must run before the relay queue drains", userMessageProcessed());
+            for (int i = 0; i < STRESS_MESSAGES; i++) assertEquals(String.valueOf(i), seen.get(i));
+        } finally {
+            restoreIncomingSocket();
+        }
+    }
+
+    @JSBody(script="globalThis.ngeOriginalSocket=globalThis.WebSocket;globalThis.ngeUserMessage=false;"
+        +"globalThis.WebSocket=function(){var socket=new EventTarget();socket.readyState=1;socket.send=function(){};socket.close=function(){};globalThis.ngeIncomingSocket=socket;setTimeout(function(){socket.dispatchEvent(new Event('open'));},0);return socket;};")
+    private static native void installIncomingSocket();
+    @JSBody(params={"count"},script="for(var i=0;i<count;i++) globalThis.ngeIncomingSocket.dispatchEvent(new MessageEvent('message',{data:String(i)}));")
+    private static native void enqueueIncoming(int count);
+    @JSBody(script="setTimeout(function(){globalThis.ngeUserMessage=true;},0);")
+    private static native void queueUserMessage();
+    @JSBody(script="return globalThis.ngeUserMessage;")
+    private static native boolean userMessageProcessed();
+    @JSBody(script="globalThis.WebSocket=globalThis.ngeOriginalSocket;delete globalThis.ngeOriginalSocket;delete globalThis.ngeIncomingSocket;delete globalThis.ngeUserMessage;")
+    private static native void restoreIncomingSocket();
 
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")

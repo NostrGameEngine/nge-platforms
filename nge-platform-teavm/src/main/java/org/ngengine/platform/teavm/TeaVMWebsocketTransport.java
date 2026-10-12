@@ -99,6 +99,10 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     @JSBody(params = { "url" }, script = "return new WebSocket(url);")
     private static native BrowserWebSocket createWebSocket(String url);
 
+    // Observe immediately, even if the managed await is still queued. The original promise remains rejected.
+    @JSBody(params = "promise", script = "promise.catch(function() {});")
+    private static native void observeOpenFailure(JSObject promise);
+
     @Override
     public AsyncTask<Void> connect(String url) {
         if (this.ws != null) {
@@ -109,6 +113,7 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
             this.ws.setBinaryType("arraybuffer");
             TeaVMBinds.websocketInitEventQueue(this.ws);
             JSPromise<JSUndefined> openPromise = TeaVMBinds.websocketOpenPromise(this.ws, (int) CONNECT_TIMEOUT.toMillis());
+            observeOpenFailure(openPromise);
             BrowserWebSocket socket = this.ws;
             platform.runAsync(() -> {
                 pumpEvents(socket);
@@ -158,6 +163,9 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
                 } finally {
                     TeaVMBinds.websocketConsumeEvent(socket);
                 }
+                // Resolved promises only yield to microtasks. A busy relay must also
+                // yield a browser event-loop turn so UI messages and cancellation can run.
+                TeaVMBinds.delayPromise(0).await();
             }
         } finally {
             TeaVMBinds.eventQueueDispose(socket);

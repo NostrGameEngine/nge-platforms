@@ -146,6 +146,16 @@ public abstract class NGEPlatform {
         return sha256(toJSON(obj));
     }
 
+    public AsyncTask<String> sha256JSONAsync(Collection obj) {
+        return wrapPromise((resolve, reject) -> {
+            try {
+                resolve.accept(sha256JSON(obj));
+            } catch (Throwable error) {
+                reject.accept(error);
+            }
+        });
+    }
+
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     /**
@@ -284,6 +294,16 @@ public abstract class NGEPlatform {
     public abstract RTCTransport newRTCTransport(Duration p2pAttemptTimeout, String connId, Collection<String> stunServers);
 
     public abstract String sha256(String data);
+
+    public AsyncTask<String> sha256Async(String data) {
+        return wrapPromise((resolve, reject) -> {
+            try {
+                resolve.accept(sha256(data));
+            } catch (Throwable error) {
+                reject.accept(error);
+            }
+        });
+    }
 
     public abstract byte[] sha256(byte[] data);
 

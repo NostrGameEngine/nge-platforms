@@ -100,6 +100,7 @@ final class TeaVMAsyncExecutor implements AsyncExecutor {
                 worker.job = job;
                 Thread thread = new Thread(worker);
                 thread.setName("TeaVM Executor");
+                thread.setPriority(Thread.NORM_PRIORITY);
                 thread.start();
             } else {
                 worker.job = job;

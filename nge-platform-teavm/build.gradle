@@ -82,6 +82,8 @@ tasks.named('test') {
             "TeaVMCompiledWasmInteropTest",
             "TeaVMSecp256k1Test",
             "TeaVMWebsocketTransportUnitTest",
+            "TeaVMJsConverterTest",
+            "TeaVMAsyncExecutorTest",
             "TeaVMPromiseAwaitTest",
             "TeaVMBindsAsyncTest"
         ]

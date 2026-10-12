@@ -38,9 +38,11 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.ngengine.platform.NGEPlatform;
 import org.teavm.jso.JSBody;
 import org.teavm.jso.JSObject;
 import org.teavm.junit.JsModuleTest;
+import org.teavm.junit.ServeJS;
 import org.teavm.junit.SkipJVM;
 import org.teavm.junit.TeaVMTestRunner;
 
@@ -48,6 +50,63 @@ import org.teavm.junit.TeaVMTestRunner;
 @JsModuleTest
 @SkipJVM
 public class TeaVMJsConverterTest {
+
+    @JSBody(script = "return Array.from({length: 6000}, (_, i) => ['p', String(i), '', 'name']);")
+    private static native JSObject largeOwnedContacts();
+
+    @JSBody(params = "value", script = "return JSON.stringify(value);")
+    private static native String stringify(JSObject value);
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void largeOwnedContactArraysRoundTripWithoutDroppingOrReorderingValues() {
+        JSObject original = largeOwnedContacts();
+        List<Object> converted = TeaVMJsConverter.toJavaObject(original, List.class, true);
+        assertEquals(6000, converted.size());
+        assertEquals(List.of("p", "5999", "", "name"), converted.get(5999));
+        assertEquals(stringify(original), stringify(TeaVMJsConverter.toJSObject(converted)));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void unnamedViewThreadsCanDecodeMessagesAcrossTheYieldBoundary() throws Exception {
+        Throwable[] failure = {null};
+        Thread view = new Thread(() -> {
+            try {
+                NGEPlatform platform = new TeaVMPlatform();
+                for (int i = 0; i < 200; i++) {
+                    Map<?, ?> message = platform.fromJSON("{\"type\":\"event\",\"node\":\"notes\"}", Map.class);
+                    assertEquals("event", message.get("type"));
+                    assertEquals("notes", message.get("node"));
+                }
+            } catch (Throwable error) {
+                failure[0] = error;
+            }
+        });
+        view.start();
+        view.join();
+        assertNull(failure[0]);
+    }
+
+    @JSBody(script = "return Array.from({length:80}, function(_,i) { return {id:String(i), " +
+        "pages:Array.from({length:60}, function(_,j) { return [String(i),String(j)]; })}; });")
+    private static native JSObject nestedOwnedTree();
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void smallNestedArraysPreserveAllValuesInOneLargeOwnedTree() {
+        List<Object> converted = TeaVMJsConverter.toJavaObject(nestedOwnedTree(), List.class, true);
+        assertEquals(80, converted.size());
+        for (int i = 0; i < converted.size(); i++) {
+            Map<?, ?> row = (Map<?, ?>) converted.get(i);
+            assertEquals(String.valueOf(i), row.get("id"));
+            List<?> pages = (List<?>) row.get("pages");
+            assertEquals(60, pages.size());
+            for (int j = 0; j < pages.size(); j++) {
+                assertEquals(List.of(String.valueOf(i), String.valueOf(j)), pages.get(j));
+            }
+        }
+    }
 
     @JSBody(
         params = "array",
@@ -61,6 +120,7 @@ public class TeaVMJsConverterTest {
     private static native JSObject singleReadContainer(boolean array);
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void publicMapConversionReadsEveryAccessorOnce() {
         Map<String, Object> result = TeaVMJsConverter.toJavaMap(singleReadContainer(false));
         assertEquals("text", result.get("text"));
@@ -75,6 +135,7 @@ public class TeaVMJsConverterTest {
     }
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void publicMixedListConversionDoesNotReadAheadOrRepeatAccessors() {
         List<Object> expected = Arrays.asList("text", 42, 1.25, true, null, null, List.of("inner"), Map.of("x", "nested"));
         assertEquals(expected, TeaVMJsConverter.toJavaList(singleReadContainer(true)));
@@ -88,6 +149,7 @@ public class TeaVMJsConverterTest {
     private static native JSObject changingStringArray();
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void publicStringListConversionKeepsTheFirstAccessorValue() {
         assertEquals(List.of("first"), TeaVMJsConverter.toJavaList(changingStringArray()));
         assertEquals(List.of("first"), TeaVMJsConverter.toJavaObject(changingStringArray(), List.class));
@@ -106,6 +168,7 @@ public class TeaVMJsConverterTest {
     private static native String accessOrder(JSObject array);
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void publicConversionPreservesRecursiveAccessorOrder() {
         JSObject array = nestedAccessors();
         assertEquals(List.of(Map.of("value", 42), "last"), TeaVMJsConverter.toJavaList(array));
@@ -120,6 +183,7 @@ public class TeaVMJsConverterTest {
     private static native JSObject singleReadProxy();
 
     @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void publicMapConversionReadsProxyPropertiesOnce() {
         assertEquals(Map.of("text", "first", "number", 42), TeaVMJsConverter.toJavaMap(singleReadProxy()));
     }
