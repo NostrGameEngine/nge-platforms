@@ -288,7 +288,10 @@ public class FileSystemVStoreCreateTest {
             }, FileSystemVStoreCreateTest::forceDirectory, platform, privateSnapshot::set);
             CapturingBackend backend = new CapturingBackend(provider);
             AsyncTask<Boolean> result = new VStore(backend).createIfAbsent("identity.bin", caller);
-            assertTrue(published.await(2, TimeUnit.SECONDS));
+            // First publication may load the filesystem provider and perform several durability flushes.
+            boolean publicationStarted = published.await(5, TimeUnit.SECONDS);
+            if (!publicationStarted && result.isFailed()) result.await();
+            assertTrue("Publication did not start; completed=" + result.isDone(), publicationStarted);
             AsyncTask<Boolean> next = new VStore(following).createIfAbsent("following.bin", value(1, 122));
             assertEquals(1L, following.entered.getCount()); assertFalse(result.isDone());
             assertArrayEquals(caller, backend.received); assertArrayEquals(caller, privateSnapshot.get());
