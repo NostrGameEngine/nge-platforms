@@ -5089,6 +5089,29 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.TestDebugCode",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "assertionWrappedDiagnosticsFollowCallerAssertions",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "diagnosticsFollowAssertions",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.TestPlatform",
             "methods": [
                 {
