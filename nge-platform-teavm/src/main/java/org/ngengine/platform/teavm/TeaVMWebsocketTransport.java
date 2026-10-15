@@ -57,7 +57,8 @@ public class TeaVMWebsocketTransport implements WebsocketTransport {
     private final List<WebsocketTransportListener> listeners = new CopyOnWriteArrayList<>();
     private final TeaVMPlatform platform;
     private final AsyncExecutor asyncExecutor;
-    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(2);
+    // DNS, TLS and reverse-proxy upgrades can legitimately take several seconds on a cold connection.
+    private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private final Object sendQueueMonitor = new Object();
     private AsyncTask<Void> sendQueueTail = null;
 
