@@ -431,6 +431,12 @@ public abstract class NGEPlatform {
 
     public abstract <T> AsyncTask<T> wrapPromise(BiConsumer<Consumer<T>, Consumer<Throwable>> func);
 
+    private static boolean isCancellation(Throwable failure) {
+        for (int depth=0; failure!=null && depth<8; depth++,failure=failure.getCause())
+            if (failure instanceof java.util.concurrent.CancellationException) return true;
+        return false;
+    }
+
     /**
      * Waits for all promises to resolve.
      * <p>
@@ -460,7 +466,7 @@ public abstract class NGEPlatform {
 
                 promise
                     .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAll", e);
+                        if (!isCancellation(e)) logger.log(Level.WARNING, "Error in awaitAll", e);
                         rej.accept(e);
                     })
                     .then(result -> {
@@ -500,7 +506,7 @@ public abstract class NGEPlatform {
                 AsyncTask<T> promise = promises.get(i);
                 promise
                     .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAny " + e);
+                        if (!isCancellation(e)) logger.log(Level.WARNING, "Error in awaitAny " + e);
                         int remaining = count.decrementAndGet();
                         if (remaining == 0) {
                             rej.accept(new Exception("All promises failed"));
@@ -546,7 +552,7 @@ public abstract class NGEPlatform {
                 AsyncTask<T> promise = promises.get(i);
                 promise
                     .catchException(e -> {
-                        logger.log(Level.WARNING, "Error in awaitAny with filter", e);
+                        if (!isCancellation(e)) logger.log(Level.WARNING, "Error in awaitAny with filter", e);
                         int remaining = count.decrementAndGet();
                         if (remaining == 0) {
                             rej.accept(new Exception("All promises failed"));
