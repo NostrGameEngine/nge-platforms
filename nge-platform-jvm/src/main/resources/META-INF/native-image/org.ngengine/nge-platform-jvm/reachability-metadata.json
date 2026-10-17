@@ -4514,6 +4514,23 @@
             "type": "org.lwjgl.sdl.SDLClipboard"
         },
         {
+            "type": "org.ngengine.platform.AsyncCancellationLoggingTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "cancellationStillRejectsWithoutAnErrorWarning",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.ExecutionQueueTest",
             "methods": [
                 {
