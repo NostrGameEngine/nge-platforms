@@ -33,7 +33,9 @@ package org.ngengine.platform.teavm;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.Test;
@@ -51,8 +53,63 @@ import org.teavm.junit.TeaVMTestRunner;
 @SkipJVM
 public class TeaVMJsConverterTest {
 
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void parsedObjectsRetainNativeJavaScriptPropertyOrderRecursively() {
+        NGEPlatform platform = new TeaVMPlatform();
+        String json =
+            "{\"z\":\"last\",\"a\":\"first\",\"10\":true,\"2\":false,\"nested\":{\"last\":null,\"first\":true},\"__proto__\":{\"safe\":true}}";
+        JSObject original = (JSObject) TeaVMBinds.fromJSON(json);
+        Map<?, ?> parsed = platform.fromJSON(json, Map.class);
+        assertEquals(LinkedHashMap.class, parsed.getClass());
+        assertEquals(LinkedHashMap.class, parsed.get("nested").getClass());
+        assertEquals(List.of("2", "10", "z", "a", "nested", "__proto__"), new ArrayList<>(parsed.keySet()));
+        assertEquals(stringify(original), platform.toJSON(parsed));
+        assertEquals(stringify(original), stringify(TeaVMJsConverter.toJSObject(TeaVMJsConverter.toJavaMap(original))));
+    }
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void orderedJavaObjectsPreservePropertiesAndNestedPrimitiveArrays() {
+        Map<String, Object> object = new LinkedHashMap<>();
+        object.put("id", "id");
+        object.put("pubkey", "pubkey");
+        object.put("__proto__", "owned");
+        object.put("bytes", new byte[] { 1, 2 });
+        object.put("characters", new char[] { 'a', 'b' });
+        assertEquals(
+            "{\"id\":\"id\",\"pubkey\":\"pubkey\",\"__proto__\":\"owned\",\"bytes\":[1,2],\"characters\":[\"a\",\"b\"]}",
+            new TeaVMPlatform().toJSON(object)
+        );
+    }
+
     @JSBody(script = "return Array.from({length: 6000}, (_, i) => ['p', String(i), '', 'name']);")
     private static native JSObject largeOwnedContacts();
+
+    @Test
+    @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
+    public void numericBoundariesMatchNativePlatformSerialization() {
+        assertEquals(
+            "[0,5e-324,1.7976931348623157e+308,1e-7,0.000001,100000000000000000000,1e+21,1e+23,1000000000000000100,9223372036854776000,null,null]",
+            new TeaVMPlatform()
+                .toJSON(
+                    Arrays.asList(
+                        -0.0,
+                        Double.MIN_VALUE,
+                        Double.MAX_VALUE,
+                        1e-7,
+                        1e-6,
+                        1e20,
+                        1e21,
+                        1e23,
+                        1000000000000000128d,
+                        Long.MAX_VALUE,
+                        Double.NaN,
+                        Double.POSITIVE_INFINITY
+                    )
+                )
+        );
+    }
 
     @JSBody(params = "value", script = "return JSON.stringify(value);")
     private static native String stringify(JSObject value);
@@ -70,7 +127,7 @@ public class TeaVMJsConverterTest {
     @Test
     @ServeJS(from = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js", as = "org/ngengine/platform/teavm/TeaVMBinds.bundle.js")
     public void unnamedViewThreadsCanDecodeMessagesAcrossTheYieldBoundary() throws Exception {
-        Throwable[] failure = {null};
+        Throwable[] failure = { null };
         Thread view = new Thread(() -> {
             try {
                 NGEPlatform platform = new TeaVMPlatform();
@@ -88,8 +145,10 @@ public class TeaVMJsConverterTest {
         assertNull(failure[0]);
     }
 
-    @JSBody(script = "return Array.from({length:80}, function(_,i) { return {id:String(i), " +
-        "pages:Array.from({length:60}, function(_,j) { return [String(i),String(j)]; })}; });")
+    @JSBody(
+        script = "return Array.from({length:80}, function(_,i) { return {id:String(i), " +
+        "pages:Array.from({length:60}, function(_,j) { return [String(i),String(j)]; })}; });"
+    )
     private static native JSObject nestedOwnedTree();
 
     @Test

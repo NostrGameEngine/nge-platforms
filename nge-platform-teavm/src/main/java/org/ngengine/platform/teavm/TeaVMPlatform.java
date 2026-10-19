@@ -39,7 +39,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -193,7 +193,7 @@ public class TeaVMPlatform extends NGEPlatform {
     @SuppressWarnings("unchecked")
     static Map<String, List<String>> normalizeHttpHeaders(String jsonHeaders) {
         Map<String, Object> rawHeaders = NGEPlatform.get().fromJSON(jsonHeaders, Map.class);
-        Map<String, List<String>> out = new HashMap<>();
+        Map<String, List<String>> out = new LinkedHashMap<>();
         if (rawHeaders == null) {
             return out;
         }
@@ -1019,7 +1019,7 @@ public class TeaVMPlatform extends NGEPlatform {
 
     @Override
     public void callFunction(String function, Object args, Consumer<Object> res, Consumer<Throwable> rej) {
-        Map<String, Object> argsMap = new HashMap<>();
+        Map<String, Object> argsMap = new LinkedHashMap<>();
         argsMap.put("args", args);
         defaultExecutor
             .run(() -> {

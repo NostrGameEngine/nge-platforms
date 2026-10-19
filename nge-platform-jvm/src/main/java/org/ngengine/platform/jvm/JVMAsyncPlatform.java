@@ -102,6 +102,7 @@ import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.BrowserInterceptor;
 import org.ngengine.platform.FailedToSignException;
+import org.ngengine.platform.JavaScriptJSON;
 import org.ngengine.platform.NGEAllocator;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
@@ -256,18 +257,17 @@ public class JVMAsyncPlatform extends NGEPlatform {
 
     @Override
     public String toJSON(Collection obj) {
-        Context ctx = context.get();
-        StringBuilder json = new StringBuilder();
-        ctx.json.toJson(obj, json);
-        return json.toString();
+        return JavaScriptJSON.stringify(obj);
     }
 
     @Override
     public String toJSON(Map obj) {
-        Context ctx = context.get();
-        StringBuilder json = new StringBuilder();
-        ctx.json.toJson(obj, json);
-        return json.toString();
+        return JavaScriptJSON.stringify(obj);
+    }
+
+    @Override
+    public boolean supportsMinimalJSONEscaping() {
+        return true;
     }
 
     @Override
@@ -275,7 +275,9 @@ public class JVMAsyncPlatform extends NGEPlatform {
         if (!getMemoryLimits().checkForJSON(json.length())) throw new IllegalArgumentException("Input exceeds buffer limits");
 
         Context ctx = context.get();
-        return ctx.json.fromJson(json, claz);
+        T parsed = ctx.json.fromJson(json, claz);
+        Object ordered = JavaScriptJSON.orderedCopy(parsed);
+        return claz.isInstance(ordered) ? claz.cast(ordered) : parsed;
     }
 
     @Override

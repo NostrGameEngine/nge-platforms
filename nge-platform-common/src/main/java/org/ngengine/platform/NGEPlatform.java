@@ -128,6 +128,12 @@ public abstract class NGEPlatform {
         return wrapBinaryResult(genPubKey(copyRemaining(secKey)));
     }
 
+    /**
+     * Serializes an owned JSON-compatible tree with JSON.stringify semantics.
+     * Java numbers are converted to JavaScript Numbers (binary64); NaN and infinity become null.
+     * Ordered maps preserve string-key insertion order, with array-index keys first in numeric order.
+     * Use LinkedHashMap when constructing JSON objects; unordered maps cannot recover insertion history.
+     */
     public abstract String toJSON(Collection obj);
 
     public abstract String toJSON(Map obj);
@@ -156,6 +162,7 @@ public abstract class NGEPlatform {
         });
     }
 
+    /** Parses JSON trees; objects returned as maps retain JavaScript property order recursively. */
     public abstract <T> T fromJSON(String json, Class<T> claz);
 
     /**

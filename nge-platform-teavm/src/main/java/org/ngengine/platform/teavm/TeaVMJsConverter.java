@@ -36,8 +36,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,7 +46,6 @@ import org.teavm.jso.JSObject;
 import org.teavm.jso.core.JSArray;
 import org.teavm.jso.core.JSBoolean;
 import org.teavm.jso.core.JSNumber;
-import org.teavm.jso.core.JSObjects;
 import org.teavm.jso.core.JSString;
 
 /**
@@ -86,23 +85,6 @@ public class TeaVMJsConverter {
         } else if (obj instanceof Date) {
             // Convert Date to a JS date (as milliseconds since epoch)
             return JSNumber.valueOf(((Date) obj).getTime());
-        } else if (obj instanceof BigInteger || obj instanceof BigDecimal) {
-            // For values within safe JavaScript integer range, use number
-            try {
-                BigDecimal bd = (obj instanceof BigInteger) ? new BigDecimal((BigInteger) obj) : (BigDecimal) obj;
-
-                if (
-                    bd.compareTo(BigDecimal.valueOf(-9007199254740991L)) >= 0 &&
-                    bd.compareTo(BigDecimal.valueOf(9007199254740991L)) <= 0 &&
-                    bd.scale() <= 0
-                ) {
-                    return JSNumber.valueOf(bd.longValue());
-                }
-            } catch (Exception e) {
-                // Fallback to string if conversion fails
-            }
-            // Otherwise use string representation
-            return JSString.valueOf(String.valueOf(obj));
         } else if (obj instanceof Enum<?>) {
             // Convert enums to their string representation
             return JSString.valueOf(((Enum<?>) obj).name());
@@ -299,7 +281,7 @@ public class TeaVMJsConverter {
      * Converts a Java Map to a JavaScript object.
      */
     private static JSObject mapToJSObject(Map<?, ?> map) {
-        JSObject result = JSObjects.create();
+        JSObject result = createJSONTreeObject();
 
         for (Map.Entry<?, ?> entry : map.entrySet()) {
             yieldLargeConversion();
@@ -315,10 +297,8 @@ public class TeaVMJsConverter {
                 setProperty(result, key, ((Number) value).doubleValue());
             } else if (value instanceof Boolean) {
                 setProperty(result, key, (Boolean) value);
-            } else if (value instanceof Map || value instanceof Collection || value instanceof Object[]) {
-                setProperty(result, key, toJSObject(value));
             } else {
-                setProperty(result, key, String.valueOf(value));
+                setProperty(result, key, toJSObject(value));
             }
         }
 
@@ -347,10 +327,8 @@ public class TeaVMJsConverter {
                 setElement(array, index, ((Number) item).doubleValue());
             } else if (item instanceof Boolean) {
                 setElement(array, index, (Boolean) item);
-            } else if (item instanceof Map || item instanceof Collection || item instanceof Object[]) {
-                array.set(index, toJSObject(item));
             } else {
-                setElement(array, index, String.valueOf(item));
+                array.set(index, toJSObject(item));
             }
             index++;
         }
@@ -375,10 +353,8 @@ public class TeaVMJsConverter {
                 setElement(result, i, ((Number) item).doubleValue());
             } else if (item instanceof Boolean) {
                 setElement(result, i, (Boolean) item);
-            } else if (item instanceof Map || item instanceof Collection || item instanceof Object[]) {
-                result.set(i, toJSObject(item));
             } else {
-                setElement(result, i, String.valueOf(item));
+                result.set(i, toJSObject(item));
             }
         }
 
@@ -387,6 +363,9 @@ public class TeaVMJsConverter {
 
     @JSBody(params = { "object", "key", "value" }, script = "object[key] = value;")
     private static native void setProperty(JSObject object, String key, JSObject value);
+
+    @JSBody(script = "return Object.create(null);")
+    private static native JSObject createJSONTreeObject();
 
     /**
      * Convert a JavaScript array to a Java List.
@@ -445,7 +424,7 @@ public class TeaVMJsConverter {
         }
 
         String[] keys = getObjectKeys(jsObj);
-        Map<String, Object> map = new HashMap<>(Math.max(16, keys.length));
+        Map<String, Object> map = new LinkedHashMap<>(Math.max(16, keys.length));
         for (String key : keys) {
             if (ownedJson) yieldLargeConversion();
             map.put(key, ownedJson ? convertProperty(jsObj, key) : convertJSValue(getProperty(jsObj, key)));

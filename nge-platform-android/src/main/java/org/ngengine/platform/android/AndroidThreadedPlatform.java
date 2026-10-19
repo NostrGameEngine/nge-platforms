@@ -11,6 +11,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.ngengine.platform.JavaScriptJSON;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.SafeFlag;
@@ -289,20 +290,25 @@ public class AndroidThreadedPlatform extends NGEPlatform {
 
     @Override
     public String toJSON(Collection obj) {
-        PContext ctx = context.get();
-        return ctx.json.toJson(obj);
+        return JavaScriptJSON.stringify(obj);
     }
 
     @Override
     public String toJSON(Map obj) {
-        PContext ctx = context.get();
-        return ctx.json.toJson(obj);
+        return JavaScriptJSON.stringify(obj);
+    }
+
+    @Override
+    public boolean supportsMinimalJSONEscaping() {
+        return true;
     }
 
     @Override
     public <T> T fromJSON(String json, Class<T> claz) {
         PContext ctx = context.get();
-        return ctx.json.fromJson(json, claz);
+        T parsed = ctx.json.fromJson(json, claz);
+        Object ordered = JavaScriptJSON.orderedCopy(parsed);
+        return claz.isInstance(ordered) ? claz.cast(ordered) : parsed;
     }
 
     @Override
