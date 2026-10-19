@@ -6124,6 +6124,41 @@
             ]
         },
         {
+            "type": "org.ngengine.platform.jvm.JsonSerializationTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "nativeJavaScriptOracleMatchesRandomBinary64Numbers",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "nestedMapsRetainInsertionOrderAndJavaScriptArrayIndexOrdering",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "repeatedReferencesAreAllowedButCyclesAreRejected",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "serializationUsesJavaScriptSemantics",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
             "type": "org.ngengine.platform.jvm.NGEUtilsHexTest",
             "methods": [
                 {
