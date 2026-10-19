@@ -42,6 +42,7 @@ android {
 
 dependencies {
     api project(':nge-platform-common')
+    implementation project(':nge-platform-json-lib')
     
     implementation libs.gson
     implementation libs.bcprov

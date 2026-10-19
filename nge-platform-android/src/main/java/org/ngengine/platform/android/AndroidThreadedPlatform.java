@@ -11,11 +11,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.ngengine.platform.JavaScriptJSON;
 import org.ngengine.platform.NGEPlatform;
 import org.ngengine.platform.NGEUtils;
 import org.ngengine.platform.SafeFlag;
 import org.ngengine.platform.VStore;
+import org.ngengine.platform.json.JavaScriptJSON;
 
 import android.content.ClipData;
 import android.content.ClipboardManager;

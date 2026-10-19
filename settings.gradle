@@ -83,6 +83,7 @@ if ((forceIosInterop || directIosInteropTask) && !hasIosSimulatorToolchain) {
 }
 
 include("nge-platform-common")
+include("nge-platform-json-lib")
 include("nge-platform-jvm")
 include("nge-platform-ios")
 include("nge-platform-teavm")

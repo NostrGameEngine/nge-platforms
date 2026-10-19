@@ -9,6 +9,7 @@ plugins {
  
 dependencies {
     api project(':nge-platform-common')
+    implementation project(':nge-platform-json-lib')
     testImplementation libs.junit4
     implementation libs.gson
     implementation libs.bcprov

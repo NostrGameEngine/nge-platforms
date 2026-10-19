@@ -1,0 +1,30 @@
+plugins {
+    id 'java-library'
+}
+
+dependencies {
+    implementation libs.gson
+    testImplementation libs.junit4
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+tasks.named('compileTestJava') {
+    javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}
+
+tasks.named('test') {
+    useJUnit()
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ADOPTIUM
+    }
+}

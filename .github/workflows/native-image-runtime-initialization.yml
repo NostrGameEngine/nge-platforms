@@ -12,6 +12,7 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
       - 'nge-platform-common/**'
+      - 'nge-platform-json-lib/**'
       - 'nge-platform-jvm/**'
   pull_request:
     paths:
@@ -24,6 +25,7 @@ on:
       - 'gradlew'
       - 'gradlew.bat'
       - 'nge-platform-common/**'
+      - 'nge-platform-json-lib/**'
       - 'nge-platform-jvm/**'
   workflow_dispatch:
 

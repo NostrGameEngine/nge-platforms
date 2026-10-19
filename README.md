@@ -79,6 +79,10 @@ as `<version>` use one of the versions listed in the [releases page](/releases) 
 | nge-platform-ios | ios | [libJGLIOS](https://github.com/NostrGameEngine/libJGLIOS) |
 | nge-platform-teavm | browser | java 21+ / teavm 0.15.0 |
 
+`nge-platform-json-lib` is an internal dependency of the JVM, Android and iOS adapters.
+It provides their JavaScript-compatible JSON implementation; applications keep using
+`NGEPlatform.toJSON` and `fromJSON`. Common and TeaVM do not depend on it or Gson.
+
 ## Testing
 
 This repo has some unit and integration tests for each platform, and for platform interoperability.

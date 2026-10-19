@@ -96,6 +96,7 @@ tasks.register('writeInteropRuntimeMetadata') {
     description = 'Writes the JVM interop runtime classpath and Java executable for external harnesses'
     dependsOn classes
     dependsOn project(':nge-platform-common').tasks.named('jar')
+    dependsOn project(':nge-platform-json-lib').tasks.named('jar')
     dependsOn project(':nge-platform-jvm').tasks.named('jar')
     def outputFile = layout.buildDirectory.file('interop-runtime.json')
     outputs.file(outputFile)

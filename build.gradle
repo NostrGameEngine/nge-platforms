@@ -242,6 +242,10 @@ def applyConf = { proj, isAndroid ->
                 publishTask.finalizedBy(proj.tasks.named("outputCoordinates"))
             }
             proj.tasks.withType(PublishToMavenLocal).configureEach { publishLocalTask ->
+                // Selective platform builds must also publish their internal JSON dependency.
+                if (proj.name in ['nge-platform-jvm', 'nge-platform-android', 'nge-platform-ios']) {
+                    publishLocalTask.dependsOn(':nge-platform-json-lib:publishToMavenLocal')
+                }
                 publishLocalTask.finalizedBy(proj.tasks.named("outputCoordinates"))
             }
         }
@@ -464,4 +468,5 @@ tasks.register('refreshCatalog') {
 }
 
 apply from: 'gradle/native-image-runtime-metadata.gradle'
+apply from: 'gradle/json-dependency-boundaries.gradle'
 apply from: 'gradle/spotless-advisory.gradle'

@@ -1,0 +1,39 @@
+tasks.register('verifyJsonDependencyIsolation') {
+    group = 'verification'
+    description = 'Checks that Common and TeaVM stay free of the JVM JSON implementation.'
+
+    doLast {
+        ['nge-platform-common', 'nge-platform-teavm'].each { moduleName ->
+            def runtime = project(":${moduleName}").configurations.runtimeClasspath
+            def leaked = runtime.incoming.resolutionResult.allComponents.findAll { component ->
+                component.moduleVersion?.name in ['gson', 'nge-platform-json-lib']
+            }
+            if (!leaked.empty) {
+                throw new GradleException("${moduleName} must not depend on Gson or json-lib: ${leaked*.id}")
+            }
+        }
+
+        ['nge-platform-jvm', 'nge-platform-ios', 'nge-platform-android'].each { moduleName ->
+            def platformProject = findProject(":${moduleName}")
+            if (platformProject != null) {
+                def implementation = platformProject.configurations.implementation.dependencies
+                if (!implementation.any { it instanceof ProjectDependency && it.path == ':nge-platform-json-lib' }) {
+                    throw new GradleException("${moduleName} must use json-lib as an implementation dependency")
+                }
+                if (platformProject.configurations.api.dependencies.any {
+                    it instanceof ProjectDependency && it.path == ':nge-platform-json-lib'
+                }) {
+                    throw new GradleException("${moduleName} must not expose json-lib as API")
+                }
+            }
+        }
+    }
+}
+
+subprojects { subproject ->
+    subproject.pluginManager.withPlugin('base') {
+        subproject.tasks.named('check').configure {
+            dependsOn rootProject.tasks.named('verifyJsonDependencyIsolation')
+        }
+    }
+}
