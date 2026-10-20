@@ -83,6 +83,10 @@ public class JVMWebsocketTransportCloseHandshakeTest {
         assertServerClose(true);
     }
 
+    public static void runReachabilityProbe() throws Exception {
+        assertServerClose(false);
+    }
+
     private static void assertServerClose(boolean earlyClose) throws Exception {
         HttpClient client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
         TestPlatform platform = null;
