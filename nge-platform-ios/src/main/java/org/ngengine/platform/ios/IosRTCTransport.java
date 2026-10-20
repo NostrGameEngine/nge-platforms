@@ -118,7 +118,11 @@ public class IosRTCTransport implements RTCTransport {
         for (String server : stunServers) {
             try {
                 URI uri = new URI("stun:" + server);
-                stunUris.add(uri);
+                if (STUNChecker.check(server)) {
+                    stunUris.add(uri);
+                } else {
+                    logger.fine("Excluding unresponsive STUN server: " + server);
+                }
             } catch (URISyntaxException e) {
                 throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
             }

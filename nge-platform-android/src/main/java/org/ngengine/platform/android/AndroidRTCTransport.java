@@ -120,7 +120,12 @@ public class AndroidRTCTransport implements RTCTransport {
         Collection<URI> stunUris = new ArrayList<>();
         for (String server : stunServers) {
             try {
-                stunUris.add(new URI("stun:" + server));
+                URI uri = new URI("stun:" + server);
+                if (STUNChecker.check(server)) {
+                    stunUris.add(uri);
+                } else {
+                    logger.fine("Excluding unresponsive STUN server: " + server);
+                }
             } catch (URISyntaxException e) {
                 throw new IllegalArgumentException("Invalid STUN server URI: " + server, e);
             }
