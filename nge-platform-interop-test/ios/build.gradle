@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id 'org.ngengine.libjglios' version '0.7'
+    id 'org.ngengine.libjglios' version '0.9'
 }
 
 dependencies {
