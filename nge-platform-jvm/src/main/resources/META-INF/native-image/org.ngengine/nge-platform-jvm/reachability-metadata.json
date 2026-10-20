@@ -5544,6 +5544,14 @@
         },
         {
             "type": "org.ngengine.platform.jvm.JVMRTCTransport",
+            "fields": [
+                {
+                    "name": "config"
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.JVMRTCTransport",
             "methods": [
                 {
                     "name": "configureLibDataChannelAllocatorIfRequested",
@@ -6324,6 +6332,53 @@
                 },
                 {
                     "name": "privateKeyGenerationUsesBundledBouncyCastleProvider",
+                    "parameterTypes": [
+                        
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "org.ngengine.platform.jvm.STUNCheckerTest",
+            "methods": [
+                {
+                    "name": "<init>",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "acceptsBindingSuccessAndChecksTheRequestFormat",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "acceptsIpv6MappedAddressesAndValidFingerprints",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "nativeTransportFiltersStunOncePerConnectionAndAllowsAnEmptyList",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "rejectsMalformedUnrelatedAndErrorResponses",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "retriesOnceAndDoesNotCacheEitherResult",
+                    "parameterTypes": [
+                        
+                    ]
+                },
+                {
+                    "name": "timeoutIsBoundedAndInvalidEndpointsAreRejected",
                     "parameterTypes": [
                         
                     ]
