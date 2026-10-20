@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.ngengine.platform.AsyncExecutor;
 import org.ngengine.platform.AsyncTask;
 import org.ngengine.platform.NGEPlatform;
@@ -98,6 +99,7 @@ public final class JVMReachAllMain {
 
         safeRun("sha256-string", () -> platform.sha256("reach-all"));
         safeRun("sha256-bytes", () -> platform.sha256(message));
+        safeRun("minimal-json-escaping", platform::supportsMinimalJSONEscaping);
         safeRun("to-json-collection", () -> platform.toJSON(List.of("a", "b", "c")));
         safeRun(
             "to-json-map",
@@ -116,6 +118,17 @@ public final class JVMReachAllMain {
                 return platform.schnorrVerify(messageHex, sig, publicKey);
             }
         );
+        safeRun(
+            "prepared-schnorr-signer",
+            () -> {
+                org.ngengine.platform.SchnorrSigner signer = platform.createSchnorrSigner(
+                    () -> ByteBuffer.wrap(privateKey.clone())
+                );
+                String signature = await(signer.sign(messageHex));
+                return platform.schnorrVerify(messageHex, signature, publicKey);
+            }
+        );
+        safeRun("sha256-bytebuffer", () -> platform.sha256(ByteBuffer.wrap(message)));
         safeRun(
             "bc-ecdsa-keypair",
             () -> {
@@ -136,7 +149,34 @@ public final class JVMReachAllMain {
             }
         );
         safeRun("secp256k1-shared-secret", () -> platform.secp256k1SharedSecret(privateKey, publicKey));
+        safeRun(
+            "secp256k1-sign-recover",
+            () -> {
+                byte[] hash = platform.sha256(message);
+                byte[] secpPublicKey = platform.secp256k1PublicKeyCreate(privateKey, false);
+                org.ngengine.platform.secp256k1.Secp256k1RecoverableSignature signature =
+                    platform.secp256k1SignRecoverable(hash, privateKey);
+                byte[] recovered = platform.secp256k1RecoverPublicKey(
+                    hash,
+                    signature.getSignature64(),
+                    signature.getRecoveryId(),
+                    false
+                );
+                return platform.secp256k1PrivateKeyVerify(privateKey) &&
+                    platform.secp256k1PublicKeyVerify(secpPublicKey) &&
+                    java.util.Arrays.equals(secpPublicKey, recovered);
+            }
+        );
         safeRun("hmac", () -> platform.hmac(platform.randomBytes(32), message, "suffix".getBytes(StandardCharsets.UTF_8)));
+        safeRun(
+            "hmac-bytebuffer",
+            () ->
+                platform.hmac(
+                    ByteBuffer.wrap(platform.randomBytes(32)),
+                    ByteBuffer.wrap(message),
+                    ByteBuffer.wrap("suffix".getBytes(StandardCharsets.UTF_8))
+                )
+        );
         safeRun(
             "hkdf",
             () -> {
@@ -209,6 +249,32 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+        safeRun(
+            "allocator-raw-addresses",
+            () -> {
+                JVMNGEAllocator allocator = new JVMNGEAllocator();
+                allocator.mallocFunctionPointer();
+                allocator.callocFunctionPointer();
+                allocator.reallocFunctionPointer();
+                allocator.freeFunctionPointer();
+                allocator.alignedAllocFunctionPointer();
+                allocator.alignedFreeFunctionPointer();
+
+                long mallocAddress = allocator.mallocRaw(32);
+                allocator.freeRaw(mallocAddress);
+                long callocAddress = allocator.callocRaw(2, 16);
+                allocator.freeRaw(callocAddress);
+                long resizedAddress = allocator.mallocRaw(32);
+                try {
+                    resizedAddress = allocator.reallocRaw(resizedAddress, 64);
+                } finally {
+                    allocator.freeRaw(resizedAddress);
+                }
+                long alignedAddress = allocator.mallocAlignedRaw(16, 64);
+                allocator.freeAlignedRaw(alignedAddress);
+                return null;
+            }
+        );
     }
 
     private static void exerciseAllocatorGuardHooks(JVMAsyncPlatform platform) {
@@ -237,6 +303,31 @@ public final class JVMReachAllMain {
         try {
             safeRun("promisify", () -> await(platform.promisify((res, rej) -> res.accept("ok"), executor)));
             safeRun("wrap-promise", () -> await(platform.wrapPromise((res, rej) -> res.accept(123))));
+            safeRun(
+                "async-task-state-and-observers",
+                () -> {
+                    AsyncTask<String> success = platform.wrapPromise((res, rej) -> res.accept("observed"));
+                    AtomicBoolean successObserved = new AtomicBoolean();
+                    success.observeCompletion(value -> successObserved.set("observed".equals(value)), error -> {});
+                    success.then(value -> value.length());
+                    success.compose(value -> platform.wrapPromise((res, rej) -> res.accept(value.length())));
+                    success.catchException(error -> {});
+                    AsyncTask<String> failure = platform.wrapPromise(
+                        (res, rej) -> rej.accept(new IllegalStateException("reachability"))
+                    );
+                    failure.observeCompletion(value -> {}, error -> {});
+                    failure.catchException(error -> {});
+                    failure.isDone();
+                    failure.isFailed();
+                    failure.isSuccess();
+                    AsyncTask<String> cancelled = platform.wrapPromise((res, rej) -> {});
+                    cancelled.cancel();
+                    cancelled.isDone();
+                    cancelled.isFailed();
+                    cancelled.isSuccess();
+                    return successObserved.get();
+                }
+            );
             safeRun("executor-run", () -> await(executor.run(() -> "v")));
             safeRun("executor-run-later", () -> await(executor.runLater(() -> "later", 1, TimeUnit.MILLISECONDS)));
             safeRun(
@@ -301,6 +392,29 @@ public final class JVMReachAllMain {
                 await(store.exists("b.txt"));
                 await(store.listAll());
                 await(store.delete("b.txt"));
+                return null;
+            }
+        );
+        safeRun(
+            "platform-data-vstore",
+            () -> {
+                String previous = System.getProperty("app.data.dir");
+                Path root = Files.createTempDirectory("nge-reachall-data");
+                try {
+                    System.setProperty("app.data.dir", root.toString());
+                    VStore store = platform.getDataStore("nge-reachall", "data");
+                    await(store.writeFully("c.txt", "data".getBytes(StandardCharsets.UTF_8)));
+                    await(store.readFully("c.txt"));
+                    await(store.exists("c.txt"));
+                    await(store.listAll());
+                    await(store.delete("c.txt"));
+                } finally {
+                    if (previous == null) {
+                        System.clearProperty("app.data.dir");
+                    } else {
+                        System.setProperty("app.data.dir", previous);
+                    }
+                }
                 return null;
             }
         );
@@ -371,11 +485,40 @@ public final class JVMReachAllMain {
                 WebsocketTransport ws = platform.newTransport();
                 // Basic connected state check
                 ws.isConnected();
+                ws.getMaxMessageSize();
+                ws.setMaxMessageSize(1024);
 
                 // If we have the JVM implementation, inject a mock java.net.http.WebSocket to exercise send/receive code paths
                 try {
                     if (ws instanceof JVMWebsocketTransport) {
                         JVMWebsocketTransport jws = (JVMWebsocketTransport) ws;
+                        AtomicBoolean gotText = new AtomicBoolean();
+                        AtomicBoolean gotBinary = new AtomicBoolean();
+                        ws.addListener(
+                            new org.ngengine.platform.transport.WebsocketTransportListener() {
+                                @Override
+                                public void onConnectionClosedByServer(String reason) {}
+
+                                @Override
+                                public void onConnectionOpen() {}
+
+                                @Override
+                                public void onConnectionMessage(String message) {
+                                    gotText.set("reach-all-hello".equals(message));
+                                }
+
+                                @Override
+                                public void onConnectionBinaryMessage(ByteBuffer message) {
+                                    gotBinary.set(message.remaining() == 3 && message.get() == 1);
+                                }
+
+                                @Override
+                                public void onConnectionClosedByClient(String reason) {}
+
+                                @Override
+                                public void onConnectionError(Throwable error) {}
+                            }
+                        );
 
                         java.net.http.WebSocket mock = new java.net.http.WebSocket() {
                             @Override
@@ -439,14 +582,38 @@ public final class JVMReachAllMain {
                         };
 
                         try {
-                            java.lang.reflect.Field f = JVMWebsocketTransport.class.getDeclaredField("openWebSocket");
-                            f.setAccessible(true);
-                            f.set(jws, mock);
+                            Class<?> attemptClass = null;
+                            for (Class<?> nested : JVMWebsocketTransport.class.getDeclaredClasses()) {
+                                if (nested.getSimpleName().equals("ConnectionAttempt")) {
+                                    attemptClass = nested;
+                                    break;
+                                }
+                            }
+                            if (attemptClass != null) {
+                                java.lang.reflect.Constructor<?> constructor =
+                                    attemptClass.getDeclaredConstructor(JVMWebsocketTransport.class);
+                                constructor.setAccessible(true);
+                                Object attempt = constructor.newInstance(jws);
+                                java.lang.reflect.Field currentAttempt =
+                                    JVMWebsocketTransport.class.getDeclaredField("currentAttempt");
+                                currentAttempt.setAccessible(true);
+                                currentAttempt.set(jws, attempt);
+                                java.lang.reflect.Field socket = attemptClass.getDeclaredField("socket");
+                                socket.setAccessible(true);
+                                socket.set(attempt, mock);
+                                java.lang.reflect.Field handshakeCompleted =
+                                    attemptClass.getDeclaredField("handshakeCompleted");
+                                handshakeCompleted.setAccessible(true);
+                                handshakeCompleted.setBoolean(attempt, true);
+                                java.lang.reflect.Method open =
+                                    JVMWebsocketTransport.class.getDeclaredMethod("open", attemptClass, java.net.http.WebSocket.class);
+                                open.setAccessible(true);
+                                open.invoke(jws, attempt, mock);
+                            }
                         } catch (Throwable ignored) {}
 
                         // Trigger lifecycle callbacks directly
                         try {
-                            jws.onOpen(mock);
                             jws.onText(mock, "reach-all-hello", true);
                             jws.onBinary(mock, java.nio.ByteBuffer.wrap(new byte[] { 1, 2, 3 }), true);
 
@@ -471,6 +638,8 @@ public final class JVMReachAllMain {
                             for (int i = 0; i < 70_000; i++) bigBuf.put((byte) (i & 0xFF));
                             bigBuf.flip();
                             await(ws.sendBinary(bigBuf));
+                            gotText.get();
+                            gotBinary.get();
                         } catch (Throwable ignored) {}
 
                         // Reflectively touch private fields and methods of JVMWebsocketTransport to force metadata
@@ -515,6 +684,11 @@ public final class JVMReachAllMain {
                 return null;
             }
         );
+
+        safeRun("websocket-local-close-handshake", () -> {
+            JVMWebsocketTransportCloseHandshakeTest.runReachabilityProbe();
+            return null;
+        });
 
         safeRun(
             "rtc-transport",
@@ -632,9 +806,7 @@ public final class JVMReachAllMain {
                     RTCTransport a = platform.newRTCTransport(p2pAttemptTimeout2, "reach-a", stun2);
                     RTCTransport b = platform.newRTCTransport(p2pAttemptTimeout2, "reach-b", stun2);
 
-                    final java.util.concurrent.atomic.AtomicBoolean gotMessage = new java.util.concurrent.atomic.AtomicBoolean(
-                        false
-                    );
+                    final java.util.concurrent.CountDownLatch messageReceived = new java.util.concurrent.CountDownLatch(1);
 
                     b.addListener(
                         new org.ngengine.platform.transport.RTCTransportListener() {
@@ -648,7 +820,7 @@ public final class JVMReachAllMain {
                                 org.ngengine.platform.transport.RTCDataChannel channel,
                                 java.nio.ByteBuffer msg
                             ) {
-                                gotMessage.set(true);
+                                messageReceived.countDown();
                             }
 
                             @Override
@@ -696,17 +868,19 @@ public final class JVMReachAllMain {
                         org.ngengine.platform.transport.RTCDataChannel cb = chB.await();
 
                         if (ca != null && cb != null) {
+                            a.getDataChannel("reach-all");
+                            b.getDataChannel("reach-all");
                             try {
                                 ca.write(java.nio.ByteBuffer.wrap(new byte[] { 9, 9, 9 }));
                             } catch (Throwable ignored) {}
 
-                            // give some time for message delivery (best-effort)
                             try {
-                                Thread.sleep(200);
+                                messageReceived.await(2, TimeUnit.SECONDS);
                             } catch (InterruptedException ignored) {}
                         }
                     } catch (Throwable ignored) {}
 
+                    b.removeListener(null);
                     a.close();
                     b.close();
                 } catch (Throwable ignored) {}
@@ -721,24 +895,42 @@ public final class JVMReachAllMain {
             "http-local-server",
             () -> {
                 final java.net.ServerSocket server = new java.net.ServerSocket(0);
+                server.setSoTimeout(10_000);
                 Thread t = new Thread(() -> {
                     try {
-                        for (int i = 0; i < 2; i++) {
+                        for (int i = 0; i < 6; i++) {
                             java.net.Socket s = server.accept();
                             try {
                                 java.io.BufferedReader r = new java.io.BufferedReader(
                                     new java.io.InputStreamReader(s.getInputStream())
                                 );
+                                String requestLine = r.readLine();
+                                int contentLength = 0;
                                 String line;
-                                while ((line = r.readLine()) != null && !line.isEmpty()) {}
+                                while ((line = r.readLine()) != null && !line.isEmpty()) {
+                                    if (line.regionMatches(true, 0, "Content-Length:", 0, 15)) {
+                                        contentLength = Integer.parseInt(line.substring(15).trim());
+                                    }
+                                }
+                                for (int bodyIndex = 0; bodyIndex < contentLength; bodyIndex++) {
+                                    if (r.read() < 0) break;
+                                }
+                                boolean redirect = requestLine != null && requestLine.contains("/redirect ");
                                 byte[] body = "ok".getBytes(StandardCharsets.UTF_8);
                                 java.io.OutputStream os = s.getOutputStream();
-                                os.write(
-                                    ("HTTP/1.1 200 OK\r\nContent-Length: " + body.length + "\r\n\r\n").getBytes(
-                                            StandardCharsets.UTF_8
-                                        )
-                                );
-                                os.write(body);
+                                if (redirect) {
+                                    os.write(
+                                        "HTTP/1.1 302 Found\r\nLocation: /ok\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                                            .getBytes(StandardCharsets.UTF_8)
+                                    );
+                                } else {
+                                    os.write(
+                                        ("HTTP/1.1 200 OK\r\nContent-Length: " +
+                                            body.length +
+                                            "\r\nConnection: close\r\n\r\n").getBytes(StandardCharsets.UTF_8)
+                                    );
+                                    os.write(body);
+                                }
                                 os.flush();
                                 s.close();
                             } catch (Throwable ignored) {}
@@ -752,15 +944,49 @@ public final class JVMReachAllMain {
                 t.setDaemon(true);
                 t.start();
                 int port = server.getLocalPort();
+                String baseUrl = "http://127.0.0.1:" + port + "/";
                 try {
-                    await(platform.httpRequest("GET", "http://127.0.0.1:" + port + "/", Duration.ofSeconds(5), null));
+                    await(platform.httpRequest("GET", baseUrl, (byte[]) null, Duration.ofSeconds(5), null));
                 } catch (Throwable ignored) {}
                 try {
                     await(
-                        platform.httpRequestStream("GET", "http://127.0.0.1:" + port + "/", null, Duration.ofSeconds(5), null)
+                        platform.httpRequestStream("GET", baseUrl, null, Duration.ofSeconds(5), null)
                     )
                         .body()
                         .close();
+                } catch (Throwable ignored) {}
+                try {
+                    await(
+                        platform.httpRequest(
+                            "POST",
+                            baseUrl,
+                            "array-body".getBytes(StandardCharsets.UTF_8),
+                            Duration.ofSeconds(5),
+                            Map.of("X-Reach-All", "yes", "Host", "ignored")
+                        )
+                    );
+                } catch (Throwable ignored) {}
+                try {
+                    await(
+                        platform.httpRequest(
+                            "POST",
+                            baseUrl,
+                            ByteBuffer.wrap("buffer-body".getBytes(StandardCharsets.UTF_8)),
+                            Duration.ofSeconds(5),
+                            null
+                        )
+                    );
+                } catch (Throwable ignored) {}
+                try {
+                    await(
+                        platform.httpRequest(
+                            "GET",
+                            baseUrl + "redirect",
+                            (byte[]) null,
+                            Duration.ofSeconds(5),
+                            null
+                        )
+                    );
                 } catch (Throwable ignored) {}
                 return null;
             }
@@ -808,11 +1034,19 @@ public final class JVMReachAllMain {
             "point",
             () -> {
                 Point g = Point.getG();
-                Point.add(g, g);
+                Point doubled = Point.add(g, g);
+                Point.mul(doubled, BigInteger.valueOf(3));
                 Point.mul(g, BigInteger.valueOf(2));
                 Point.bytesFromPoint(g);
                 Point.liftX(g.toBytes());
                 Point.schnorrVerify(BigInteger.ONE, g, BigInteger.ONE);
+                Point.isInfinite(Point.infinityPoint());
+                Point.add(g, Point.infinityPoint());
+                Point.hasEvenY(g);
+                Point.hasSquareY(g);
+                Point.isSquare(BigInteger.TWO);
+                g.equals(Point.getG());
+                g.hashCode();
                 return null;
             }
         );
@@ -860,6 +1094,8 @@ public final class JVMReachAllMain {
             "org.ngengine.platform.jvm.JVMNGEAllocatorGuard",
             "org.ngengine.platform.jvm.JVMRTCTransport",
             "org.ngengine.platform.jvm.JVMWebsocketTransport",
+            "org.ngengine.platform.jvm.JVMNetworkSecurity",
+            "org.ngengine.platform.jvm.STUNChecker",
             "org.ngengine.platform.jvm.FileSystemVStore",
             "org.ngengine.platform.jvm.Point",
             "org.ngengine.platform.jvm.Schnorr",
