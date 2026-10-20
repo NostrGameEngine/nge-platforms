@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 COPILOT_BIN="${COPILOT_BIN:-copilot}"
-COPILOT_MODEL="${COPILOT_MODEL:-gpt-5-mini}"
+COPILOT_MODEL="${COPILOT_MODEL:-gpt-6-luna}"
 AUTO_REFRESH="${AUTO_REFRESH:-1}"
 ARGS="$@"
 echo "Running copilot: 
@@ -47,7 +47,7 @@ Your task (be precise and exhaustive):
 8) Return a short summary of touched paths and what was newly made reachable.
 
 Important:
-- You are running as gpt-5-mini. Think step-by-step, check assumptions, and avoid skipping classes.
+- Check assumptions and avoid skipping classes.
 - Do NOT rely on git diff. Infer required updates by scanning source code and existing harness coverage.
 - When evidence indicates the agent misses required reflection entries, explicitly add forced reflection hints instead of relying only on harness execution.
 - Prefer concrete edits over broad claims.
